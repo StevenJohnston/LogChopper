@@ -16,7 +16,6 @@ const gearRatios = [
   5550.78125 / 168,
 ]
 
-
 const columns = [
   'LogID',
   'Load',
@@ -26,8 +25,18 @@ const columns = [
   'TimingAdv',
   'knock_adc_processed',
   'knock_base',
-  'Speed'
+  'Speed',
+  'PSIG',
+  'TPS'
 ]
+
+const tunaToEvoScan = {
+  'RPM': '2ByteRPM',
+  'Timing': 'TimingAdv',
+  'Knock_Filter_ADC': 'knock_adc_processed',
+  'Knock_Base': 'knock_base',
+  'ET': 'LogEntrySeconds'
+}
 
 const knockFilter = (logs) => {
   return logs.map((l, i)=> {
@@ -49,7 +58,7 @@ const knockFilter = (logs) => {
       return p
     }, 0)
     
-    if (sameGearLogs < 10 || gear < 2) {
+    if (sameGearLogs < 10 || gear < 3) {
       l.delete = true
     }
     return l
@@ -95,22 +104,22 @@ const tables = {
 
 
 const closedLoopRpm = [500 ,1000 ,1500 ,2000 ,2500 ,3000 ,3500 ,4000 ,4250 ,4500 ,4750 ,5000 ,5250 ,5500 ,5750 ,6000 ,6500 ,7000 ,7500 ,8000]
-const closedLoopLoad = [50, 50, 60, 60, 60, 60, 60, 60, 50, 40, 40, 40, 35, 0, 0, 0, 0, 0, 0, 0]
+const closedLoopLoad = [70, 73.75, 90, 140, 140, 125, 120, 100, 64.375, 54.375, 43.75, 40, 34.375, 0, 0, 0, 0, 0, 0, 0]
 
 const closedLoop = {
-  '500':'50',
-  '1000':'50',
-  '1500':'60',
-  '2000':'60',
-  '2500':'60',
-  '3000':'60',
-  '3500':'60',
-  '4000':'60',
-  '4250':'50',
-  '4500':'40',
-  '4750':'40',
+  '500':'70',
+  '1000':'73.75',
+  '1500':'90',
+  '2000':'140',
+  '2500':'140',
+  '3000':'125',
+  '3500':'120',
+  '4000':'100',
+  '4250':'64.375',
+  '4500':'54.375',
+  '4750':'43.75',
   '5000':'40',
-  '5250':'35',
+  '5250':'34.375',
   '5500':'0',
   '5750':'0',
   '6000':'0',
@@ -220,10 +229,13 @@ function logsRpmLoad(logs, column) {
     })
   }
   let rpmLoadMap = emptyTable(yAxis, xAxis)
-  logs.forEach(l => {
+  logs.forEach((l, i, l2) => {
     const nRpm = nearestIndex(yAxis, l[yKey])
     const nLoad = nearestIndex(xAxis, l[xKey])
     // rpmLoadMap[column][nLoad][nRpm].push(l)
+    if (nRpm < 0 || nLoad < 0) {
+      return
+    }
     rpmLoadMap[nRpm][nLoad].push(l)
   });
   return rpmLoadMap
@@ -255,6 +267,8 @@ function printMap(logs, column, type = 'avg') {
           return (nRpms.reduce((c2, log) => c2+log[column],0) / nRpms.length || 0).toFixed(2)
         case 'max':
           return (nRpms.reduce((c2, log) => c2 > log[column] ? c2 : log[column],0) || 0).toFixed(2)
+        case 'count':
+          return nRpms.length
       }
     }).join('\t')
   }, '')
@@ -265,6 +279,16 @@ csv({
 })
 .fromFile(options.log)
 .then((jsonObj)=>{
+  // Standarize to evo scan
+  jsonObj = jsonObj.map(l => {
+    for (const [tunaKey, evoScanKey] of Object.entries(tunaToEvoScan)) {
+      if (tunaKey in l) {
+        l[evoScanKey] = l[tunaKey]
+        delete l[tunaKey]
+      }
+    }
+    return l
+  })
   if (options.accelerating) {
     jsonObj = accelerating(jsonObj)
   }
@@ -287,7 +311,9 @@ csv({
   console.log('AFR')
   console.log(printMap(jsonClosedLoop, 'AFR', 'avg'))
   console.log('KnockSum')
-  console.log(printMap(jsonObj, 'KnockSum', 'avg'))
+  console.log(printMap(jsonObj, 'KnockSum', 'max'))
+  console.log('counts KnockSum')
+  console.log(printMap(jsonObj, 'KnockSum', 'count'))
   console.log('TimingAdv')
   console.log(printMap(jsonObj, 'TimingAdv', 'avg'))
   // console.log(rpmLoadAvg(jsonObj, 'AFR'))

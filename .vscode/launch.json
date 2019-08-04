@@ -1,0 +1,23 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "program": "${workspaceFolder}\\index.js",
+      "args": ["--log", "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\LiveTuna-Steven Johnston - JA32W8FV4FU604417 - 096 097  - alt 1 - limitup.hex.bin-20190802-18.08.21.csv", "-a", "-t", "80", "-c", "2", "-f", "-l", "0"]
+    },
+    
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program2",
+      "program": "${workspaceFolder}\\binary.js",
+      "args": ["--log", "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\LiveTuna-Steven Johnston - JA32W8FV4FU604417 - 095 096  - alt 1 - wgdcredline.hex.bin-20190801-18.07.19.csv", "-a", "-t", "0", "-c", "2", "-f", "-l", "0"]
+    }
+  ]
+}
