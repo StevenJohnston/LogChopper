@@ -35,7 +35,9 @@ const tunaToEvoScan = {
   'Timing': 'TimingAdv',
   'Knock_Filter_ADC': 'knock_adc_processed',
   'Knock_Base': 'knock_base',
-  'ET': 'LogEntrySeconds'
+  'ET': 'LogEntrySeconds',
+  'MAFVolts': 'MAF',
+  'LTFT_InUse': 'CurrentLTFT'
 }
 
 const knockFilter = (logs) => {
@@ -61,10 +63,11 @@ const knockFilter = (logs) => {
     if (sameGearLogs < 10 || gear < 3) {
       l.delete = true
     }
+
     return l
 
   }).map(l => {
-    if (l['knock_adc_processed'] - l['knock_base'] < -999990 || l['Speed'] <= 10) l.delete = true
+    if (l['knock_adc_processed'] - l['knock_base'] < -99999 || l['Speed'] <= 10) l.delete = true
     return l
   }) 
 }
@@ -76,6 +79,16 @@ const toGear = (log) => {
     let a = 1
   }
   return nearestIndex(gearRatios ,log['2ByteRPM'] / log['Speed']) + 1
+}
+
+const repeatKnock = (logs) => {
+  return logs.filter((l) => {
+    return l['knock_adc_processed'] - l['knock_base'] > 0
+  })
+  // return logs.filter((l, i) => {
+  //   if (i == 0) return l['KnockSum']
+  //   return l['KnockSum'] != logs[i-1]['KnockSum']
+  // })
 }
 
 const tables = {
@@ -91,7 +104,7 @@ const tables = {
     xAxisKey: 'Load',
     yAxisKey: '2ByteRPM',
     filters: [
-      // knockFilter,
+      repeatKnock,
     ]
   },
   'TimingAdv': {
@@ -107,35 +120,36 @@ const closedLoopRpm = [500 ,1000 ,1500 ,2000 ,2500 ,3000 ,3500 ,4000 ,4250 ,4500
 const closedLoopLoad = [70, 73.75, 90, 140, 140, 125, 120, 100, 64.375, 54.375, 43.75, 40, 34.375, 0, 0, 0, 0, 0, 0, 0]
 
 const closedLoop = {
-  '500':'70',
-  '1000':'73.75',
-  '1500':'90',
-  '2000':'140',
-  '2500':'140',
-  '3000':'125',
-  '3500':'120',
-  '4000':'100',
-  '4250':'64.375',
-  '4500':'54.375',
-  '4750':'43.75',
-  '5000':'40',
-  '5250':'34.375',
-  '5500':'0',
-  '5750':'0',
-  '6000':'0',
-  '6500':'0',
-  '7000':'0',
-  '7500':'0',
-  '8000':'0',
+  '500':70,
+  '1000':69.375,
+  '1500':68.75,
+  '2000':68.125,
+  '2500':67.5,
+  '3000':66.25,
+  '3500':65.625,
+  '4000':65,
+  '4250':64.375,
+  '4500':54.375,
+  '4750':43.75,
+  '5000':40,
+  '5250':34.375,
+  '5500':0,
+  '5750':0,
+  '6000':0,
+  '6500':0,
+  '7000':0,
+  '7500':0,
+  '8000':0,
 }
 
 const removeClosedLoop = (logs) => {
   return logs.filter((l) => {
-    return Object.keys(closedLoop).reverse().some(c => {
-      if(c <= l['2ByteRPM']) {
-        return closedLoop[c] < l['Load']
+    // let keep = false
+    for (c of Object.keys(closedLoop).reverse()) {
+      if(Number(c) <= Number(l['2ByteRPM'])) { 
+        return Number(closedLoop[c]) < Number(l['Load'])
       }
-    })
+    }
   })
 }
 
@@ -158,6 +172,7 @@ const sumMap = {}
 
 const optionDefinitions = [
   { name: 'log', type: String },
+  { name: 'rom', type: String },
   { name: 'throttleThreshold', alias: 't', type: Number },
   { name: 'count', alias: 'c', type: Number },
   { name: 'rpmThreshold', alias: 'r', type: Number },
@@ -217,6 +232,12 @@ function airFuel(logs) {
   })
 }
 
+function psig(logs) {
+  return logs.map(l => {
+    if (l.PSIG < 10) l.delete = true
+    return l
+  })
+}
 
 function logsRpmLoad(logs, column) {
   yAxis = tables[column].yAxis
@@ -250,6 +271,10 @@ function printMap(logs, column, type = 'avg') {
     obj[key] = log[key];
     return obj;
   }, {}));
+
+  tables[column].filters && tables[column].filters.forEach(f => {
+    logs = f(logs)
+  })
   // logs = logs.sort((a,b) => b.KnockSum - a.KnockSum)
   // const logMap = logsRpmLoad(logs, rpms, loads, '2ByteRPM', 'Load')
   let logMap = logsRpmLoad(
@@ -289,6 +314,39 @@ csv({
     }
     return l
   })
+  if (options.rom) {
+    timing = (() => {
+      let buffer = fs.readFileSync(options.rom) 
+      let nLoads = 22
+      let loadsAddr = 0x61836
+      let loads = Array.from(Array(nLoads)).map((_, i) => buffer.readInt16BE(loadsAddr+i*2)*10/32)
+      // console.log("loads", loads)
+      let nRpms = 23
+      let rpmsAdder = 0x61802
+      let rpms = Array.from(Array(nRpms)).map((_, i) => buffer.readInt16BE(rpmsAdder+i*2)*1000/256)
+      // console.log("rpms", rpms)
+      alt1TimmingAdder = 0xf1167
+      let timing = []
+      rpms.forEach((r, ri) => {
+        timing[ri] = loads.map((l, li) => buffer.readInt8(alt1TimmingAdder + (li * nRpms + ri)))
+      })
+    })()
+
+    // jsonObj = jsonObj.map(l => {
+    //   rpmIndex = nearestIndex(rpms, l['2ByteRPM'])
+    //   oRPMIndex = rpmIndex+1
+    //   if (rpms[rpmIndex] > l['2ByteRPM']) {
+    //     oRPMIndex = rpmIndex-1
+    //   }
+    //   rpmDiff = (Math.abs(l['2ByteRPM'] - rpms[rpmIndex]) / (Math.abs(rpms[rpmIndex] - rpms[oRPMIndex])))
+
+    //   let a = 1
+    //   // loadInedx = nearestIndex(loads, l['Load'])
+
+    //   // l.targetTiming = 
+    // })
+  }
+  
   if (options.accelerating) {
     jsonObj = accelerating(jsonObj)
   }
@@ -304,7 +362,14 @@ csv({
   if (options.airFuel) {
     jsonObj = airFuel(jsonObj)
   }
-  jsonObj = knockFilter(jsonObj)
+  
+  if (options.trueknock) {
+    jsonObj = trueknock(jsonObj)
+  }
+  // if (options.airFuel) {
+  // jsonObj = psig(jsonObj)
+  // }
+  // jsonObj = knockFilter(jsonObj)
 
   jsonObj = jsonObj.filter(l => !l.delete)
   const jsonClosedLoop = removeClosedLoop(jsonObj)
@@ -312,10 +377,10 @@ csv({
   console.log(printMap(jsonClosedLoop, 'AFR', 'avg'))
   console.log('KnockSum')
   console.log(printMap(jsonObj, 'KnockSum', 'max'))
-  console.log('counts KnockSum')
-  console.log(printMap(jsonObj, 'KnockSum', 'count'))
-  console.log('TimingAdv')
-  console.log(printMap(jsonObj, 'TimingAdv', 'avg'))
+  // console.log('counts KnockSum')
+  // console.log(printMap(jsonObj, 'KnockSum', 'count'))
+  // console.log('TimingAdv')
+  // console.log(printMap(jsonObj, 'TimingAdv', 'avg'))
   // console.log(rpmLoadAvg(jsonObj, 'AFR'))
   // console.log(sumMap['AFR'])
 

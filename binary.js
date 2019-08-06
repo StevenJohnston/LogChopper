@@ -2,17 +2,15 @@ var fs = require("fs");
 
 fs.readFile("C:\\Users\\Steven\\Google Drive\\Evoman\\roms\\Steven Johnston - JA32W8FV4FU604417 - 096 097  - alt 1 - wgdcredline.hex.bin", function (err, buffer) {
     if (err) throw err;
-    console.log(buffer);
-    var find = new Buffer.alloc(4);
-    find.writeInt8(27, 0)
-    find.writeInt8(28, 1)
-    find.writeInt8(30, 2)
-    find.writeInt8(32, 3)
-    ind = buffer.indexOf(find)
-    console.log(ind)
-    // str = buffer.toString('hex')
-    // console.log(str.indexOf())
-    for(var i = 0; i< 30; i++) {
-      console.log(buffer.readInt8(ind+i))
-    }
+    let nLoads = 22
+    let loadsAddr = 0x61836
+    let loads = Array.from(Array(nLoads)).map((_, i) => buffer.readInt16BE(loadsAddr+i*2)*10/32)
+    console.log("loads", loads)
+    let nRpms = 23
+    let rpmsAdder = 0x61802
+    let rpms = Array.from(Array(nRpms)).map((_, i) => buffer.readInt16BE(rpmsAdder+i*2)*1000/256)
+    console.log("rpms", rpms)
+    alt1TimmingAdder = 0xf1167
+    loads = buffer.readInt8()
+    
 });
