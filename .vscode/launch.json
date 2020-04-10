@@ -15,6 +15,9 @@
       "request": "launch",
       "name": "Launch Program",
       "program": "${workspaceFolder}\\index.js",
+      "runtimeArgs": [
+        "--harmony"
+      ],
       "args": [
         "--log", 
         "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\EvoScanDataLog_2020.04.05_13.13.58.csv", 
@@ -27,7 +30,7 @@
         "-l", 
         "0",
         "--rom", 
-        "C:\\Users\\Steven\\Google Drive\\Evoman\\roms\\004.hex.bin"
+        "C:\\Users\\Steven\\Google Drive\\Evoman\\roms\\010.hex.bin"
       ]
     },
     

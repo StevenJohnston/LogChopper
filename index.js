@@ -8,10 +8,12 @@ const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
-  let logChopper = new LogChopper('EvoScanDataLog_2020.04.05_21.37.52' + '.csv')
+  let logChopper = new LogChopper('EvoScanDataLog_2020.04.09_19.45.40' + '.csv')
   await logChopper.LoadLogs()
+  logChopper.ShiftAfr()
   logChopper.SplitWot(80, 0.00)
   // logChopper.Accelerating()
+  
   // logChopper.DropDeleted()
   console.log(`wots: ${logChopper.wots.length}`)
   log = logChopper.wots.flat()
@@ -19,7 +21,7 @@ const main = async () => {
   // log = logChopper.wots[1]
 
   let rom = new Rom(tables, scalingsMap, log)
-  await rom.LoadRom('007.hex'+'.bin')
+  await rom.LoadRom('010.hex'+'.bin')
   rom.FillTables()
 
   // rom.PrintTable('MAP based Load Calc #1 - Hot/Interpolated', undefined, true)
@@ -32,11 +34,11 @@ const main = async () => {
   // })
 
   mapFixer = new MapFixer(rom)
-  // mapFixer.ScaleMapToMaf()
+  mapFixer.ScaleMapToMaf()
   // mapFixer.LogCounts()
   // mapFixer.AfrFix()
   // mapFixer.ShowBoost()
-  mapFixer.ScaleMapToAfr()
+  // mapFixer.ScaleMapToAfr()
 
 
   console.log("wow")

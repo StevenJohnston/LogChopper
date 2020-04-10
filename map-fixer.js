@@ -296,7 +296,7 @@ class MapFixer {
       formatter: v => Number(v).toFixed(2) 
     })
 
-    // if actual afr > target increase load value
+    // get actual - target afrs
     this.romHandler.MapCombine({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {
@@ -326,33 +326,103 @@ class MapFixer {
       formatter: v => Number(v).toFixed(2) 
     })
 
+    // Smooth diff
+    this.romHandler.Map({
+      sourceTable: {
+        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        scaling: 'AFR',
+        agg: 'AFRDiff',
+      },
+      destTable: {
+        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        scaling: 'AFR',
+        agg: 'AFRDiffSmooth1',
+      },
+      aggregator: (map, x, y) => {
+        let value = map[y][x]
+        if (Number(value)) return value
+        
+        let sum = 0, cellCount = 0
+        const top = map[y-1]?.[x] || 0
+        const right = map[y]?.[x+1] || 0
+        const bottom = map[y+1]?.[x] || 0
+        const left = map[y]?.[x-1] || 0; // semicolon needed
+        return [top, right, bottom, left].reduce((t,n) => t + n, 0) / 4
+      }
+    })
+
+    // print smooth afr diffs 
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      scaling: 'AFR',
+      agg: 'AFRDiffSmooth1',
+      tabs: true,
+      formatter: v => Number(v).toFixed(2) 
+    })
+
+    // Smooth diff 2nd
+    this.romHandler.Map({
+      sourceTable: {
+        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        scaling: 'AFR',
+        agg: 'AFRDiffSmooth1',
+      },
+      destTable: {
+        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        scaling: 'AFR',
+        agg: 'AFRDiffSmooth2',
+      },
+      aggregator: (map, x, y) => {
+        let value = map[y][x]
+        if (Number(value)) return value
+        
+        let sum = 0, cellCount = 0
+        const top = map[y-1]?.[x] || 0
+        const right = map[y]?.[x+1] || 0
+        const bottom = map[y+1]?.[x] || 0
+        const left = map[y]?.[x-1] || 0; // semicolon needed
+        return [top, right, bottom, left].reduce((t,n) => t + n, 0) / 4
+      }
+    })
+
+    // print smooth afr diffs 
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      scaling: 'AFR',
+      agg: 'AFRDiffSmooth2',
+      tabs: true,
+      formatter: v => Number(v).toFixed(2) 
+    })
+
     // Set final values base on diff
     this.romHandler.MapCombine({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {},
       tableTwo: {
         scalingTwo: 'AFR',
-        aggTwo: 'AFRDiff',
+        aggTwo: 'AFRDiffSmooth2',
       },
       newTable: {
         newScaling: 'Loadify',
         newAgg: 'AFRCorrected'
       },
       aggregator: (load, afrDiff) => {
-        if (Math.abs(afrDiff) < 0.3) return load
-        if (afrDiff < -3) {
-          return load - 20
-        } else if (afrDiff < -2) {
-          return load - 10
-        } else if (afrDiff < -1) {
+        if (Math.abs(afrDiff) < 0.2) return load
+        if ( afrDiff >= 0 ) {
+          if (afrDiff > 2) {
+            return load - 20
+          } else if (afrDiff > 1) {
+            return load - 10
+          }
           return load - 5
-        } else if (afrDiff < 1) {
-          return load + 5
-        } else if (afrDiff < 2) {
-          return load + 10
-        } 
-        // >2
-        return load + 20          
+        } else {
+          if (afrDiff < -2) {
+            return load + 20
+          } else if (afrDiff < -1) {
+            return load + 10
+          }
+          return load + 5          
+        }
       }
     })
 
@@ -362,7 +432,7 @@ class MapFixer {
       scaling: 'Loadify',
       agg: 'AFRCorrected',
       tabs: true,
-      formatter: v => Number(v).toFixed(2) 
+      // formatter: v => Number(v).toFixed(2) 
     })
 
   }

@@ -43,6 +43,19 @@ class LogChopper {
     .fromFile(logRoot + fileName)
   }
 
+  // shifts AFR records down offset count
+  ShiftAfr(offset = 30) {
+    this.log = this.log.map((v, i, arr) => {
+      if(i + offset > arr.length - 1) {
+        return v
+      }
+      return {
+        ...v,
+        AFR: arr[i+offset].AFR
+      }
+    })
+  }
+
   SplitWot(tpsThreshold, timeThreshold) {
     let wots = []
     for (let i = 0; i < this.log.length; i++) {
@@ -83,6 +96,14 @@ class LogChopper {
     }
     this.wots = wots
   }
+
+  //Only logs using MAP sensor
+  // MapOnly() {
+  //   for(const log of iter(this.log)) {
+  //     if (log[])
+  //     // log = logsIter.next()
+  //   }
+  // }
 
   Accelerating() {
     // if within the next 1 second rpm increases more than 100 rpm

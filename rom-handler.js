@@ -533,6 +533,28 @@ class Rom {
             })
         })
     }
+
+    Map({
+        sourceTable, // name, scaling, agg
+        destTable,
+        aggregator,
+    }) {
+        this.duplicateTable({
+            tableName: destTable.tableName,
+            scaling: destTable.scaling,
+            agg: destTable.agg,
+            defaultValue: () => 0
+        })
+        
+        let realSourceTableValues = this.getTableByObj(sourceTable)
+        let realDestTableValues = this.getTableByObj(destTable)
+
+        realSourceTableValues.forEach((row, y) => {
+            row.forEach((cellValue, x) => {
+                realDestTableValues[y][x] = aggregator(realSourceTableValues, x, y)
+            })
+        })
+    }
     getTableByObj({tableName, scaling, agg}) {
         if (scaling) {
             if (agg) {
