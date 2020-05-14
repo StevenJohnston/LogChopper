@@ -36,7 +36,11 @@ const scalingAliases = {
     'AFR': {
         insteadUse: 'AFR',
         expr: 'x'
-    }
+    },
+    'RPMGain': {
+        insteadUse: 'RPMGain',
+        expr: 'x'
+    },
 }
 
 const typeToReader = {

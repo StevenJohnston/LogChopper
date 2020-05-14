@@ -56,6 +56,23 @@ class LogChopper {
     })
   }
 
+  // adds rpmGain column from offsetTime
+  AddRPMGain(offset = 0.1) {
+    this.log = this.log.map((v, i, arr) => {
+      // get log 1 second from now
+      for (let futureI = i; futureI < arr.length; futureI++) {
+        let futureLog = this.log[futureI]
+        if (futureLog.LogEntrySeconds - v.LogEntrySeconds > offset) {
+          return {
+            ...v,
+            RPMGain: futureLog.RPM - v.RPM
+          }
+        }
+      }
+      return v 
+    })
+  }
+
   SplitWot(tpsThreshold, timeThreshold) {
     let wots = []
     for (let i = 0; i < this.log.length; i++) {

@@ -1,3 +1,4 @@
+var {get} =  require('object-path')
 var {ScalingAliases} = require(`./rom-handler.js`)
 
 class MapFixer {
@@ -6,17 +7,17 @@ class MapFixer {
   }
 
   ScaleMapToMaf() {
-    this.romHandler.FillTableFromLog('MAP based Load Calc #1 - Hot/Interpolated')
+    this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
 
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'MAFCalcs',
       agg: 'avg',
       scalingAlias: ScalingAliases['Loadify']['MAFCalcs']
     })
 
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'MAPCalcs',
       agg: 'avg', 
       scalingAlias: ScalingAliases['Loadify']['MAPCalcs']
@@ -24,7 +25,7 @@ class MapFixer {
 
     // Get logged MapCalc % off from ROM
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {},
       tableTwo: {
         aggTwo: 'avg',
@@ -45,7 +46,7 @@ class MapFixer {
 
     // Get % MapCalc Off MafCalc
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {
         scalingOne: 'MAPCalcs',
         aggOne: 'avg'
@@ -69,7 +70,7 @@ class MapFixer {
 
     // Get total % change
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {
         scalingOne: 'MAPCalcLogAvg',
         aggOne: 'percentage'
@@ -93,7 +94,7 @@ class MapFixer {
 
     // Get final map values
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       tableOne: {},
       tableTwo: {
         scalingTwo: 'MapMultiplier',
@@ -114,28 +115,30 @@ class MapFixer {
 
 
     this.romHandler.PrintTable({
-        tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
         tabs: true,
     })    
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'percentage', 
       tabs: true,
-      scaling: 'MapMultiplier'
+      scaling: 'MapMultiplier',
+      formatter: v => v.toFixed(2)
     })
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'avg', 
       tabs: true,
-      scaling: 'FinalMap'
+      scaling: 'FinalMap',
+      formatter: v => v.toFixed(2)
     })
     
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'count',
     })
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'count',
       tabs: true,
     })
@@ -343,10 +346,10 @@ class MapFixer {
         if (Number(value)) return value
         
         let sum = 0, cellCount = 0
-        const top = map[y-1]?.[x] || 0
-        const right = map[y]?.[x+1] || 0
-        const bottom = map[y+1]?.[x] || 0
-        const left = map[y]?.[x-1] || 0; // semicolon needed
+        const top = get(map, `${y-1}.${x}`, 0)
+        const right = get(map, `${y}.${x+1}`, 0)
+        const bottom = get(map, `${y+1}.${x}`, 0)
+        const left = get(map, `${y}.${x-1}`, 0)
         return [top, right, bottom, left].reduce((t,n) => t + n, 0) / 4
       }
     })
@@ -377,10 +380,11 @@ class MapFixer {
         if (Number(value)) return value
         
         let sum = 0, cellCount = 0
-        const top = map[y-1]?.[x] || 0
-        const right = map[y]?.[x+1] || 0
-        const bottom = map[y+1]?.[x] || 0
-        const left = map[y]?.[x-1] || 0; // semicolon needed
+        
+        const top = get(map, `${y-1}.${x}`, 0)
+        const right = get(map, `${y}.${x+1}`, 0)
+        const bottom = get(map, `${y+1}.${x}`, 0)
+        const left = get(map, `${y}.${x-1}`, 0)
         return [top, right, bottom, left].reduce((t,n) => t + n, 0) / 4
       }
     })
@@ -410,18 +414,18 @@ class MapFixer {
         if (Math.abs(afrDiff) < 0.2) return load
         if ( afrDiff >= 0 ) {
           if (afrDiff > 2) {
-            return load - 20
-          } else if (afrDiff > 1) {
-            return load - 10
-          }
-          return load - 5
-        } else {
-          if (afrDiff < -2) {
             return load + 20
-          } else if (afrDiff < -1) {
+          } else if (afrDiff > 1) {
             return load + 10
           }
-          return load + 5          
+          return load + 5
+        } else {
+          if (afrDiff < -2) {
+            return load - 20
+          } else if (afrDiff < -1) {
+            return load - 10
+          }
+          return load - 5          
         }
       }
     })
@@ -435,6 +439,29 @@ class MapFixer {
       // formatter: v => Number(v).toFixed(2) 
     })
 
+  }
+
+  MivecExGain() {
+    
+  }
+
+  MivecInGain() {
+    this.romHandler.FillTableFromLog('MIVEC Intake Normal Coolant Temp')
+    this.romHandler.FillLogTable({
+      tableName: 'MIVEC Intake Normal Coolant Temp',
+      scaling: 'RPMGain',
+      agg: 'avg',
+      scalingAlias: ScalingAliases['RPMGain']
+    })
+
+    // afr filled
+    this.romHandler.PrintTable({
+      tableName: 'MIVEC Intake Normal Coolant Temp',
+      scaling: 'RPMGain',
+      agg: 'avg',
+      tabs: true,
+      formatter: v => Number(v).toFixed(2) 
+    })
   }
 
   ShowBoost() {

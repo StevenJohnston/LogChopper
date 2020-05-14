@@ -8,37 +8,33 @@ const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
-  let logChopper = new LogChopper('EvoScanDataLog_2020.04.09_19.45.40' + '.csv')
+  let logChopper = new LogChopper('EvoScanDataLog_2020.05.13_17.50.52' + '.csv')
   await logChopper.LoadLogs()
   logChopper.ShiftAfr()
-  logChopper.SplitWot(80, 0.00)
+  logChopper.AddRPMGain(0.15)
+  logChopper.SplitWot(85, 0.00)
   // logChopper.Accelerating()
   
   // logChopper.DropDeleted()
   console.log(`wots: ${logChopper.wots.length}`)
-  log = logChopper.wots.flat()
-  // log = logChopper.log
-  // log = logChopper.wots[1]
+  // log = logChopper.wots.flat()
+  log = logChopper.wots.reduce((all, wot) => {
+    return [...all, ...wot]
+    // return [...all, ...wot.slice(30)]
+  }, [])
+  // log = logChopper.wots[5]
 
   let rom = new Rom(tables, scalingsMap, log)
-  await rom.LoadRom('010.hex'+'.bin')
+  await rom.LoadRom('016mivex'+'.bin')
   rom.FillTables()
 
-  // rom.PrintTable('MAP based Load Calc #1 - Hot/Interpolated', undefined, true)
-  // rom.FillTableFromLog('MAP based Load Calc #1 - Hot/Interpolated')
-  // rom.PrintLogTable({
-  //   tableName: 'MAP based Load Calc #1 - Hot/Interpolated',
-  //   agg: 'avg', 
-  //   tabs: true,
-  //   scalingAlias: ScalingAliases['Loadify']['MAFCalc']
-  // })
-
   mapFixer = new MapFixer(rom)
-  mapFixer.ScaleMapToMaf()
+  // mapFixer.ScaleMapToMaf()
   // mapFixer.LogCounts()
   // mapFixer.AfrFix()
-  // mapFixer.ShowBoost()
-  // mapFixer.ScaleMapToAfr()
+  // mapFixer.ShowBoost() // doesnt work
+  mapFixer.ScaleMapToAfr()
+  // mapFixer.MivecInGain()
 
 
   console.log("wow")
