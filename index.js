@@ -8,9 +8,9 @@ const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
-  let logChopper = new LogChopper('EvoScanDataLog_2020.05.13_17.50.52' + '.csv')
+  let logChopper = new LogChopper('EvoScanDataLog_2020.05.14_21.45.40' + '.csv')
   await logChopper.LoadLogs()
-  logChopper.ShiftAfr()
+  logChopper.ShiftAfr(45)
   logChopper.AddRPMGain(0.15)
   logChopper.SplitWot(85, 0.00)
   // logChopper.Accelerating()
@@ -24,16 +24,18 @@ const main = async () => {
   }, [])
   // log = logChopper.wots[5]
 
+  // logChopper.WriteChopped()
+  // logChopper.WriteChoppedWot()
   let rom = new Rom(tables, scalingsMap, log)
-  await rom.LoadRom('016mivex'+'.bin')
+  await rom.LoadRom('021'+'.bin')
   rom.FillTables()
 
   mapFixer = new MapFixer(rom)
-  // mapFixer.ScaleMapToMaf()
+  mapFixer.ScaleMapToMaf()
   // mapFixer.LogCounts()
   // mapFixer.AfrFix()
   // mapFixer.ShowBoost() // doesnt work
-  mapFixer.ScaleMapToAfr()
+  mapFixer.ScaleMapToAfr({debug: true})
   // mapFixer.MivecInGain()
 
 

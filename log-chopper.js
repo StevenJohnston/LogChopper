@@ -161,6 +161,61 @@ class LogChopper {
       // log = logsIter.next()
     }
   }
+  fields = [
+    'LogID',
+    'LogEntrySeconds',
+    'AFR',
+    // 'STFT',
+    // 'CurrentLTFT',
+    // 'IdleLTFT',
+    // 'CruiseLTFT',
+    'Load',
+    // 'O2Sensor2',
+    'IPW',
+    // 'AFRMAP',
+    // 'LoadTiming',
+    'TimingAdv',
+    'KnockSum',
+    'RPM',
+    // 'Baro',
+    'MAP',
+    'Boost',
+    'WGDC_Active',
+    // 'MAF',
+    // 'IDC',
+    // 'ExVVTtarget',
+    // 'InVVTtarget',
+    'InVVTactual',
+    'ExVVTactual',
+    'TPS',
+    // 'APP',
+    // 'IAT',
+    'WGDCCorr',
+    'Speed',
+    // 'Battery',
+    // 'ECT',
+    // 'MAT',
+    'MAPCalcs',
+    'IMAPCalcs',
+    'MAFCalcs',
+    // 'ChosenCalc',
+    'RPMGain',
+  ]
+
+  WriteChopped() {
+    const json2csvParser = new Parser({ fields: this.fields })
+    const csv = json2csvParser.parse(this.log)
+    fs.writeFileSync(`${logRoot}${this.fileName}-chopped.csv`, csv)
+  }
+  
+  WriteChoppedWot() {
+    const json2csvParser = new Parser({ fields: this.fields })
+    const csv = json2csvParser.parse(this.wots.reduce((all, wot) => {
+      return [...all, ...wot]
+      // return [...all, ...wot.slice(30)]
+    }, []))
+    fs.writeFileSync(`${logRoot}${this.fileName}-chopped-wot.csv`, csv)
+  }
 }
 
 function removeTimeout(jsonObj) {

@@ -6,7 +6,7 @@ class MapFixer {
     this.romHandler = romHandler
   }
 
-  ScaleMapToMaf() {
+  ScaleMapToMaf({debug = false} = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
 
     this.romHandler.FillLogTable({
@@ -113,12 +113,12 @@ class MapFixer {
       }
     })
 
-
-    this.romHandler.PrintTable({
+    
+    debug && this.romHandler.PrintTable({
         tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
         tabs: true,
     })    
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'percentage', 
       tabs: true,
@@ -130,14 +130,14 @@ class MapFixer {
       agg: 'avg', 
       tabs: true,
       scaling: 'FinalMap',
-      formatter: v => v.toFixed(2)
+      formatter: v => v.toFixed(3)
     })
     
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'count',
     })
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       agg: 'count',
       tabs: true,
@@ -243,7 +243,7 @@ class MapFixer {
     })
   }
 
-  ScaleMapToAfr() {
+  ScaleMapToAfr({debug = false} = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
 
     // table in rom
@@ -261,7 +261,7 @@ class MapFixer {
     })
 
     // afr filled
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'AFR',
       agg: 'avg',
@@ -291,7 +291,7 @@ class MapFixer {
     })
 
     // target afr 
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'AFR',
       agg: 'target',
@@ -321,7 +321,7 @@ class MapFixer {
     })
 
     // diff afr 
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'AFR',
       agg: 'AFRDiff',
@@ -355,7 +355,7 @@ class MapFixer {
     })
 
     // print smooth afr diffs 
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'AFR',
       agg: 'AFRDiffSmooth1',
@@ -390,7 +390,7 @@ class MapFixer {
     })
 
     // print smooth afr diffs 
-    this.romHandler.PrintTable({
+    debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'AFR',
       agg: 'AFRDiffSmooth2',
@@ -436,7 +436,7 @@ class MapFixer {
       scaling: 'Loadify',
       agg: 'AFRCorrected',
       tabs: true,
-      // formatter: v => Number(v).toFixed(2) 
+      formatter: v => Number(v).toFixed(3) 
     })
 
   }

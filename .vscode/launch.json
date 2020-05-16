@@ -19,18 +19,18 @@
         "--harmony"
       ],
       "args": [
-        "--log", 
-        "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\EvoScanDataLog_2020.04.05_13.13.58.csv", 
-        "-a", 
-        "-t", 
-        "0", 
-        "-c", 
-        "1", 
-        "-f", 
-        "-l", 
-        "0",
-        "--rom", 
-        "C:\\Users\\Steven\\Google Drive\\Evoman\\roms\\010.hex.bin"
+        // "--log", 
+        // "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\EvoScanDataLog_2020.04.05_13.13.58.csv", 
+        // "-a", 
+        // "-t", 
+        // "0", 
+        // "-c", 
+        // "1", 
+        // "-f", 
+        // "-l", 
+        // "0",
+        // "--rom", 
+        // "C:\\Users\\Steven\\Google Drive\\Evoman\\roms\\010.hex.bin"
       ]
     },
     
