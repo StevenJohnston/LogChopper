@@ -22,6 +22,10 @@ const scalingAliases = {
             insteadUse: 'MAFCalcs',
             expr: 'x'
         },
+        'AFROffsetSeconds': {
+            insteadUse: 'AFROffsetSeconds',
+            expr: 'x'
+        },
         insteadUse: 'Load',
         expr: 'x'
     },

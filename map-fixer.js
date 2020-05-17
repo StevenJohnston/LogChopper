@@ -6,9 +6,25 @@ class MapFixer {
     this.romHandler = romHandler
   }
 
+  ShowAFROffsetSeconds({debug = false} = {}) {
+    this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
+    this.romHandler.FillLogTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      scaling: 'AFROffsetSeconds',
+      agg: 'avg',
+      scalingAlias: ScalingAliases['Loadify']['AFROffsetSeconds']
+    })
+
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      agg: 'avg',
+      scaling: 'AFROffsetSeconds',
+      tabs: true,
+    })
+  }
+
   ScaleMapToMaf({debug = false} = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
-
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
       scaling: 'MAFCalcs',
@@ -16,132 +32,82 @@ class MapFixer {
       scalingAlias: ScalingAliases['Loadify']['MAFCalcs']
     })
 
+    debug && this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      agg: 'avg',
+      scaling: 'MAFCalcs',
+      tabs: true,
+    })
+    
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      scaling: 'MAPCalcs',
-      agg: 'avg', 
-      scalingAlias: ScalingAliases['Loadify']['MAPCalcs']
+      scaling: 'MAFCalcs',
+      agg: 'count',
     })
 
-    // Get logged MapCalc % off from ROM
-    this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      tableOne: {},
-      tableTwo: {
-        aggTwo: 'avg',
-        scalingTwo: 'MAPCalcs'
-      },
-      newTable: {
-        newScaling: 'MAPCalcLogAvg',
-        newAgg: 'percentage'
-      },
-      aggregator: (mapVal, logMapAvg) => {
-        let percentage = mapVal / logMapAvg
-        if (!isFinite(percentage)) {
-          return 0
-        }
-        return percentage
-      }
-    })
-
-    // Get % MapCalc Off MafCalc
-    this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      tableOne: {
-        scalingOne: 'MAPCalcs',
-        aggOne: 'avg'
-      },
-      tableTwo: {
-        aggTwo: 'avg',
-        scalingTwo: 'MAFCalcs',
-      },
-      newTable: {
-        newScaling: 'MapMaf',
-        newAgg: 'percentage'
-      },
-      aggregator: (mapVal, logMapAvg) => {
-        let percentage = mapVal / logMapAvg
-        if (!isFinite(percentage)) {
-          return 0
-        }
-        return percentage
-      }
-    })
-
-    // Get total % change
-    this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      tableOne: {
-        scalingOne: 'MAPCalcLogAvg',
-        aggOne: 'percentage'
-      },
-      tableTwo: {
-        scalingTwo: 'MapMaf',
-        aggTwo: 'percentage',
-      },
-      newTable: {
-        newScaling: 'MapMultiplier',
-        newAgg: 'percentage'
-      },
-      aggregator: (mapVal, logMapAvg) => {
-        let percentage = mapVal * logMapAvg
-        if (!isFinite(percentage)) {
-          return 0
-        }
-        return percentage
-      }
-    })
-
-    // Get final map values
-    this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      tableOne: {},
-      tableTwo: {
-        scalingTwo: 'MapMultiplier',
-        aggTwo: 'percentage',
-      },
-      newTable: {
-        newScaling: 'FinalMap',
-        newAgg: 'avg'
-      },
-      aggregator: (mapVal, MapMultiplier) => {
-        let finalVal = mapVal * MapMultiplier
-        if (finalVal == 0) {
-          return mapVal
-        }
-        return finalVal
-      }
-    })
-
-    
-    debug && this.romHandler.PrintTable({
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-        tabs: true,
-    })    
     debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      agg: 'percentage', 
+      agg: 'count',
+      scaling: 'MAFCalcs',
       tabs: true,
-      scaling: 'MapMultiplier',
+    })
+
+    // Keep large count
+    this.romHandler.MapCombine({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableOne: {
+        scalingOne: 'MAFCalcs',
+        aggOne: 'avg',
+      },
+      tableTwo: {
+        scalingTwo: 'MAFCalcs',
+        aggTwo: 'count',
+      },
+      newTable: {
+        newScaling: 'MAFCalcs',
+        newAgg: 'FrequentOnly'
+      },
+      aggregator: (mapVal, count) => {
+        if (count < 10) {
+          return 0
+        }
+        return Number(mapVal)
+      }
+    })
+
+    debug && this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      agg: 'FrequentOnly',
+      scaling: 'MAFCalcs',
+      tabs: true,
       formatter: v => v.toFixed(2)
     })
+    
+    // Replace with large count only 
+    this.romHandler.MapCombine({
+      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableOne: {},
+      tableTwo: {
+        scalingTwo: 'MAFCalcs',
+        aggTwo: 'FrequentOnly',
+      },
+      newTable: {
+        newScaling: 'MAFCalcs',
+        newAgg: 'FrequentFinal'
+      },
+      aggregator: (mapVal, fixedVal) => {
+        return fixedVal || mapVal
+      }
+    })
+
     this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      agg: 'avg', 
+      agg: 'FrequentFinal',
+      scaling: 'MAFCalcs',
       tabs: true,
-      scaling: 'FinalMap',
       formatter: v => v.toFixed(3)
     })
-    
-    this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      agg: 'count',
-    })
-    debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
-      agg: 'count',
-      tabs: true,
-    })
+
   }
 
   AfrFix() {
@@ -404,7 +370,7 @@ class MapFixer {
       tableOne: {},
       tableTwo: {
         scalingTwo: 'AFR',
-        aggTwo: 'AFRDiffSmooth2',
+        aggTwo: 'AFRDiff',
       },
       newTable: {
         newScaling: 'Loadify',

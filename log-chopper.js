@@ -44,15 +44,20 @@ class LogChopper {
   }
 
   // shifts AFR records down offset count
-  ShiftAfr(offset = 30) {
+  ShiftAfr() {
     this.log = this.log.map((v, i, arr) => {
-      if(i + offset > arr.length - 1) {
-        return v
+      let offsetSeconds = (100/v.MAP) / v.RPM * 1000 
+      for (let futureI = i; futureI < arr.length; futureI++) {
+        let futureLog = arr[futureI]
+        if (futureLog.LogEntrySeconds - v.LogEntrySeconds > offsetSeconds) {
+          return {
+            ...v,
+            AFR: arr[futureI].AFR,
+            AFROffsetSeconds: offsetSeconds
+          }
+        }
       }
-      return {
-        ...v,
-        AFR: arr[i+offset].AFR
-      }
+      return v
     })
   }
 
@@ -200,6 +205,7 @@ class LogChopper {
     'MAFCalcs',
     // 'ChosenCalc',
     'RPMGain',
+    //'AFROffsetSeconds',
   ]
 
   WriteChopped() {
