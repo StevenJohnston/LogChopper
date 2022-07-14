@@ -8,27 +8,28 @@ const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
-  let logChopper = new LogChopper('EvoScanDataLog_2020.05.17_13.19.29' + '.csv')
+  let logChopper = new LogChopper('EvoScanDataLog_2022.07.12_10.05.40' + '.csv')
   await logChopper.LoadLogs()
   logChopper.ShiftAfr(45)
   logChopper.AddRPMGain(0.15)
-  logChopper.SplitWot(85, 0.00)
+  // logChopper.SplitWot(33, 0.00)
+  logChopper.SplitWot(0, 0.00)
   // logChopper.Accelerating()
   
   // logChopper.DropDeleted()
   console.log(`wots: ${logChopper.wots.length}`)
-  log = logChopper.wots.flat()
-  // log = logChopper.wots.reduce((all, wot) => {
-  //   return [...all, ...wot]
-  //   // return [...all, ...wot.slice(30)]
-  // }, [])
+  // log = logChopper.wots.flat()
+  log = logChopper.wots.reduce((all, wot) => {
+    return [...all, ...wot]
+    // return [...all, ...wot.slice(30)]
+  }, [])
   // log = logChopper.wots[5]
   // log = logChopper.log
 
   // logChopper.WriteChopped()
-  // logChopper.WriteChoppedWot()
+  logChopper.WriteChoppedWot()
   let rom = new Rom(tables, scalingsMap, log)
-  await rom.LoadRom('026'+'.bin')
+  await rom.LoadRom('064map'+'.bin')
   rom.FillTables()
 
   mapFixer = new MapFixer(rom)

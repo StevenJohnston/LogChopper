@@ -2,7 +2,8 @@ const csv = require('csvtojson')
 const { Parser } = require('json2csv');
 const fs = require('fs');
 
-var logRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\scans\\`
+// var logRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\scans\\`
+var logRoot = String.raw`C:\\Users\\micro_000\\Google Drive\\Evoman\\scans\\`
 
 class LogChopper {
   constructor(fileName) {
@@ -86,14 +87,14 @@ class LogChopper {
         let wotStart = i
         while(wotStart > 0) {
           let wotLog = this.log[wotStart-1]
-          if (wotLog.ET > l.ET - timeThreshold) {
+          if (wotLog.LogEntrySeconds > l.LogEntrySeconds - timeThreshold) {
             wotStart--
           } else {
             break
           }
         }
 
-        while(i < this.log.length) {
+        while(i < this.log.length - 1) {
           if (this.log[i].TPS > tpsThreshold) {
             i++
           } else {
@@ -105,14 +106,15 @@ class LogChopper {
         let wotEnd = i
         while(wotEnd < this.log.length) {
           let wotLog = this.log[wotEnd+1]
-          if (wotLog && wotLog.ET < l.ET + timeThreshold) {
+          if (wotLog && wotLog.LogEntrySeconds < l.LogEntrySeconds + timeThreshold) {
             wotEnd++
           } else {
             break
           }
         }
-
-        wots.push(this.log.slice(wotStart, wotEnd))
+        if (this.log[wotEnd].LogEntrySeconds - this.log[wotStart].LogEntrySeconds > 2) {
+          wots.push(this.log.slice(wotStart, wotEnd))
+        }
         i = wotEnd
       }
     }
@@ -168,8 +170,11 @@ class LogChopper {
   }
   fields = [
     'LogID',
+    // 'LogEntryDate',
+    // 'LogEntryTime',
     'LogEntrySeconds',
     'AFR',
+
     // 'STFT',
     // 'CurrentLTFT',
     // 'IdleLTFT',
@@ -178,7 +183,7 @@ class LogChopper {
     // 'O2Sensor2',
     'IPW',
     // 'AFRMAP',
-    // 'LoadTiming',
+    'LoadTiming',
     'TimingAdv',
     'KnockSum',
     'RPM',

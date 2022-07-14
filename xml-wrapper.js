@@ -113,7 +113,8 @@ async function fetchRom(fileName) {
         }
         parser.parseString(data, function (err, result) {
             if (err) {
-              reject(err)
+              // reject(err)
+              resolve()
               return
             }
             if (result.rom == undefined) {

@@ -7,16 +7,16 @@ class MapFixer {
   }
 
   ShowAFROffsetSeconds({debug = false} = {}) {
-    this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
+    this.romHandler.FillTableFromLog('MAP based Load Calc #3')
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFROffsetSeconds',
       agg: 'avg',
       scalingAlias: ScalingAliases['Loadify']['AFROffsetSeconds']
     })
 
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       agg: 'avg',
       scaling: 'AFROffsetSeconds',
       tabs: true,
@@ -24,29 +24,29 @@ class MapFixer {
   }
 
   ScaleMapToMaf({debug = false} = {}) {
-    this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
+    this.romHandler.FillTableFromLog('MAP based Load Calc #3')
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'MAFCalcs',
       agg: 'avg',
       scalingAlias: ScalingAliases['Loadify']['MAFCalcs']
     })
 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       agg: 'avg',
       scaling: 'MAFCalcs',
       tabs: true,
     })
     
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'MAFCalcs',
       agg: 'count',
     })
 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       agg: 'count',
       scaling: 'MAFCalcs',
       tabs: true,
@@ -54,7 +54,7 @@ class MapFixer {
 
     // Keep large count
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       tableOne: {
         scalingOne: 'MAFCalcs',
         aggOne: 'avg',
@@ -76,7 +76,7 @@ class MapFixer {
     })
 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       agg: 'FrequentOnly',
       scaling: 'MAFCalcs',
       tabs: true,
@@ -85,7 +85,7 @@ class MapFixer {
     
     // Replace with large count only 
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       tableOne: {},
       tableTwo: {
         scalingTwo: 'MAFCalcs',
@@ -101,7 +101,7 @@ class MapFixer {
     })
 
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       agg: 'FrequentFinal',
       scaling: 'MAFCalcs',
       tabs: true,
@@ -210,17 +210,17 @@ class MapFixer {
   }
 
   ScaleMapToAfr({debug = false} = {}) {
-    this.romHandler.FillTableFromLog('MAP based Load Calc #2 - Cold/Interpolated')
+    this.romHandler.FillTableFromLog('MAP based Load Calc #3')
 
     // table in rom
     // this.romHandler.PrintTable({
-    //   tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+    //   tableName: 'MAP based Load Calc #3',
     //   formatter: v => Number(v).toFixed(2) 
     // })
 
     // Fill map table with afr values
     this.romHandler.FillLogTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'avg',
       scalingAlias: ScalingAliases['AFR']
@@ -228,7 +228,7 @@ class MapFixer {
 
     // afr filled
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'avg',
       tabs: true,
@@ -237,13 +237,13 @@ class MapFixer {
 
     this.romHandler.MapCombineAdv({
       toTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
       },
       fromTable: {
         tableName: 'Alternate #1 High Octane Fuel Map',
       },
       destTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
         scaling: 'AFR',
         agg: 'target'
       },
@@ -258,7 +258,7 @@ class MapFixer {
 
     // target afr 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'target',
       tabs: true,
@@ -267,7 +267,7 @@ class MapFixer {
 
     // get actual - target afrs
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       tableOne: {
         scalingOne: 'AFR',
         aggOne: 'avg',
@@ -288,7 +288,7 @@ class MapFixer {
 
     // diff afr 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'AFRDiff',
       tabs: true,
@@ -298,12 +298,12 @@ class MapFixer {
     // Smooth diff
     this.romHandler.Map({
       sourceTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
         scaling: 'AFR',
         agg: 'AFRDiff',
       },
       destTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
         scaling: 'AFR',
         agg: 'AFRDiffSmooth1',
       },
@@ -322,7 +322,7 @@ class MapFixer {
 
     // print smooth afr diffs 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'AFRDiffSmooth1',
       tabs: true,
@@ -332,12 +332,12 @@ class MapFixer {
     // Smooth diff 2nd
     this.romHandler.Map({
       sourceTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
         scaling: 'AFR',
         agg: 'AFRDiffSmooth1',
       },
       destTable: {
-        tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+        tableName: 'MAP based Load Calc #3',
         scaling: 'AFR',
         agg: 'AFRDiffSmooth2',
       },
@@ -357,7 +357,7 @@ class MapFixer {
 
     // print smooth afr diffs 
     debug && this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'AFR',
       agg: 'AFRDiffSmooth2',
       tabs: true,
@@ -366,11 +366,11 @@ class MapFixer {
 
     // Set final values base on diff
     this.romHandler.MapCombine({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       tableOne: {},
       tableTwo: {
         scalingTwo: 'AFR',
-        aggTwo: 'AFRDiff',
+        aggTwo: 'AFRDiffSmooth2',
       },
       newTable: {
         newScaling: 'Loadify',
@@ -398,7 +398,7 @@ class MapFixer {
 
     // final loads 
     this.romHandler.PrintTable({
-      tableName: 'MAP based Load Calc #2 - Cold/Interpolated',
+      tableName: 'MAP based Load Calc #3',
       scaling: 'Loadify',
       agg: 'AFRCorrected',
       tabs: true,

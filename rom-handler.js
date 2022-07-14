@@ -1,10 +1,16 @@
 var fs = require("fs");
 var exprParser = require("expr-eval").Parser;
-var romRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\roms\\`
+// var romRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\roms\\`
+var romRoot = String.raw`C:\\Users\\micro_000\\Google Drive\\Evoman\\roms\\`
 var sprintf = require('sprintf-js').sprintf
 
 const scalingAliases = {
     'StockXMAP in kPa': {
+        // insteadUse: 'PSIG', // tephra logger
+        insteadUse: 'MAP', // raxx patch evoscan
+        expr: 'x'
+    },
+    'Omni4barMAP in kPa': {
         // insteadUse: 'PSIG', // tephra logger
         insteadUse: 'MAP', // raxx patch evoscan
         expr: 'x'
@@ -118,7 +124,7 @@ const typeToReader = {
 
 async function getRomBuffer(romName) {
     return new Promise((resolve, reject) => {
-        fs.readFile(romRoot+romName, (err, data) => {
+        fs.readFile(romRoot + romName, (err, data) => {
             if (err) reject(err);
             resolve(data)
         });
@@ -160,9 +166,9 @@ class Rom {
 
     fillAxis(axis) {
         // get scaling
-        let {address, elements, scaling} = axis
-        let {storageType, endian, toExpr, format} = this.scalingsMap[scaling]
-        let {reader, byteCount} = typeToReader[storageType][endian]
+        let { address, elements, scaling } = axis
+        let { storageType, endian, toExpr, format } = this.scalingsMap[scaling]
+        let { reader, byteCount } = typeToReader[storageType][endian]
         if (!reader || !byteCount) {
             console.log(`missing storagetype for axis scaling: ${scaling} storageType: ${storageType} endian: ${endian}`)
         }
@@ -173,7 +179,7 @@ class Rom {
             let value = this.romBuffer[reader](offset)
             let displayValue = value
             if (toExpr) {
-                displayValue = parser.evaluate(toExpr, {x: value})
+                displayValue = parser.evaluate(toExpr, { x: value })
                 if (format) {
                     displayValue = sprintf(format, displayValue)
                 }
@@ -181,12 +187,12 @@ class Rom {
             values.push(displayValue)
         }
         axis.values = values
-        return axis 
+        return axis
     }
 
     fillTable(table) {
-        let {address, scaling, swapxy, xAxis, yAxis} = table
-        let {storageType, endian, toExpr, format} = this.scalingsMap[scaling]
+        let { address, scaling, swapxy, xAxis, yAxis } = table
+        let { storageType, endian, toExpr, format } = this.scalingsMap[scaling]
         let reader, byteCount = undefined
         try {
             let obj = typeToReader[storageType][endian]
@@ -215,7 +221,7 @@ class Rom {
             // let value = this.romBuffer[reader](offset)
             let displayValue = value
             if (toExpr) {
-                displayValue = parser.evaluate(toExpr, {x: value})
+                displayValue = parser.evaluate(toExpr, { x: value })
                 if (format) {
                     // displayValue = sprintf(format, displayValue)
                 }
@@ -268,7 +274,7 @@ class Rom {
 
         if (!scaling) scaling = table.scaling
 
-        let tableValues 
+        let tableValues
         if (agg) {
             tableValues = table[scaling][agg]
         } else {
@@ -289,7 +295,7 @@ class Rom {
             }))
         }
         tableCellWidth++
-        
+
         if (!table) {
             console.log(`missing table name ${tableName} in tableMap`)
             return
@@ -330,7 +336,7 @@ class Rom {
             scaling: 'rawLogs',
             defaultValue: () => []
         })
-        let {xAxis, yAxis} = table
+        let { xAxis, yAxis } = table
         this.log.forEach(l => {
             switch (table.type) {
                 case "3D":
@@ -344,10 +350,10 @@ class Rom {
                     let xAxisLogValue = l[xScaling]
                     if (!xAxisLogValue) {
                         var parser = new exprParser()
-                        let {insteadUse, expr} = scalingAliases[xScaling]
+                        let { insteadUse, expr } = scalingAliases[xScaling]
                         if (!l[insteadUse]) return
 
-                        xAxisLogValue = parser.evaluate(expr, {x: l[insteadUse]})
+                        xAxisLogValue = parser.evaluate(expr, { x: l[insteadUse] })
                     }
                     let x = nearestIndex(xAxis.values, xAxisLogValue)
 
@@ -369,7 +375,7 @@ class Rom {
         agg,
         defaultValue
     }) {
-        let table = this.tableMap[tableName] 
+        let table = this.tableMap[tableName]
         let fillTable = []
         table.values.forEach((row, y) => {
             fillTable[y] = []
@@ -377,7 +383,7 @@ class Rom {
                 fillTable[y][x] = defaultValue()
             })
         })
-        
+
         if (agg) {
             if (!table[scaling]) table[scaling] = {}
             table[scaling][agg] = fillTable
@@ -396,8 +402,8 @@ class Rom {
         scalingAlias
     }) {
         let table = this.tableMap[tableName]
-        let {rawLogs, scaling: tableScaling } = table
-        
+        let { rawLogs, scaling: tableScaling } = table
+
         if (!scaling) {
             scaling = tableScaling
         }
@@ -407,7 +413,7 @@ class Rom {
             agg,
             defaultValue: () => 0
         })
-        
+
         if (!rawLogs) {
             console.log('Must run FillTableFromLog before FillLogTable')
             return
@@ -422,31 +428,31 @@ class Rom {
                                 table[scaling][agg][y][x] = (cell.reduce((c2, log) => {
                                     if (scalingAlias) {
                                         var parser = new exprParser()
-                                        let {insteadUse, expr} = scalingAlias
+                                        let { insteadUse, expr } = scalingAlias
                                         if (!log[insteadUse]) return c2
-                                        return c2 + parser.evaluate(expr, {x: log[insteadUse]})
+                                        return c2 + parser.evaluate(expr, { x: log[insteadUse] })
                                     } else if (log[tableScaling] == null) {
                                         var parser = new exprParser()
-                                        let {insteadUse, expr} = scalingAliases[tableScaling]
-                                        return c2 + parser.evaluate(expr, {x: log[insteadUse]})
+                                        let { insteadUse, expr } = scalingAliases[tableScaling]
+                                        return c2 + parser.evaluate(expr, { x: log[insteadUse] })
                                     } else {
                                         return c2 + log[tableScaling]
                                     }
-                                },0) / cell.length || 0).toFixed(2)
+                                }, 0) / cell.length || 0).toFixed(2)
                                 break
-                            case 'avgDiff': 
+                            case 'avgDiff':
                                 table[scaling][agg][y][x] = (cell.reduce((c2, log) => {
                                     if (scalingAlias) {
                                         var parser = new exprParser()
-                                        let {insteadUse, expr} = scalingAlias
-                                        let logValue = parser.evaluate(expr, {x: log[insteadUse]})
+                                        let { insteadUse, expr } = scalingAlias
+                                        let logValue = parser.evaluate(expr, { x: log[insteadUse] })
                                         let tableValue = table.values[y][x]
                                         let diff = tableValue - logValue
                                         return c2 + diff
                                     } else if (!log[tableScaling]) {
                                         var parser = new exprParser()
-                                        let {insteadUse, expr} = scalingAliases[tableScaling]
-                                        let logValue = parser.evaluate(expr, {x: log[insteadUse]})
+                                        let { insteadUse, expr } = scalingAliases[tableScaling]
+                                        let logValue = parser.evaluate(expr, { x: log[insteadUse] })
                                         let tableValue = table.values[y][x]
                                         let diff = tableValue - logValue
                                         return c2 + diff
@@ -456,7 +462,7 @@ class Rom {
                                         let diff = tableValue - logValue
                                         return c2 + diff
                                     }
-                                },0) / cell.length || 0).toFixed(2)
+                                }, 0) / cell.length || 0).toFixed(2)
                             case 'count':
                                 table[scaling][agg][y][x] = cell.length
                                 break
@@ -472,10 +478,10 @@ class Rom {
     // Takes 2 maps and aggregates them together 
     MapCombine({
         tableName, // destination table
-        tableOne: {aggOne, scalingOne},
-        tableTwo: {tableTwoName, aggTwo, scalingTwo},
+        tableOne: { aggOne, scalingOne },
+        tableTwo: { tableTwoName, aggTwo, scalingTwo },
         aggregator,
-        newTable: {newAgg, newScaling}
+        newTable: { newAgg, newScaling }
     }) {
         if (tableTwoName == null) {
             tableTwoName = tableName
@@ -522,10 +528,10 @@ class Rom {
             agg: destTable.agg,
             defaultValue: () => 0
         })
-        
+
         let realToTable = this.tableMap[toTable.tableName]
         let realToTableValues = this.getTableByObj(toTable)
-        
+
         let realFromTable = this.tableMap[fromTable.tableName]
         let realFromTableValues = this.getTableByObj(fromTable)
         let realDestTable = this.getTableByObj(destTable)
@@ -553,7 +559,7 @@ class Rom {
             agg: destTable.agg,
             defaultValue: () => 0
         })
-        
+
         let realSourceTableValues = this.getTableByObj(sourceTable)
         let realDestTableValues = this.getTableByObj(destTable)
 
@@ -563,7 +569,7 @@ class Rom {
             })
         })
     }
-    getTableByObj({tableName, scaling, agg}) {
+    getTableByObj({ tableName, scaling, agg }) {
         if (scaling) {
             if (agg) {
                 return this.tableMap[tableName][scaling][agg]
@@ -575,17 +581,17 @@ class Rom {
     getAxes(table, xAxis, yAxis) {
         let x = nearestIndex(table.xAxis.values, xAxis)
         let y = nearestIndex(table.yAxis.values, yAxis)
-        return {x, y}
+        return { x, y }
     }
-} 
+}
 
 const nearestIndex = (array, value) => {
     return array.indexOf(array.reduce((c, n) => {
         if (Math.abs(c - value) >= Math.abs(n - value)) {
-        return n
+            return n
         }
         return c
-    },99999))
+    }, 99999))
 }
 
 exports.Rom = Rom
