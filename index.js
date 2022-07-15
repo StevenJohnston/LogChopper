@@ -2,13 +2,16 @@ var xmlWrapper = require(`./xml-wrapper.js`)
 var {Rom, ScalingAliases} = require(`./rom-handler.js`)
 var {LogChopper} = require('./log-chopper.js')
 var {MapFixer} = require('./map-fixer.js')
-
-
+const dialog = require('node-file-dialog')
 const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
-  let logChopper = new LogChopper('EvoScanDataLog_2022.07.12_10.05.40' + '.csv')
+  //ask for log file
+  const config={type:'open-file'}
+  dir = await dialog(config)
+  dir = dir[0].split('/').join('\\')
+  let logChopper = new LogChopper(dir)
   await logChopper.LoadLogs()
   logChopper.ShiftAfr(45)
   logChopper.AddRPMGain(0.15)
@@ -29,7 +32,7 @@ const main = async () => {
   // logChopper.WriteChopped()
   logChopper.WriteChoppedWot()
   let rom = new Rom(tables, scalingsMap, log)
-  await rom.LoadRom('064map'+'.bin')
+  await rom.LoadRom()
   rom.FillTables()
 
   mapFixer = new MapFixer(rom)

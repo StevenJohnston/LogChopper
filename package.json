@@ -11,8 +11,10 @@
   "dependencies": {
     "command-line-args": "^5.1.1",
     "csvtojson": "^2.0.10",
+    "electron": "^19.0.8",
     "expr-eval": "^2.0.2",
     "json2csv": "^4.5.4",
+    "node-file-dialog": "^1.0.3",
     "object-path": "^0.11.4",
     "sprintf-js": "^1.1.2",
     "xml2js": "^0.4.22"

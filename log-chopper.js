@@ -3,8 +3,8 @@ const { Parser } = require('json2csv');
 const fs = require('fs');
 
 // var logRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\scans\\`
-var logRoot = String.raw`C:\\Users\\micro_000\\Google Drive\\Evoman\\scans\\`
-
+// var logRoot = String.raw`C:\\Users\\Steven\\My Drive\\Evoman\\scans`
+var logRoot = ''
 class LogChopper {
   constructor(fileName) {
     this.fileName = fileName
@@ -13,26 +13,14 @@ class LogChopper {
 
   async LoadLogs() {
     if (typeof this.fileName == "string") {
-      await new Promise((resolve, _) => {
-        fs.readdir(logRoot, async (err, files) => {
-          var fetchLogs = []
-          files.forEach(async (file) => {
-            if (file.match(this.fileName)) {
-              fetchLogs.push(this.loadLog(file))
-            }
-          });
-          (await Promise.all(fetchLogs)).forEach((jsonObj) => {
-            // if (jsonObj.length > 150000) return
-            // this.log.push(...jsonObj)
-            this.log = this.log.concat(removeTimeout(jsonObj))
-          })
-          resolve()
-        });
+      await new Promise(async(resolve, _) => {
+        let loadedLog  = await this.loadLog(this.fileName)
+        this.log = this.log.concat(removeTimeout(loadedLog ))
+        resolve()
       })
     } else {
       await this.loadLog(this.fileName[0]).then((jsonObj) => {
         this.log.push(...removeTimeout(jsonObj))
-        // this.log.push(...jsonObj)
       })
     }
   }
@@ -41,7 +29,7 @@ class LogChopper {
     return csv({
       checkType:true,
     })
-    .fromFile(logRoot + fileName)
+    .fromFile(fileName)
   }
 
   // shifts AFR records down offset count

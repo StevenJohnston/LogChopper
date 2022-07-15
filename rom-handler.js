@@ -1,8 +1,10 @@
 var fs = require("fs");
 var exprParser = require("expr-eval").Parser;
 // var romRoot = String.raw`C:\Users\Steven\Google Drive\Evoman\roms\\`
-var romRoot = String.raw`C:\\Users\\micro_000\\Google Drive\\Evoman\\roms\\`
+// var romRoot = String.raw`C:\\Users\\Steven\\My Drive\\Evoman\\roms`
+var romRoot = ''
 var sprintf = require('sprintf-js').sprintf
+const dialog = require('node-file-dialog')
 
 const scalingAliases = {
     'StockXMAP in kPa': {
@@ -122,9 +124,12 @@ const typeToReader = {
     }
 }
 
-async function getRomBuffer(romName) {
-    return new Promise((resolve, reject) => {
-        fs.readFile(romRoot + romName, (err, data) => {
+async function getRomBuffer() {
+    return new Promise(async(resolve, reject) => {
+        
+        const config={type:'open-file'}
+        dir = await dialog(config)
+        fs.readFile(dir[0], (err, data) => {
             if (err) reject(err);
             resolve(data)
         });
@@ -133,16 +138,15 @@ async function getRomBuffer(romName) {
 
 class Rom {
     constructor(tables, scalingsMap, log) {
-        this.tables = tables
+        this.tables = tables //  table[scaling][agg]
         this.tableMap = {}
         this.scalingsMap = scalingsMap
         this.log = log
     }
 
-    async LoadRom(romName) {
-        this.romName = romName
+    async LoadRom() {
         try {
-            this.romBuffer = await getRomBuffer(romName)
+            this.romBuffer = await getRomBuffer()
         } catch (err) {
             console.log(err)
         }
@@ -329,6 +333,7 @@ class Rom {
         }
     }
 
+    //
     FillTableFromLog(tableName) {
         let table = this.tableMap[tableName]
         this.duplicateTable({
