@@ -1,1 +1,1 @@
-export const DataTypes = []
+export const DataTypes = [];

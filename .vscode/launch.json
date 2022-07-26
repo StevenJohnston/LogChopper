@@ -7,14 +7,38 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Debug",
+      "cwd": "${workspaceRoot}",
+      "program": "${workspaceRoot}/index.ts",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceRoot}/build/**/*.js"],
+      "preLaunchTask": "build",
+      "console": "internalConsole"
+    },
+    {
+      "name": "Launch TypeScript",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["--nolazy"],
+      "args": ["./index.ts", "--transpile-only"],
+      "cwd": "${workspaceFolder}",
+      "internalConsoleOptions": "openOnSessionStart",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Launch Program smo",
-      "program": "${workspaceFolder}/smooth.js"
+      "program": "${workspaceFolder}/smooth.ts"
     },
     {
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
-      "program": "${workspaceFolder}\\index.js",
+      "program": "${workspaceFolder}\\index.ts",
       "runtimeArgs": [
         "--harmony"
       ],
@@ -38,7 +62,7 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program2",
-      "program": "${workspaceFolder}\\binary.js",
+      "program": "${workspaceFolder}\\binary.ts",
       "args": ["--log", 
         "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\LiveTuna-Steven Johnston - JA32W8FV4FU604417 - 095 096  - alt 1 - wgdcredline.hex.bin-20190801-18.07.19.csv", "-a", "-t", "0", "-c", "2", "-f", "-l", "0"]
     },
@@ -46,7 +70,7 @@
       "type": "node",
       "request": "launch",
       "name": "xmlwrapper",
-      "program": "${workspaceFolder}\\index.js",
+      "program": "${workspaceFolder}\\index.ts",
       "args": ["--log", 
         "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\LiveTuna-Steven Johnston - JA32W8FV4FU604417 - 095 096  - alt 1 - wgdcredline.hex.bin-20190801-18.07.19.csv", "-a", "-t", "0", "-c", "2", "-f", "-l", "0"]
     }
