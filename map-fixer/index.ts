@@ -1,5 +1,5 @@
-import {get} from 'object-path'
-import {ScalingAliases, Rom} from '../rom-handler'
+import { get } from 'object-path'
+import { ScalingAliases, Rom } from '../rom-handler'
 
 export class MapFixer {
   romHandler: Rom
@@ -7,7 +7,7 @@ export class MapFixer {
     this.romHandler = romHandler
   }
 
-  ShowAFROffsetSeconds({debug = false} = {}) {
+  ShowAFROffsetSeconds({ debug = false } = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #3')
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #3',
@@ -24,7 +24,7 @@ export class MapFixer {
     })
   }
 
-  ScaleMapToMaf({debug = false, minCount = 10} = {}) {
+  ScaleMapToMaf({ debug = false, minCount = 10 } = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #3')
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #3',
@@ -39,7 +39,7 @@ export class MapFixer {
       scaling: 'MAFCalcs',
       tabs: true,
     })
-    
+
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #3',
       scaling: 'MAFCalcs',
@@ -83,7 +83,7 @@ export class MapFixer {
       tabs: true,
       formatter: v => v.toFixed(2)
     })
-    
+
     // Replace with large count only 
     this.romHandler.MapCombine({
       tableName: 'MAP based Load Calc #3',
@@ -119,7 +119,7 @@ export class MapFixer {
     })
     this.romHandler.PrintTable({
       tableName: 'Alternate #1 High Octane Fuel Map',
-      agg: 'avg', 
+      agg: 'avg',
       tabs: true,
     })
 
@@ -153,14 +153,14 @@ export class MapFixer {
       tabs: true,
       formatter: v => v.toFixed(2)
     })
-    
+
     this.romHandler.PrintTable({
       tableName: 'Alternate #1 High Octane Fuel Map',
-      agg: 'Alt7Diff', 
+      agg: 'Alt7Diff',
       tabs: true,
       formatter: v => v.toFixed(2)
     })
-    
+
     // get final values
     this.romHandler.MapCombine({
       tableName: 'Alternate #1 High Octane Fuel Map',
@@ -181,7 +181,7 @@ export class MapFixer {
         return percentage
       }
     })
-    
+
     // fill 0s with original
     this.romHandler.MapCombine({
       tableName: 'Alternate #1 High Octane Fuel Map',
@@ -204,13 +204,12 @@ export class MapFixer {
 
     this.romHandler.PrintTable({
       tableName: 'Alternate #1 High Octane Fuel Map',
-      agg: 'Alt7FixFilled', 
+      agg: 'Alt7FixFilled',
       tabs: true,
-      formatter: v => v.toFixed(2) 
+      formatter: v => v.toFixed(2)
     })
   }
-
-  ScaleMapToAfr({debug = false} = {}) {
+  ScaleMapToAfr({ debug = false } = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #3')
 
     // table in rom
@@ -248,7 +247,7 @@ export class MapFixer {
       scaling: 'AFR',
       agg: 'avg',
       tabs: true,
-      formatter: v => Number(v).toFixed(2) 
+      formatter: v => Number(v).toFixed(2)
     })
 
     this.romHandler.MapCombineAdv({
@@ -266,7 +265,7 @@ export class MapFixer {
       // xValue = MAP, yValue = RPM, cellValue = Load
       axisMap: (xValue, yValue, cellValue) => {
         return {
-          xValue: cellValue, 
+          xValue: cellValue,
           yValue: yValue,
         }
       }
@@ -278,7 +277,7 @@ export class MapFixer {
       scaling: 'AFR',
       agg: 'target',
       tabs: true,
-      formatter: v => Number(v).toFixed(2) 
+      formatter: v => Number(v).toFixed(2)
     })
 
     // get actual - target afrs
@@ -308,7 +307,7 @@ export class MapFixer {
       scaling: 'AFR',
       agg: 'AFRDiff',
       tabs: true,
-      formatter: v => Number(v).toFixed(2) 
+      formatter: v => Number(v).toFixed(2)
     })
 
     // // Smooth diff
@@ -326,7 +325,7 @@ export class MapFixer {
     //   aggregator: (map, x, y) => {
     //     let value = map[y][x]
     //     if (Number(value)) return value
-        
+
     //     let sum = 0, cellCount = 0
     //     const top = get(map, `${y-1}.${x}`, 0)
     //     const right = get(map, `${y}.${x+1}`, 0)
@@ -360,9 +359,9 @@ export class MapFixer {
     //   aggregator: (map, x, y) => {
     //     let value = map[y][x]
     //     if (Number(value)) return value
-        
+
     //     let sum = 0, cellCount = 0
-        
+
     //     const top = get(map, `${y-1}.${x}`, 0)
     //     const right = get(map, `${y}.${x+1}`, 0)
     //     const bottom = get(map, `${y+1}.${x}`, 0)
@@ -394,7 +393,7 @@ export class MapFixer {
       },
       aggregator: (load, afrDiff) => {
         if (Math.abs(afrDiff) < 0.2) return load
-        if ( afrDiff >= 0 ) {
+        if (afrDiff >= 0) {
           if (afrDiff > 2) {
             return load + 20
           } else if (afrDiff > 1) {
@@ -407,11 +406,11 @@ export class MapFixer {
           } else if (afrDiff < -1) {
             return load - 10
           }
-          return load - 5          
+          return load - 5
         }
       }
     })
-    
+
     this.romHandler.MapCombine({
       tableName: 'MAP based Load Calc #3',
       tableOne: {
@@ -429,7 +428,7 @@ export class MapFixer {
       aggregator: (load, afrCount) => {
         if (afrCount > 0) {
           return load
-        } 
+        }
         return 0
       }
     })
@@ -439,7 +438,7 @@ export class MapFixer {
       scaling: 'Loadify',
       agg: 'AFRCorrectedWithCount',
       tabs: true,
-      formatter: v => Number(v).toFixed(3) 
+      formatter: v => Number(v).toFixed(3)
     })
 
     // Set value if not touched
@@ -459,14 +458,14 @@ export class MapFixer {
         let load = loadTable[y][x]
         let correctedLoad = correctedLoadTable[y][x]
         let newLoad: number = load
-        
+
         if (correctedLoad !== 0) {
           return correctedLoad
         }
 
-        for(let y2 = y; y2>0; y2--) {
-          
-          for(let x2 = x; x2<loadTable[y2].length; x2++) {
+        for (let y2 = y; y2 > 0; y2--) {
+
+          for (let x2 = x; x2 < loadTable[y2].length; x2++) {
             let cLoad = correctedLoadTable[y2][x2]
             if (cLoad == 0) continue
             if (cLoad < newLoad) {
@@ -475,15 +474,15 @@ export class MapFixer {
           }
         }
 
-        for(let y2 = y; y2<loadTable.length; y2++) {
-          for(let x2 = x; x2>0; x2--) {
+        for (let y2 = y; y2 < loadTable.length; y2++) {
+          for (let x2 = x; x2 > 0; x2--) {
             let cLoad = correctedLoadTable[y2][x2]
             if (cLoad == 0) continue
             if (cLoad > newLoad) {
               newLoad = cLoad
             }
           }
-          
+
         }
         return newLoad
       }
@@ -505,19 +504,118 @@ export class MapFixer {
       scaling: 'Loadify',
       agg: 'AFRCorrected',
       tabs: true,
-      formatter: v => Number(v).toFixed(3) 
+      formatter: v => Number(v).toFixed(3)
     })
     this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #3',
       scaling: 'Loadify',
       agg: 'LoadifyUpAndToTheRight',
       tabs: true,
-      formatter: v => Number(v).toFixed(3) 
+      formatter: v => Number(v).toFixed(3)
     })
 
   }
 
-  ShowMapLoadCalcDiff({debug = false} = {}) {
+  ScaleMapToLTFT({ debug = false } = {}) {
+    this.romHandler.FillTableFromLog('MAP based Load Calc #3')
+    // Fill map table with afr values
+    this.romHandler.FillLogTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CruiseLTFT',
+      agg: 'avg',
+      scalingAlias: ScalingAliases['CruiseLTFT']
+    })
+
+
+    this.romHandler.FillLogTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CruiseLTFT',
+      agg: 'count',
+    })
+
+
+    // afr filled
+    debug && this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CruiseLTFT',
+      agg: 'avg',
+      tabs: true,
+      formatter: v => Number(v).toFixed(2)
+    })
+
+    // // Set final values base on diff
+    this.romHandler.MapCombine({
+      tableName: 'MAP based Load Calc #3',
+      tableOne: {},
+      tableTwo: {
+        scalingTwo: 'CruiseLTFT',
+        aggTwo: 'avg',
+      },
+      newTable: {
+        newScaling: 'CruiseLTFT',
+        newAgg: 'CruiseLTFTCorrected'
+      },
+      aggregator: (load, CruiseLTFTAvg) => {
+        if (CruiseLTFTAvg > 0) {
+          load = load * (CruiseLTFTAvg / 100)
+        } else {
+          load = load * (1 - Math.abs((CruiseLTFTAvg / 100)))
+        }
+        return load
+      }
+    })
+
+    this.romHandler.MapCombine({
+      tableName: 'MAP based Load Calc #3',
+      tableOne: {
+        scalingOne: 'CruiseLTFT',
+        aggOne: 'CruiseLTFTCorrected',
+      },
+      tableTwo: {
+        scalingTwo: 'CruiseLTFT',
+        aggTwo: 'count',
+      },
+      newTable: {
+        newScaling: 'CruiseLTFT',
+        newAgg: 'CruiseLTFTCorrectedWithCount'
+      },
+      aggregator: (load, CruiseLTFTCount) => {
+        if (CruiseLTFTCount > 0) {
+          return load
+        }
+        return 0
+      }
+    })
+
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CruiseLTFT',
+      agg: 'CruiseLTFTCorrectedWithCount',
+      tabs: true,
+      formatter: v => Number(v).toFixed(3)
+    })
+
+
+    // // print smooth afr diffs 
+    // debug && this.romHandler.PrintTable({
+    //   tableName: 'MAP based Load Calc #3',
+    //   scaling: 'AFR',
+    //   agg: 'AFRDiffSmooth1',
+    //   tabs: true,
+    //   formatter: v => Number(v).toFixed(2) 
+    // })
+
+    // final loads 
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CruiseLTFT',
+      agg: 'CruiseLTFTCorrectedWithCount',
+      tabs: true,
+      formatter: v => Number(v).toFixed(3)
+    })
+  }
+
+  ShowMapLoadCalcDiff({ debug = false } = {}) {
     this.romHandler.FillTableFromLog('MAP based Load Calc #3')
 
     this.romHandler.FillLogTable({
@@ -529,14 +627,14 @@ export class MapFixer {
 
     this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #3',
-      agg: 'avg', 
+      agg: 'avg',
       scaling: 'loggedMAPCalc',
       tabs: true
       // formatter: v => v.toFixed(2)
     })
   }
   MivecExGain() {
-    
+
   }
 
   MivecInGain() {
@@ -554,7 +652,7 @@ export class MapFixer {
       scaling: 'RPMGain',
       agg: 'avg',
       tabs: true,
-      formatter: v => Number(v).toFixed(2) 
+      formatter: v => Number(v).toFixed(2)
     })
   }
 

@@ -53,6 +53,10 @@ const scalingAliases = {
     insteadUse: 'RPMGain',
     expr: 'x'
   },
+  'CruiseLTFT': {
+    insteadUse: 'CruiseLTFT',
+    expr: 'x'
+  },
 }
 
 const typeToReader = {
@@ -177,9 +181,9 @@ interface RomTable {
   rawLogs?: Log[][][]
 
 
-  [tableNameOrIndex: string|number]: RomTable|string|Axis|number[][]|Log[][][]
+  [tableNameOrIndex: string | number]: RomTable | string | Axis | number[][] | Log[][][]
   // Can also be a map of maps [scaling][agg]: table
-  
+
 }
 
 interface RomTables {

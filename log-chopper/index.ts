@@ -12,8 +12,8 @@ interface LogRecord {
   // LogEntryTime?: string;
   LogEntrySeconds?: number;
   AFR?: number;
-  // STFT?: string;
-  // CurrentLTFT?: string;
+  STFT?: number;
+  CurrentLTFT?: number;
   // IdleLTFT?: string;
   // CruiseLTFT?: string;
   Load?: number;
@@ -233,6 +233,24 @@ export class LogChopper {
             log.deleteReason = "not Accelerating"
           }
         }
+      }
+    })
+  }
+
+  delete0ipw() {
+    this.log.forEach((log) => {
+      if (log.IPW == 0) {
+        log.delete = true
+        log.deleteReason = "0 ipw"
+      }
+    })
+  }
+
+  deleteSTFT0() {
+    this.log.forEach((log) => {
+      if (log.STFT == 0) {
+        log.delete = true
+        log.deleteReason = "0 ipw"
       }
     })
   }

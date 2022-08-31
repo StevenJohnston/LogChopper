@@ -22,21 +22,23 @@ export const main = async () => {
   // logChopper.keepIdle()
   // logChopper.keepCruise()
   // logChopper.deleteLargeTPSChanges()
-  // logChopper.DropDeleted()
+  logChopper.delete0ipw()
+  logChopper.deleteSTFT0()
+  logChopper.DropDeleted()
   let log = logChopper.log
 
 
   console.log(logChopper.log[0])
-  logChopper.SplitWot(86, 0.00)
+  // logChopper.SplitWot(86, 0.00)
   // logChopper.SplitWot(0, 0.00)
   // logChopper.Accelerating
 
   // console.log(`wots: ${logChopper.wots.length}`)
   // let log = logChopper.wots.flat()
-  log = logChopper.wots.reduce((all, wot) => {
-    return [...all, ...wot]
-    // return [...all, ...wot.slice(30)]
-  }, [])
+  // log = logChopper.wots.reduce((all, wot) => {
+  //   return [...all, ...wot]
+  //   // return [...all, ...wot.slice(30)]
+  // }, [])
   // log = logChopper.wots[5]
   // log = logChopper.log
 
@@ -48,10 +50,11 @@ export const main = async () => {
 
   let mapFixer = new MapFixer(rom)
   // mapFixer.ScaleMapToMaf({debug: true, minCount: 100})
+  mapFixer.ScaleMapToLTFT({debug: true})
   // mapFixer.LogCounts()
   // mapFixer.AfrFix()
   // mapFixer.ShowBoost() // doesnt work
-  mapFixer.ScaleMapToAfr({debug: true})
+  // mapFixer.ScaleMapToAfr({debug: true})
   // mapFixer.ShowMapLoadCalcDiff({debug: true})
   // mapFixer.MivecInGain()
   // mapFixer.ShowAFROffsetSeconds()
