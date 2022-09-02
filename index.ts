@@ -14,8 +14,8 @@ export const main = async () => {
   dir = dir[0].split('/').join('\\')
   const logChopper = new LogChopper(dir)
   await logChopper.LoadLogs()
-  logChopper.ShiftAfr(45)
-  logChopper.AddRPMGain(0.15)
+  // logChopper.ShiftAfr(45)
+  // logChopper.AddRPMGain(0.15)
 
 
   // logChopper.tagAllForDelete()

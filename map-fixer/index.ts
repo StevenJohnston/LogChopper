@@ -521,15 +521,15 @@ export class MapFixer {
     // Fill map table with afr values
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #3',
-      scaling: 'CruiseLTFT',
+      scaling: 'CurrentLTFT',
       agg: 'avg',
-      scalingAlias: ScalingAliases['CruiseLTFT']
+      scalingAlias: ScalingAliases['CurrentLTFT']
     })
 
 
     this.romHandler.FillLogTable({
       tableName: 'MAP based Load Calc #3',
-      scaling: 'CruiseLTFT',
+      scaling: 'CurrentLTFT',
       agg: 'count',
     })
 
@@ -537,7 +537,7 @@ export class MapFixer {
     // afr filled
     debug && this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #3',
-      scaling: 'CruiseLTFT',
+      scaling: 'CurrentLTFT',
       agg: 'avg',
       tabs: true,
       formatter: v => Number(v).toFixed(2)
@@ -548,18 +548,18 @@ export class MapFixer {
       tableName: 'MAP based Load Calc #3',
       tableOne: {},
       tableTwo: {
-        scalingTwo: 'CruiseLTFT',
+        scalingTwo: 'CurrentLTFT',
         aggTwo: 'avg',
       },
       newTable: {
-        newScaling: 'CruiseLTFT',
-        newAgg: 'CruiseLTFTCorrected'
+        newScaling: 'CurrentLTFT',
+        newAgg: 'CurrentLTFTCorrected'
       },
-      aggregator: (load, CruiseLTFTAvg) => {
-        if (CruiseLTFTAvg > 0) {
-          load = load * (CruiseLTFTAvg / 100)
+      aggregator: (load, CurrentLTFTAvg) => {
+        if (CurrentLTFTAvg > 0) {
+          load = load * (1 + CurrentLTFTAvg / 100)
         } else {
-          load = load * (1 - Math.abs((CruiseLTFTAvg / 100)))
+          load = load * (1 - Math.abs((CurrentLTFTAvg / 100)))
         }
         return load
       }
@@ -568,19 +568,19 @@ export class MapFixer {
     this.romHandler.MapCombine({
       tableName: 'MAP based Load Calc #3',
       tableOne: {
-        scalingOne: 'CruiseLTFT',
-        aggOne: 'CruiseLTFTCorrected',
+        scalingOne: 'CurrentLTFT',
+        aggOne: 'CurrentLTFTCorrected',
       },
       tableTwo: {
-        scalingTwo: 'CruiseLTFT',
+        scalingTwo: 'CurrentLTFT',
         aggTwo: 'count',
       },
       newTable: {
-        newScaling: 'CruiseLTFT',
-        newAgg: 'CruiseLTFTCorrectedWithCount'
+        newScaling: 'CurrentLTFT',
+        newAgg: 'CurrentLTFTCorrectedWithCount'
       },
-      aggregator: (load, CruiseLTFTCount) => {
-        if (CruiseLTFTCount > 0) {
+      aggregator: (load, CurrentLTFTCount) => {
+        if (CurrentLTFTCount > 0) {
           return load
         }
         return 0
@@ -589,30 +589,54 @@ export class MapFixer {
 
     this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #3',
-      scaling: 'CruiseLTFT',
-      agg: 'CruiseLTFTCorrectedWithCount',
+      scaling: 'CurrentLTFT',
+      agg: 'CurrentLTFTCorrectedWithCount',
       tabs: true,
       formatter: v => Number(v).toFixed(3)
     })
 
-
-    // // print smooth afr diffs 
-    // debug && this.romHandler.PrintTable({
-    //   tableName: 'MAP based Load Calc #3',
-    //   scaling: 'AFR',
-    //   agg: 'AFRDiffSmooth1',
-    //   tabs: true,
-    //   formatter: v => Number(v).toFixed(2) 
-    // })
 
     // final loads 
     this.romHandler.PrintTable({
       tableName: 'MAP based Load Calc #3',
-      scaling: 'CruiseLTFT',
-      agg: 'CruiseLTFTCorrectedWithCount',
+      scaling: 'CurrentLTFT',
+      agg: 'CurrentLTFTCorrectedWithCount',
       tabs: true,
       formatter: v => Number(v).toFixed(3)
     })
+
+    this.romHandler.MapCombine({
+      tableName: 'MAP based Load Calc #3',
+      tableOne: {},
+      tableTwo: {
+        scalingTwo: 'CurrentLTFT',
+        aggTwo: 'CurrentLTFTCorrectedWithCount',
+      },
+      newTable: {
+        newScaling: 'CurrentLTFT',
+        newAgg: 'CombinedCurrentLTFTCorrectedWithCount'
+      },
+      isAdvancedAggregator: true,
+      aggregator: (loadTable, correctedLoadTable, y, x) => {
+        let load = loadTable[y][x]
+        let correctedLoad = correctedLoadTable[y][x]
+        let newLoad: number = load
+
+        if (correctedLoad !== 0) {
+          return correctedLoad
+        }
+        return newLoad
+      }
+    })
+
+    this.romHandler.PrintTable({
+      tableName: 'MAP based Load Calc #3',
+      scaling: 'CurrentLTFT',
+      agg: 'CombinedCurrentLTFTCorrectedWithCount',
+      tabs: true,
+      formatter: v => Number(v).toFixed(3)
+    })
+
   }
 
   ShowMapLoadCalcDiff({ debug = false } = {}) {

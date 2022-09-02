@@ -53,8 +53,16 @@ const scalingAliases = {
     insteadUse: 'RPMGain',
     expr: 'x'
   },
+  'CurrentLTFT': {
+    insteadUse: 'CurrentLTFT',
+    expr: 'x'
+  },
   'CruiseLTFT': {
     insteadUse: 'CruiseLTFT',
+    expr: 'x'
+  },
+  'STFT': {
+    insteadUse: 'STFT',
     expr: 'x'
   },
 }
