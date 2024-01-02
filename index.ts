@@ -4,6 +4,13 @@ import {LogChopper} from './log-chopper'
 import {MapFixer} from './map-fixer'
 import dialog from 'node-file-dialog'
 
+let getWot = (logChopper) => {
+  logChopper.delete0ipw()
+  logChopper.DropDeleted()
+  let log = logChopper.log
+  logChopper.WriteChopped()
+}
+
 export const main = async () => {
   let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
@@ -21,9 +28,9 @@ export const main = async () => {
   // logChopper.tagAllForDelete()
   // logChopper.keepIdle()
   // logChopper.keepCruise()
-  // logChopper.deleteLargeTPSChanges()
+  // logChopper.deleteLargeTPSChanges(5, 2)
   logChopper.delete0ipw()
-  logChopper.deleteSTFT0()
+  // logChopper.deleteSTFT0()
   logChopper.DropDeleted()
   let log = logChopper.log
 

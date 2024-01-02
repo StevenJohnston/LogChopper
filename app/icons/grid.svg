@@ -1,0 +1,16 @@
+<svg height="12px" id="Layer_1" version="1.1" viewBox="0 0 12 12"
+  width="12px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg">
+  <g id="grid-2">
+    <path d="M1,1h2v2h-2v-2z" fill="#000000" />
+    <path d="M1,5h2v2h-2v-2z" fill="#000000" />
+    <path d="M1,9h2v2h-2v-2z" fill="#000000" />
+    
+    <path d="M5,1h2v2h-2v-2z" fill="#000000" />
+    <path d="M5,5h2v2h-2v-2z" fill="#000000" />
+    <path d="M5,9h2v2h-2v-2z" fill="#000000" />
+    
+    <path d="m9,1h2v2h-2v-2z" fill="#000000" />
+    <path d="m9,5h2v2h-2v-2z" fill="#000000" />
+    <path d="m9,9h2v2h-2v-2z" fill="#000000" />
+  </g>
+</svg>

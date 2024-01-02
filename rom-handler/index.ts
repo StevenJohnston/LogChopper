@@ -10,60 +10,64 @@ const scalingAliases = {
   'StockXMAP in kPa': {
     // insteadUse: 'PSIG', // tephra logger
     insteadUse: 'MAP', // raxx patch evoscan
-    expr: 'x'
+    expr: 'MAP'
   },
   'Omni4barMAP in kPa': {
     // insteadUse: 'PSIG', // tephra logger
     insteadUse: 'MAP', // raxx patch evoscan
-    expr: 'x'
+    expr: 'MAP'
   },
   'StockXMAP in psig': {
     insteadUse: 'PSIG',
-    expr: 'x'
+    expr: 'PSIG'
   },
   'Loadify': {
     'MAPCalcs': {
       insteadUse: 'MAPCalcs',
-      expr: 'x'
+      expr: 'MAPCalcs'
     },
     'MAFCalcs': {
       insteadUse: 'MAFCalcs',
-      expr: 'x'
+      expr: 'MAFCalcs'
     },
     'AFROffsetSeconds': {
       insteadUse: 'AFROffsetSeconds',
-      expr: 'x'
+      expr: 'AFROffsetSeconds'
     },
     insteadUse: 'Load',
-    expr: 'x'
+    expr: 'Load'
   },
   'Throttle_Main - Stored Minimum Throttle %': {
     insteadUse: 'TPS',
-    expr: 'x/(84/100)'
+    expr: 'TPS/(84/100)'
   },
   'psia8': {
     insteadUse: 'PSIG',
-    expr: 'x - 1.6'
+    expr: 'PSIG - 1.6'
   },
   'AFR': {
     insteadUse: 'AFR',
-    expr: 'x'
+    expr: 'AFR'
   },
   'RPMGain': {
     insteadUse: 'RPMGain',
-    expr: 'x'
+    expr: 'RPMGain'
   },
   'CurrentLTFT': {
     insteadUse: 'CurrentLTFT',
-    expr: 'x'
+    expr: 'CurrentLTFT'
   },
   'CruiseLTFT': {
     insteadUse: 'CruiseLTFT',
-    expr: 'x'
+    expr: 'CruiseLTFT'
   },
   'STFT': {
     insteadUse: 'STFT',
-    expr: 'x'
+    expr: 'STFT'
+  },
+  'LFSTFTAFR': {
+    insteadUse: 'STFT',
+    expr: '(1 - (CurrentLTFT + STFT)/100) * AFR'
   },
 }
 
@@ -402,12 +406,14 @@ export class Rom {
     agg,
     scaling,
     tabs,
+    noAxis,
     formatter
   }: {
     tableName,
     agg,
     scaling,
     tabs,
+    noAxis,
     formatter?
   }) {
     let table = this.tableMap[tableName]
@@ -441,29 +447,38 @@ export class Rom {
       return
     }
     let tableAsString = ''
+    let tableXAxis = ''
     if (table.xAxis) {
       if (table.yAxis) {
         // Y axis padding
-        tableAsString += ''.padStart(tableCellWidth)
+        tableXAxis += ''.padStart(tableCellWidth)
       }
       table.xAxis.values.forEach(xAxisValue => {
-        tableAsString += `${xAxisValue}`.padStart(tableCellWidth)
+        tableXAxis += `${xAxisValue}`.padStart(tableCellWidth)
       })
     }
     tableValues.forEach((y, yIndex) => {
-      tableAsString += '\n'
-      if (table.yAxis) {
+      if (tableAsString !== '') tableAsString += '\n'
+      if (table.yAxis && !noAxis) {
         tableAsString += `${table.yAxis.values[yIndex]}`.padStart(tableCellWidth)
       }
       y.forEach((x) => {
         if (formatter) {
           x = formatter(x)
         }
-        tableAsString += `${x}`.padStart(tableCellWidth)
+        if(!noAxis) {
+          tableAsString += `${x}`.padStart(tableCellWidth)
+        } else {
+          tableAsString += `${x}\t`
+        }
       })
+      tableAsString = tableAsString.substring(0, tableAsString.length - 1)
     })
     if (tabs) {
-      console.log(`\n${tableName} ${scaling} ${agg}\n\t`, tableAsString.split(/(?:(?![\n\r])\s)+/).join('\t'))
+      console.log('\n')
+      console.log(`${tableName} ${scaling} ${agg}`)
+      console.log((noAxis?'':'\t') + tableXAxis.split(/(?:(?![\n\r])\s)+/).join('\t'))
+      console.log(tableAsString.split(/(?:(?![\n\r])\s)+/).join('\t'))
     } else {
       console.log(`\n${tableName} ${scaling} ${agg}\n`, tableAsString)
     }
@@ -494,7 +509,7 @@ export class Rom {
             let { insteadUse, expr } = scalingAliases[xScaling]
             if (!l[insteadUse]) return
 
-            xAxisLogValue = parser.evaluate(expr, { x: l[insteadUse] })
+            xAxisLogValue = parser.evaluate(expr, l)
           }
           let x = nearestIndex(xAxis.values, xAxisLogValue)
 
@@ -570,11 +585,12 @@ export class Rom {
                     var parser = new exprParser()
                     let { insteadUse, expr } = scalingAlias
                     if (!log[insteadUse]) return c2
-                    return c2 + parser.evaluate(expr, { x: log[insteadUse] })
+                    // return c2 + parser.evaluate(expr, { x: log[insteadUse] })
+                    return c2 + parser.evaluate(expr, log)
                   } else if (log[tableScaling] == null) {
                     var parser = new exprParser()
                     let { insteadUse, expr } = scalingAliases[tableScaling]
-                    return c2 + parser.evaluate(expr, { x: log[insteadUse] })
+                    return c2 + parser.evaluate(expr, log)
                   } else {
                     return c2 + log[tableScaling]
                   }
@@ -585,14 +601,14 @@ export class Rom {
                   if (scalingAlias) {
                     var parser = new exprParser()
                     let { insteadUse, expr } = scalingAlias
-                    let logValue = parser.evaluate(expr, { x: log[insteadUse] })
+                    let logValue = parser.evaluate(expr, log)
                     let tableValue = table.values[y][x]
                     let diff = tableValue - logValue
                     return c2 + diff
                   } else if (!log[tableScaling]) {
                     var parser = new exprParser()
                     let { insteadUse, expr } = scalingAliases[tableScaling]
-                    let logValue = parser.evaluate(expr, { x: log[insteadUse] })
+                    let logValue = parser.evaluate(expr, log)
                     let tableValue = table.values[y][x]
                     let diff = tableValue - logValue
                     return c2 + diff
@@ -637,13 +653,18 @@ export class Rom {
     let tableTwoRef = this.tableMap[tableTwoName]
 
     let aggOneTable = tableRef.values
-    if (aggOne) {
-      aggOneTable = tableRef[scalingOne][aggOne]
+    if (scalingOne) {
+      aggOneTable = tableRef[scalingOne]
+      if (aggOne) {
+        aggOneTable = tableRef[scalingOne][aggOne]
+      }
     }
-
     let aggTwoTable = tableTwoRef.values
-    if (aggTwo) {
-      aggTwoTable = tableTwoRef[scalingTwo][aggTwo]
+    if (scalingTwo) {
+      aggTwoTable = tableTwoRef[scalingTwo]
+      if (aggTwo) {
+        aggTwoTable = tableTwoRef[scalingTwo][aggTwo]
+      }
     }
     if (!tableRef[newScaling]) {
       tableRef[newScaling] = {}

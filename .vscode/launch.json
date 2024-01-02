@@ -73,6 +73,31 @@
       "program": "${workspaceFolder}\\index.ts",
       "args": ["--log", 
         "C:\\Users\\Steven\\Google Drive\\Evoman\\scans\\LiveTuna-Steven Johnston - JA32W8FV4FU604417 - 095 096  - alt 1 - wgdcredline.hex.bin-20190801-18.07.19.csv", "-a", "-t", "0", "-c", "2", "-f", "-l", "0"]
+    },
+    
+    {
+      "name": "Next.js: debug server-side",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Next.js: debug client-side",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "Next.js: debug full stack",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "serverReadyAction": {
+        "pattern": "- Local:.+(https?://.+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
     }
+    
   ]
 }

@@ -156,17 +156,16 @@ export class LogChopper {
 
   deleteLargeTPSChanges(period: number = 1, TPSChange: number = 5) {
     this.log.forEach((log, index, logs) => {
-      //get log 1 second in the future
-      for (let i = index; i < logs.length; i++) {
-        let endLog = logs[i]
-        if (endLog.LogEntrySeconds - log.LogEntrySeconds > period) {
+      for (let i = index; i > 0; i--) {
+        let pastLog = logs[i]
+        if (log.LogEntrySeconds - pastLog.LogEntrySeconds > period) {
           break;
         }
-        if (Math.abs(endLog.TPS - log.TPS) > TPSChange) {
+        if (Math.abs(pastLog.TPS - log.TPS) > TPSChange) {
           log.delete = true
           log.deleteReason = "TPS change"
-          endLog.delete = true
-          endLog.deleteReason = "TPS change"
+          pastLog.delete = true
+          pastLog.deleteReason = "TPS change"
         }
       }
     })
