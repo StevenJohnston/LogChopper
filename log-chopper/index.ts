@@ -47,9 +47,9 @@ interface LogRecord {
   MAFCalcs?: number;
   // ChosenCalc?: string;
   // AFROffsetSeconds?: string;
-  
-  
-  
+
+
+
   RPMGain?: number;
   delete?: boolean;
   deleteReason?: string;
@@ -67,7 +67,7 @@ export class LogChopper {
 
   async LoadLogs() {
     if (typeof this.fileName == "string") {
-      let loadedLog  = await this.loadLog(this.fileName)
+      let loadedLog = await this.loadLog(this.fileName)
       this.log = this.log.concat(removeTimeout(loadedLog))
     } else {
       await this.loadLog(this.fileName[0]).then((jsonObj) => {
@@ -78,15 +78,15 @@ export class LogChopper {
 
   async loadLog(fileName): Promise<LogRecord[]> {
     return csv({
-      checkType:true,
+      checkType: true,
     })
-    .fromFile(fileName)
+      .fromFile(fileName)
   }
 
   // shifts AFR records down offset count
   ShiftAfr() {
     this.log = this.log.map((v, i, arr) => {
-      let offsetSeconds = (100/v.MAP) / v.RPM * 1000 
+      let offsetSeconds = (100 / v.MAP) / v.RPM * 1000
       for (let futureI = i; futureI < arr.length; futureI++) {
         let futureLog = arr[futureI]
         if (futureLog.LogEntrySeconds - v.LogEntrySeconds > offsetSeconds) {
@@ -114,7 +114,7 @@ export class LogChopper {
           }
         }
       }
-      return v 
+      return v
     })
   }
 
@@ -175,10 +175,10 @@ export class LogChopper {
     let wots = []
     for (let i = 0; i < this.log.length; i++) {
       let l = this.log[i]
-      if (l.TPS >= tpsThreshold ) {
+      if (l.TPS >= tpsThreshold) {
         let wotStart = i
-        while(wotStart > 0) {
-          let wotLog = this.log[wotStart-1]
+        while (wotStart > 0) {
+          let wotLog = this.log[wotStart - 1]
           if (wotLog.LogEntrySeconds > l.LogEntrySeconds - timeThreshold) {
             wotStart--
           } else {
@@ -186,7 +186,7 @@ export class LogChopper {
           }
         }
 
-        while(i < this.log.length - 1) {
+        while (i < this.log.length - 1) {
           if (this.log[i].TPS > tpsThreshold) {
             i++
           } else {
@@ -196,8 +196,8 @@ export class LogChopper {
 
         l = this.log[i]
         let wotEnd = i
-        while(wotEnd < this.log.length) {
-          let wotLog = this.log[wotEnd+1]
+        while (wotEnd < this.log.length) {
+          let wotLog = this.log[wotEnd + 1]
           if (wotLog && wotLog.LogEntrySeconds < l.LogEntrySeconds + timeThreshold) {
             wotEnd++
           } else {
@@ -269,8 +269,8 @@ export class LogChopper {
 
     let logsIter = iter(logs)
     // let log = logsIter.next()
-    for(const log of logsIter) {
-    // while (!log.done) {
+    for (const log of logsIter) {
+      // while (!log.done) {
       lower = lowerIter.next((l: LogRecord): boolean => l.LogEntrySeconds > log.item.LogEntrySeconds - period && l.LogEntrySeconds <= log.item.LogEntrySeconds)
       yield ({
         logsSlice: logs.slice(lower.value.index, log.index),
@@ -330,7 +330,7 @@ export class LogChopper {
     const csv = json2csvParser.parse(this.log)
     fs.writeFileSync(`${logRoot}${this.fileName}-chopped.csv`, csv)
   }
-  
+
   WriteChoppedWot() {
     const json2csvParser = new Parser({ fields: this.fields })
     const csv = json2csvParser.parse(this.wots.reduce((all, wot) => {
@@ -346,7 +346,7 @@ function removeTimeout(jsonObj) {
 }
 
 interface TillCallback<T> {
-  (T):boolean
+  (T): boolean
 }
 
 // Calling .next(till) will loop till(item) is true
@@ -356,7 +356,7 @@ function* iterTill<T>(items: T[]): Iterator<T, any, TillCallback<T>> {
   let next = itemIter.next()
   while (!next.done) {
     till = yield next.value
-    while(!next.done) {
+    while (!next.done) {
       if (till(next.value)) break
       next = itemIter.next()
     }

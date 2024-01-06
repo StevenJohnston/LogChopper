@@ -36,15 +36,15 @@ var scalings = [{
 scalings = []
 
 const tableAttrMap = {
-  'name' : 'name',
-  'category' : 'category',
-  'address' : 'address',
-  'type' : 'type',
-  'swapxy' : {
-    'func': s => s == 'true',
+  'name': 'name',
+  'category': 'category',
+  'address': 'address',
+  'type': 'type',
+  'swapxy': {
+    'func': (s: string) => s == 'true',
     'key': 'swapxy',
   },
-  'scaling' : 'scaling',
+  'scaling': 'scaling',
 }
 
 var table = [{
@@ -106,23 +106,23 @@ async function getAllRoms() {
 
 async function fetchRom(fileName) {
   return new Promise((resolve, reject) => {
-    fs.readFile(romRoot + fileName, function(err, data) {
+    fs.readFile(romRoot + fileName, function (err, data) {
+      if (err) {
+        resolve()
+        return
+      }
+      parser.parseString(data, function (err, result) {
         if (err) {
+          // reject(err)
           resolve()
           return
         }
-        parser.parseString(data, function (err, result) {
-            if (err) {
-              // reject(err)
-              resolve()
-              return
-            }
-            if (result.rom == undefined) {
-              reject("rom element missing from xml")
-              return
-            }
-            resolve(result.rom)
-        });
+        if (result.rom == undefined) {
+          reject("rom element missing from xml")
+          return
+        }
+        resolve(result.rom)
+      });
     });
   })
 }
@@ -171,7 +171,7 @@ function mapTable(table) {
   } else if (table.table.length == 2) {
     mappedTable.type = '3D'
   } else {
-    console.log ('how we have more than a 2d table')
+    console.log('how we have more than a 2d table')
     return
   }
 
@@ -188,13 +188,13 @@ function mapTable(table) {
         // check x
         if (mappedTable.xAxis) {
           if (mappedTable.xAxis.name == axisAttrs.name) {
-            mappedTable.xAxis = {...mappedTable.xAxis, ...mapAxis(axis)}
+            mappedTable.xAxis = { ...mappedTable.xAxis, ...mapAxis(axis) }
             break
           }
         }
         if (mappedTable.yAxis) {
           if (mappedTable.yAxis.name == axisAttrs.name) {
-            mappedTable.yAxis = {...mappedTable.yAxis, ...mapAxis(axis)}
+            mappedTable.yAxis = { ...mappedTable.yAxis, ...mapAxis(axis) }
             break
           }
         }
@@ -203,11 +203,11 @@ function mapTable(table) {
       case "X Axis":
         let xAxis = mapAxis(axis)
         mappedTable.xAxis = xAxis
-      break
+        break
       case "Y Axis":
         let yAxis = mapAxis(axis)
         mappedTable.yAxis = yAxis
-      break
+        break
       case "Static X Axis":
         dropTable = true
         break
@@ -219,7 +219,7 @@ function mapTable(table) {
         dropTable = true
     }
   })
-  
+
   if (dropTable) {
     return
   }
@@ -270,9 +270,9 @@ export const GetRom = async (romId) => {
   scalings.forEach((scaling) => {
     scalingsMap[scaling.name] = scaling
   })
-  return {tables, scalingsMap}
+  return { tables, scalingsMap }
 }
-export const Tables = tables 
+export const Tables = tables
 export const ScalingsMap = scalingMap
 
 export default {

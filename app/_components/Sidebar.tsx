@@ -1,15 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import DirectoryFile from "./DirectoryFile"
 
 export interface SidebarProps {
-  directoryHandle: FileSystemDirectoryHandle
+  directoryHandle?: FileSystemDirectoryHandle
   setDirectoryHandle: (directoryHandle: FileSystemDirectoryHandle) => void
   setSelectedRomMetadataHandle: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRomMetadataHandle: FileSystemFileHandle
+  selectedRomMetadataHandle?: FileSystemFileHandle
   setSelectedRom: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRom: FileSystemFileHandle
+  selectedRom?: FileSystemFileHandle
   className: string
 }
 

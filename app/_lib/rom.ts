@@ -3,10 +3,6 @@ import { Axis, Scaling, Table } from "./rom-metadata";
 import { Parser as exprParser } from "expr-eval";
 import { sprintf } from 'sprintf-js'
 
-export function getRomBuffer(fileHandle: FileSystemFileHandle) {
-
-}
-
 // Returns table filled with data from rom, inclues axis
 export async function getFilledTable(romFileHandle: FileSystemFileHandle, scalingMap: Record<string, Scaling>, table: Table): Promise<Table> {
   let newTable = { ...table }
@@ -25,12 +21,20 @@ export async function getFilledTable(romFileHandle: FileSystemFileHandle, scalin
 }
 
 
-function fillAxis(romBuffer: DataView, scalingMap: Record<string, Scaling>, axis: Axis) {
+function fillAxis(romBuffer: DataView, scalingMap: Record<string, Scaling>, axis: Axis): Axis {
   // get scaling
   let newAxis = { ...axis }
   let { address, elements, scaling } = axis
+  if (!scaling || !elements || !address) {
+    console.log("Error fillAxis scaling, elements, or address is missing")
+    return {}
+  }
   newAxis.scalingValue = scalingMap[scaling]
   let { storageType, endian, toExpr, format } = scalingMap[scaling]
+  if (!storageType || !endian || !toExpr || !format) {
+    console.log("Error fillAxis storageType, endian, toExpr, or format is missing")
+    return {}
+  }
   let { reader, byteCount } = typeToReader[storageType]
   if (!reader || !byteCount) {
     console.log(`missing storagetype for axis scaling: ${scaling} storageType: ${storageType} endian: ${endian}`)
@@ -39,6 +43,7 @@ function fillAxis(romBuffer: DataView, scalingMap: Record<string, Scaling>, axis
   for (let i = 0; i < elements; i++) {
     var parser = new exprParser()
     let offset = parseInt(address, 16) + i * byteCount
+    // @ts-ignore:next-line
     let value = romBuffer[reader](offset)
     let displayValue = value
     if (toExpr) {
@@ -53,19 +58,24 @@ function fillAxis(romBuffer: DataView, scalingMap: Record<string, Scaling>, axis
   return newAxis
 }
 
-function fillTable(romBuffer: DataView, scalingMap: Record<string, Scaling>, table: Table) {
+function fillTable(romBuffer: DataView, scalingMap: Record<string, Scaling>, table: Table): Table {
   let newTable = { ...table }
   let { address, scaling, swapxy, xAxis, yAxis } = table
+  if (!address || !scaling || !swapxy || !xAxis || !yAxis) {
+    console.log("error fillTable missing one of address, scaling, swapxy, xAxis, yAxis")
+    return {}
+  }
   newTable.scalingValue = scalingMap[scaling]
   let { storageType, endian, toExpr, format } = scalingMap[scaling]
-  let reader, byteCount = undefined
-  try {
-    let obj = typeToReader[storageType]
-    reader = obj.reader
-    byteCount = obj.byteCount
-  } catch (e) {
-    if (storageType == "bloblist") return
+
+  if (!storageType || !endian || !toExpr || !format) {
+    console.log("error fillTable missing one of  storageType, endian, toExpr, format")
+    return {}
   }
+  // let reader, byteCount = undefined
+  let { reader, byteCount } = typeToReader[storageType]
+  if (storageType == "bloblist") return {}
+
   if (!reader || !byteCount) {
     console.log(`missing storagetype for table scaling: ${scaling} storageType: ${storageType} endian: ${endian}`)
   }
@@ -79,6 +89,7 @@ function fillTable(romBuffer: DataView, scalingMap: Record<string, Scaling>, tab
     let offset = parseInt(address, 16) + i * byteCount
     let value
     try {
+      // @ts-ignore:next-line
       value = romBuffer[reader](offset, endian == 'little')
     } catch (e) {
       debugger
@@ -96,15 +107,16 @@ function fillTable(romBuffer: DataView, scalingMap: Record<string, Scaling>, tab
       case "3D":
         let x, y
         if (swapxy) {
-          x = Math.floor(i / yAxis.elements)
-          y = i - (x * yAxis.elements)
+          x = Math.floor(i / yAxis.elements!)
+          y = i - (x * yAxis.elements!)
         } else {
-          y = Math.floor(i / xAxis.elements)
-          x = i - (y * xAxis.elements)
+          y = Math.floor(i / xAxis.elements!)
+          x = i - (y * xAxis.elements!)
         }
 
         if (!newTable.values) newTable.values = []
         if (!newTable.values[y]) newTable.values[y] = []
+        // @ts-ignore:next-line
         newTable.values[y][x] = displayValue
         break
       case "2D":
@@ -113,6 +125,7 @@ function fillTable(romBuffer: DataView, scalingMap: Record<string, Scaling>, tab
           newTable.values[i] = [displayValue]
         } else if (xAxis) {
           if (!newTable.values) newTable.values = [[]]
+          // @ts-ignore:next-line
           newTable.values[0][i] = displayValue
         } else {
           console.log(`2d table missing x and y axis ${newTable.name}`)

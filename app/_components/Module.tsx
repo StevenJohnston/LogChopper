@@ -1,6 +1,5 @@
 import { Scaling, Table } from "../_lib/rom-metadata";
 import RomModuleUI from "./RomModuleUI";
-import TableUI from "./TableUI";
 
 export interface Module {
   table: Table
@@ -8,9 +7,9 @@ export interface Module {
 }
 
 interface ModuleProps {
-  selectedRom: FileSystemFileHandle
   module: Module
-  scalingMap: Record<string, Scaling>
+  selectedRom?: FileSystemFileHandle
+  scalingMap?: Record<string, Scaling>
 }
 
 const ModuleUI: React.FC<ModuleProps> = ({

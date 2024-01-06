@@ -1,11 +1,4 @@
-// import fs from 'fs'
-import { Parser as exprParser } from "expr-eval";
 import xml2js from 'xml2js'
-import { sprintf } from 'sprintf-js'
-import { typeToReader } from './consts'
-
-// var exprEval = require('expr-eval')
-
 
 export interface RomMetadata {
   romid: Romid[]
@@ -32,6 +25,33 @@ export interface Romid {
 export interface Scaling {
   $?: GeneratedType
   data?: Daum[]
+
+  name?:
+  "StockXMAP in kPa" |
+  "Omni4barMAP in kPa" |
+  "StockXMAP in psig" |
+  "Loadify" |
+  "Throttle_Main - Stored Minimum Throttle %" |
+  "psia8" |
+  "AFR" |
+  "RPMGain" |
+  "CurrentLTFT" |
+  "CruiseLTFT" |
+  "STFT" |
+  "LFSTFTAFR"
+
+
+  storageType?: string
+  units?: string
+  frExpr?: string
+  toExpr?: string
+  min?: string
+  max?: string
+  inc?: number
+  format?: string
+  endian?: string
+
+  [key: string]: any
 }
 
 export interface GeneratedType {
@@ -71,7 +91,8 @@ export interface Table {
   yAxis?: Axis
   valid?: boolean
 
-  scalingValue: Scaling
+  scalingValue?: Scaling
+  [key: string]: any
 }
 
 export interface GeneratedType3 {
@@ -82,6 +103,10 @@ export interface GeneratedType3 {
   scaling?: string
   description?: string
   swapxy?: string
+  // swapxy?: {
+  //   func: (s: string) => boolean,
+  //   key: 'swapxy',
+  // }
 }
 
 export interface Table2 {
@@ -112,29 +137,17 @@ export const scalingMap = {
   'endian': 'endian',
 }
 
-export interface Scaling {
-  name?: string
-  storageType?: string
-  units?: string
-  frExpr?: string
-  toExpr?: string
-  min?: string
-  max?: string
-  inc?: number
-  format?: string
-  endian?: string
-}
-
 const tableAttrMap = {
   'name': 'name',
   'category': 'category',
   'address': 'address',
   'type': 'type',
   'swapxy': {
-    'func': s => s == 'true',
+    'func': (s: string) => s == 'true',
     'key': 'swapxy',
   },
   'scaling': 'scaling',
+  'description': 'description'
 }
 
 export interface Axis {
@@ -144,7 +157,9 @@ export interface Axis {
   elements?: number
   values?: any[]
 
-  scalingValue: Scaling
+  scalingValue?: Scaling
+
+  [key: string]: any
 }
 
 
@@ -154,7 +169,7 @@ const axisMap = {
   'type': 'type',
   'address': 'address',
   'elements': 'elements',
-  'scaling': 'scaling',
+  'scaling': 'scaling'
 }
 
 async function getAllRomMetadata(selectedDirectoryHandle: FileSystemDirectoryHandle): Promise<Promise<RomMetadata>[]> {
@@ -183,16 +198,32 @@ async function getAllRomMetadata(selectedDirectoryHandle: FileSystemDirectoryHan
 
 export async function getAllRomMetadataMap(selectedDirectoryHandle: FileSystemDirectoryHandle): Promise<Record<string, RomMetadata>> {
   const romMetadataArrayPromises = await getAllRomMetadata(selectedDirectoryHandle)
-  const romMetadataArray = await Promise.allSettled(romMetadataArrayPromises)
+  const romMetadataArray = (await Promise.allSettled(romMetadataArrayPromises)).filter(result => result.status == 'fulfilled' && result.value) as unknown as PromiseFulfilledResult<RomMetadata>[]
 
-  const romMetadataMap = romMetadataArray.filter(result => result.status == 'fulfilled' && result.value).reduce((acc, cur: PromiseFulfilledResult<RomMetadata>) => {
+  return romMetadataArray.reduce((acc: Record<string, RomMetadata>, cur) => {
     let xmlId = cur.value.romid[0].xmlid[0]
-    if (!acc[xmlId]) acc[xmlId] = {}
-    acc[xmlId] = { ...cur.value, ...acc[xmlId] }
+    if (!acc[xmlId]) {
+      acc[xmlId] = { ...cur.value }
+    } else {
+      acc[xmlId] = { ...cur.value, ...acc[xmlId] }
+    }
     return acc
   }, {})
 
-  return romMetadataMap
+
+  // const romMetadataMap: Record<string, RomMetadata> = romMetadataArray
+  //   .filter()
+  //   .reduce((acc: Record<string, RomMetadata>, cur: PromiseFulfilledResult<RomMetadata>): Record<string, RomMetadata> => {
+  //     let xmlId = cur.value.romid[0].xmlid[0]
+  //     if (!acc[xmlId]) {
+  //       acc[xmlId] = { ...cur.value }
+  //     } else {
+  //       acc[xmlId] = { ...cur.value, ...acc[xmlId] }
+  //     }
+  //     return acc
+  //   }, {})
+
+  // return romMetadataMap
 }
 
 async function fetchRomMetadata(fileHandle: FileSystemFileHandle): Promise<RomMetadata> {
@@ -218,7 +249,7 @@ async function buildRomTables(romMetadataMap: Record<string, RomMetadata>, romId
     })
     rom.table && rom.table.forEach((table) => {
       let mappedTable = mapTable(tableMap, table)
-      if (mappedTable) {
+      if (mappedTable?.name) {
         tableMap[mappedTable.name] = mappedTable
       } else {
         console.log("what")
@@ -237,20 +268,22 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
   const attrs = table['$']
 
   let mappedTable: Table = {}
-  if (tableMap[table.$.name]) {
+  if (table?.$?.name && tableMap[table.$.name]) {
 
     mappedTable = { ...tableMap[table.$.name] }
   }
 
-  Object.keys(attrs).map((key) => {
-    let finalAttrValue = attrs[key]
-    let finalAttrKey = tableAttrMap[key]
+  Object.keys(attrs || {}).map((key) => {
+    let finalAttrValue: string | boolean = attrs?.[key as keyof GeneratedType3] || ""
+    let finalAttrKey = tableAttrMap[key as keyof GeneratedType3]
 
     if (typeof finalAttrKey == 'object') {
       finalAttrValue = finalAttrKey['func'](finalAttrValue)
       finalAttrKey = finalAttrKey['key']
     }
-    mappedTable[finalAttrKey] = finalAttrValue
+    if (finalAttrKey !== undefined) {
+      mappedTable[finalAttrKey as keyof Table] = finalAttrValue
+    }
   })
 
   if (table.table == undefined) {
@@ -261,12 +294,10 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
     mappedTable.type = '3D'
   } else {
     console.log('how we have more than a 3d table')
-    return
+    return null
   }
 
-  let axisCount = table.table && table.table.length
-
-  table.table && table.table.forEach((axis, axisIndex, table) => {
+  table.table && table.table.forEach((axis) => {
     const axisAttrs = axis['$']
     const axisType = axisAttrs.type
     switch (axisType) {
@@ -310,7 +341,7 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
   })
 
   if (dropTable) {
-    return
+    return null
   }
 
   if (mappedTable.type == '3D') {
@@ -321,34 +352,36 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
   return mappedTable
 }
 
-function mapAxis(axis): Axis {
+function mapAxis(axis: Table2): Axis {
   const attrs = axis['$']
-  let mappedAxis = {}
+  let mappedAxis: Axis = {}
   Object.keys(attrs).map((key) => {
-    let finalAttrValue = attrs[key]
-    let finalAttrKey = axisMap[key]
+    let finalAttrValue: string = attrs?.[key as keyof GeneratedType4] || ""
+    let finalAttrKey = axisMap[key as keyof typeof axisMap]
 
-    if (typeof finalAttrKey == 'object') {
-      finalAttrKey = finalAttrKey['key']
-      finalAttrValue = finalAttrKey['func'](finalAttrValue)
-    }
+    // if (typeof finalAttrKey == 'object') {
+    //   finalAttrKey = finalAttrKey['key']
+    //   finalAttrValue = finalAttrKey['func'](finalAttrValue) ? 'true' : 'false'
+    // }
     mappedAxis[finalAttrKey] = finalAttrValue
   })
-  if (axis.name && !axis.scaling) {
-    axis.scaling = axis.name
-  }
+  // if (axis.name && !axis.scaling) {
+  //   axis.scaling = axis.name
+  // }
 
   return mappedAxis
 }
 
-function mapScaling(scaling): Scaling {
+function mapScaling(scaling: Scaling): Scaling {
   const attrs = scaling['$']
+  console.log('mapScaling missing "$"')
+  if (!attrs) return {}
   let mappedScaling: Scaling = {}
-  Object.keys(attrs).map((key) => {
-    if (!scalingMap[key]) {
+  Object.keys(attrs || {}).map((key) => {
+    if (!scalingMap[key as keyof typeof scalingMap]) {
       console.log(`unknown scalling attribute ${key}`)
     }
-    mappedScaling[scalingMap[key]] = attrs[key]
+    mappedScaling[scalingMap[key as keyof typeof scalingMap]] = attrs[key as keyof typeof attrs]
   })
   return mappedScaling
 }
@@ -361,7 +394,8 @@ export const LoadRomMetadata = async (selectedDirectoryHandle: FileSystemDirecto
 
   let [scalings, tableMap] = await buildRomTables(allRomMetadataMap, selectedRom.romid[0].xmlid[0])
 
-  const scalingMap = scalings.reduce((acc: Record<string, Scaling>, cur) => {
+  const scalingMap = scalings.reduce((acc: Record<string, Scaling>, cur: Scaling) => {
+    if (!cur.name) return acc
     if (!acc[cur.name]) acc[cur.name] = {}
     acc[cur.name] = { ...cur, ...acc[cur.name] }
     return acc

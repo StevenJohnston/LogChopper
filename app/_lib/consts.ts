@@ -62,16 +62,18 @@ export const scalingAliases = {
   'LFSTFTAFR': {
     insteadUse: 'STFT',
     expr: '(1 - (CurrentLTFT + STFT)/100) * AFR'
-  },
+  }
+
 }
 
-export function getScalingAlias(scaling: Scaling): string {
-  return scalingAliases?.[scaling.name]?.['insteadUse'] || scaling?.name || '?'
+export function getScalingAlias(scaling: Scaling | undefined): string {
+  if (!scaling?.name) return '?'
+  return scalingAliases[scaling.name]?.['insteadUse'] || scaling?.name || '?'
 }
 
 interface reader {
-  [key: undefined | string]: {
-    reader: string,
+  [key: string]: {
+    reader: keyof DataView,
     byteCount: number
   }
 }

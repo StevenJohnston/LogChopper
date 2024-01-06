@@ -8,25 +8,31 @@ import { useMemo } from 'react';
 interface SurfaceProps {
   table: Table
 }
+
+type MinMax = [number, number]
+type point3d = [number, number, number]
 // https://echarts.apache.org/en/option-gl.html#grid3D
 const Surface: React.FC<SurfaceProps> = ({ table }) => {
   if (table?.type !== '3D') return <></>
 
-  const data = useMemo(() => {
+  const data: point3d[] = useMemo(() => {
     return table?.values?.map((row, rowI) => {
-      return row.map((cell, cI) => {
-
-        return [parseFloat(table.xAxis.values[cI]), parseFloat(table.yAxis.values[rowI]), cell]
-      })
-    }).flat()//.filter(([x, y, z]) => !isNaN(x))
+      if (Array.isArray(row)) {
+        const point3d: [number, number, number][] = row?.map((cell, cI) => {
+          return [parseFloat(table.xAxis?.values?.[cI]), parseFloat(table.yAxis?.values?.[rowI]), parseFloat(cell.toString())]
+        }) || []
+        return point3d
+      }
+      return []
+    }).flat() || []//.filter(([x, y, z]) => !isNaN(x))
   }, [table])
 
 
-  const [min, max]: [number, number] = useMemo(() => {
-    return data?.reduce(([min, max], cur) => {
+  const [min, max]: MinMax = useMemo(() => {
+    return data?.reduce(([min, max]: MinMax, cur: point3d): MinMax => {
       return [
-        min < cur ? min : cur,
-        max < cur ? max : cur,
+        min < (cur[2] || Infinity) ? min : cur[2],
+        max < (cur[2] || -Infinity) ? max : cur[2],
       ]
     }, [Infinity, -Infinity]) || [0, 0]
   }, [data])

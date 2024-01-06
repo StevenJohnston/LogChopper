@@ -6,11 +6,11 @@ import { useCallback, useEffect, useState } from "react"
 import Sidebar from "./_components/Sidebar"
 import ModuleDisplay from "./_components/ModuleDisplay"
 
-import { getAllRomMetadataMap, LoadRomMetadata, RomMetadata, Scaling, Table } from './_lib/rom-metadata';
+import { LoadRomMetadata, Scaling, Table } from './_lib/rom-metadata';
 import TableSelector from './_components/TableSelector';
 import { Module } from './_components/Module';
 
-async function findFileByName(directory: FileSystemDirectoryHandle, fileName: string): Promise<FileSystemFileHandle> {
+async function findFileByName(directory: FileSystemDirectoryHandle, fileName: string): Promise<FileSystemFileHandle | null> {
   try {
 
     for await (const entry of directory.values()) {
@@ -36,9 +36,9 @@ export default function RootLayout() {
   const [selectedRomMetadataHandle, setSelectedRomMetadataHandle] = useState<FileSystemFileHandle>()
   const [selectedRom, setSelectedRom] = useState<FileSystemFileHandle>()
 
-  const [selectedTable, setSelectedTable] = useState<Table>()
-  const [selectedRomMetadata, setSelectedRomMetadata] = useState<RomMetadata>()
-  const [romMetadataMap, setRomMetadataMap] = useState<Record<string, RomMetadata>>()
+  // const [selectedTable, setSelectedTable] = useState<Table>()
+  // const [selectedRomMetadata, setSelectedRomMetadata] = useState<RomMetadata>()
+  // const [romMetadataMap, setRomMetadataMap] = useState<Record<string, RomMetadata>>()
 
 
   const [scalingMap, setScalingMap] = useState<Record<string, Scaling>>()
@@ -51,7 +51,7 @@ export default function RootLayout() {
     (async () => {
       // Load all metadata files
 
-      setRomMetadataMap(await getAllRomMetadataMap(directoryHandle))
+      // setRomMetadataMap(await getAllRomMetadataMap(directoryHandle))
       // Set selectedRomMetadata to default
       const defaultRomMetadata = await findFileByName(directoryHandle, 'TephraMOD-59580304.xml')
       if (!defaultRomMetadata) return
@@ -63,8 +63,9 @@ export default function RootLayout() {
 
       setSelectedRomMetadataHandle(defaultRomMetadata)
       const defaultRom = await findFileByName(directoryHandle, 'Steven Johnston 2.0L 8474 ID1300 GSC S2 FR3.5 Intake 94 oct V3.17.00.6.srf')
-
-      setSelectedRom(defaultRom)
+      if (defaultRom) {
+        setSelectedRom(defaultRom)
+      }
       // setSelectRom to default
     })()
   }, [directoryHandle])

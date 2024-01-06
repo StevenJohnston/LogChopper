@@ -1,22 +1,22 @@
 import xmlWrapper from './xml-wrapper'
-import {Rom} from './rom-handler'
-import {LogChopper} from './log-chopper'
-import {MapFixer} from './map-fixer'
+import { Rom } from './rom-handler'
+import { LogChopper } from './log-chopper'
+import { MapFixer } from './map-fixer'
 import dialog from 'node-file-dialog'
 
-let getWot = (logChopper) => {
-  logChopper.delete0ipw()
-  logChopper.DropDeleted()
-  let log = logChopper.log
-  logChopper.WriteChopped()
-}
+// let getWot = (logChopper) => {
+//   logChopper.delete0ipw()
+//   logChopper.DropDeleted()
+//   let log = logChopper.log
+//   logChopper.WriteChopped()
+// }
 
 export const main = async () => {
-  let {tables, scalingsMap} = await xmlWrapper.GetRom('59580304')
+  let { tables, scalingsMap } = await xmlWrapper.GetRom('59580304')
   tables = filterAddressless(tables)
 
   //ask for log file
-  const config={type:'open-file'}
+  const config = { type: 'open-file' }
   let dir = await dialog(config)
   dir = dir[0].split('/').join('\\')
   const logChopper = new LogChopper(dir)
@@ -57,7 +57,7 @@ export const main = async () => {
 
   let mapFixer = new MapFixer(rom)
   // mapFixer.ScaleMapToMaf({debug: true, minCount: 100})
-  mapFixer.ScaleMapToLTFT({debug: true})
+  mapFixer.ScaleMapToLTFT({ debug: true })
   // mapFixer.LogCounts()
   // mapFixer.AfrFix()
   // mapFixer.ShowBoost() // doesnt work

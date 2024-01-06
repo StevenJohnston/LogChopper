@@ -36,9 +36,10 @@ interface TableUIProps {
 
 //   return hexColor;
 // }
-const getColor = (Scaling: Scaling, value) => {
-  const xAxisMin = parseFloat(Scaling.min)
-  const xAxisMax = parseFloat(Scaling.max)
+const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
+  if (!scaling || !value) return
+  const xAxisMin = parseFloat(scaling.min || '')
+  const xAxisMax = parseFloat(scaling.max || '')
   var colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
   let color = colorScale.getColor(value)
   return color.toHexString()
@@ -51,19 +52,21 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
     let maxWidth = 0
     // Get the max width of colomn names
     if (table.xAxis) {
-      table.xAxis.values.forEach((value) => {
-        let width = sprintf(table?.xAxis?.scalingValue?.format, value).length
+      table.xAxis.values?.forEach((value) => {
+        let width = sprintf(table?.xAxis?.scalingValue?.format || '', value).length
         if (width > maxWidth) maxWidth = width
       })
     }
     table.values?.forEach?.((row) => {
       if (Array.isArray(table.values)) {
-        row.forEach((cell) => {
-          let width = sprintf(table?.scalingValue?.format, cell).length
-          if (width > maxWidth) maxWidth = width
-        })
+        if (Array.isArray(row)) {
+          row.forEach((cell) => {
+            let width = sprintf(table?.scalingValue?.format || '', cell).length
+            if (width > maxWidth) maxWidth = width
+          })
+        }
       } else {
-        let width = sprintf(table?.scalingValue?.format, row).length
+        let width = sprintf(table?.scalingValue?.format || '', row).length
         if (width > maxWidth) maxWidth = width
       }
     })
@@ -87,30 +90,30 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                 table?.xAxis?.values?.map((value) => {
                   return (
                     <th
-                      style={{ backgroundColor: getColor(table.xAxis.scalingValue, value), width: `${maxWidth * 10}px` }}
+                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth * 10}px` }}
                       className="border border-gray-300"
                     >
-                      {sprintf(table?.xAxis?.scalingValue?.format, value)}
+                      {sprintf(table?.xAxis?.scalingValue?.format || '', value)}
                     </th>
                   )
-                }) || <th>{table.scalingValue.name}</th>
+                }) || <th>{table.scalingValue?.name}</th>
               }
             </tr>
           </thead>
           <tbody>
             {
               table?.values?.map((row: (string | number | (string | number)[]), i) => {
-                let yAxisValue = table?.yAxis?.values[i]
+                let yAxisValue = table?.yAxis?.values?.[i]
                 return (
                   <tr>
                     {yAxisValue &&
                       <th
                         className="px-2 border border-gray-300 sticky"
-                        style={{ backgroundColor: getColor(table.yAxis.scalingValue, yAxisValue) }}
+                        style={{ backgroundColor: getColor(table.yAxis?.scalingValue, yAxisValue) }}
                       >
-                        {sprintf(table?.yAxis?.scalingValue?.format, yAxisValue)}
+                        {sprintf(table?.yAxis?.scalingValue?.format || '', yAxisValue)}
                       </th> ||
-                      <th>{table.scalingValue.name}</th>
+                      <th>{table.scalingValue?.name}</th>
                     }
                     {
                       Array.isArray(row) &&
@@ -118,9 +121,9 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                         return (
                           <td
                             className="text-center border border-gray-300"
-                            style={{ backgroundColor: getColor(table.scalingValue, cell) }}
+                            style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
                           >
-                            {sprintf(table?.scalingValue?.format, cell)}
+                            {sprintf(table?.scalingValue?.format || '', cell)}
                           </td>
                         )
                       })

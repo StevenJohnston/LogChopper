@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect } from "react"
 import ModuleUI, { Module } from "./Module"
 import { Scaling } from "../_lib/rom-metadata"
 
 export interface ModuleDisplayProps {
-  selectedRom: FileSystemFileHandle
+  selectedRom?: FileSystemFileHandle
   modules: Module[]
-  scalingMap: Record<string, Scaling>
+  scalingMap?: Record<string, Scaling>
   className: string
 }
 

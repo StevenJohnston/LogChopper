@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Scaling, Table } from "../_lib/rom-metadata";
 import { Module } from "./Module";
 import GridSvg from "../icons/grid.svg"
@@ -8,8 +7,8 @@ import SingleSvg from "../icons/single.svg"
 import Image from 'next/image';
 
 interface TableSelectorProps {
-  scalingMap: Record<string, Scaling>
-  tableMap: Record<string, Table>
+  scalingMap?: Record<string, Scaling>
+  tableMap?: Record<string, Table>
   addModule: (moudule: Module) => void
   className: string
 }
@@ -29,7 +28,7 @@ function demensionToIcon(table: Table) {
   return ""
 }
 
-const TableSelector: React.FC<TableSelectorProps> = ({ scalingMap, tableMap, addModule, className }) => {
+const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, addModule, className }) => {
   return (
     <div className={`flex flex-col bg-slate-200 max-h-full overflow-auto ${className}`}>
       Table Selector

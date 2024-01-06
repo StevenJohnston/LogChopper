@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 
 export interface DirectoryFileProps {
-  handle: FileSystemDirectoryHandle | FileSystemFileHandle
-  selectedHandle: FileSystemFileHandle
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle
+  selectedHandle?: FileSystemFileHandle
   setSelectedHandle: (handle: FileSystemFileHandle) => void
 }
 
@@ -22,7 +22,7 @@ function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryF
   }, [handle])
 
   if (!handle) {
-    return
+    return <div>Select File</div>
   }
   if (handle.kind === 'directory') {
     return (

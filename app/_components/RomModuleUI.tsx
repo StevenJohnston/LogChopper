@@ -5,9 +5,9 @@ import { getFilledTable } from "../_lib/rom";
 import Surface from "./Surface";
 
 interface RomModuleUIProps {
-  selectedRom: FileSystemFileHandle
   table: Table
-  scalingMap: Record<string, Scaling>
+  selectedRom?: FileSystemFileHandle
+  scalingMap?: Record<string, Scaling>
 
 }
 
@@ -19,6 +19,7 @@ const RomModuleUI: React.FC<RomModuleUIProps> = ({ selectedRom, table, scalingMa
       setFilledTable(await getFilledTable(selectedRom, scalingMap, table))
     })()
   }, [selectedRom, table, scalingMap])
+  if (!filledTable) return <div>loading table ui</div>
   return (
     <div>
       <TableUI
