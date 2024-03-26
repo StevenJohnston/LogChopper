@@ -1,31 +1,26 @@
-import { useEffect, useState } from "react";
-import { Scaling, Table } from "../_lib/rom-metadata";
+import { Table } from "../_lib/rom-metadata";
 import TableUI from "./TableUI";
-import { getFilledTable } from "../_lib/rom";
 import Surface from "./Surface";
 
 interface RomModuleUIProps {
   table: Table
-  selectedRom?: FileSystemFileHandle
-  scalingMap?: Record<string, Scaling>
-
 }
 
-const RomModuleUI: React.FC<RomModuleUIProps> = ({ selectedRom, table, scalingMap }) => {
-  const [filledTable, setFilledTable] = useState<Table>()
-  useEffect(() => {
-    if (!selectedRom || !table || !scalingMap) return
-    (async () => {
-      setFilledTable(await getFilledTable(selectedRom, scalingMap, table))
-    })()
-  }, [selectedRom, table, scalingMap])
-  if (!filledTable) return <div>loading table ui</div>
+const RomModuleUI: React.FC<RomModuleUIProps> = ({ table }) => {
+  // const [filledTableOld, setFilledTableOld] = useState<Table>()
+  // useEffect(() => {
+  //   if (!selectedRom || !table || !scalingMap) return
+  //   (async () => {
+  //     setFilledTableOld(await getFilledTableOld(selectedRom, scalingMap, table))
+  //   })()
+  // }, [selectedRom, table, scalingMap])
+  // if (!table) return <div>loading table ui</div>
   return (
     <div>
       <TableUI
-        table={filledTable}
+        table={table}
       />
-      <Surface table={filledTable} />
+      <Surface table={table} />
     </div>
   );
 }

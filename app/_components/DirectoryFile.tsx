@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react"
 
 export interface DirectoryFileProps {
-  handle?: FileSystemDirectoryHandle | FileSystemFileHandle
-  selectedHandle?: FileSystemFileHandle
+  multiSelect?: boolean
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle | null
+  selectedHandle?: FileSystemFileHandle | FileSystemFileHandle[] | null
   setSelectedHandle: (handle: FileSystemFileHandle) => void
 }
 
-function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryFileProps) {
+function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle }: DirectoryFileProps) {
   const [directoryFileList, setDiretoryFileList] = useState<(FileSystemFileHandle | FileSystemDirectoryHandle)[]>([])
   const [expanded, setExpanded] = useState<boolean>(false)
   useEffect(() => {
@@ -39,7 +40,7 @@ function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryF
           {
             expanded && directoryFileList.map((directoryFile) => {
               return (
-                <DirectoryFile handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+                <DirectoryFile multiSelect={multiSelect} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
               )
             })
           }
@@ -47,9 +48,11 @@ function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryF
       </div>
     )
   }
+
+  const selected = multiSelect ? selectedHandle?.includes(handle) : selectedHandle == handle;
   return (
     <button
-      className={`whitespace-nowrap pl-2 ${selectedHandle == handle ? 'selected' : ''} `}
+      className={`whitespace-nowrap pl-2 ${selected ? 'selected' : ''} `}
       onClick={() => {
         setSelectedHandle(handle)
       }}

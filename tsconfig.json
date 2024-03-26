@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,17 +18,17 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "**/*.test.ts"
   ],
   "exclude": [
     "node_modules",
@@ -40,6 +36,6 @@
     "log-chopper/index.ts",
     "map-fixer/index.ts",
     "rom-handler/index.ts",
-    "xml-wrapper/index.ts",
+    "xml-wrapper/index.ts"
   ]
 }

@@ -2,45 +2,27 @@
 
 import { useEffect } from "react"
 import ModuleUI, { Module } from "./Module"
+import Flow from "./Flow"
 import { Scaling } from "../_lib/rom-metadata"
+import useRom, { useRomSelector } from "@/app/store/useRom"
+import { shallow } from "zustand/shallow"
 
 export interface ModuleDisplayProps {
-  selectedRom?: FileSystemFileHandle
-  modules: Module[]
-  scalingMap?: Record<string, Scaling>
   className: string
 }
 
-export const ModuleDisplay: React.FC<ModuleDisplayProps> = ({ selectedRom, modules, scalingMap, className }) => {
-  useEffect(() => {
-    (async () => {
-      // const file = await selectedRom.getFile()
-      // file.
-    })()
-  }, [selectedRom])
+export const ModuleDisplay: React.FC<ModuleDisplayProps> = ({ className }) => {
+  const {
+    selectedRom,
+  } = useRom(useRomSelector, shallow);
   return (
     <div
-      className={className}
+      className={`flex flex-col ${className}`}
     >
-      <div>
+      <div className="text-sm">
         Selected Rom: {selectedRom?.name}
       </div>
-
-      Module Display
-      <div>
-        {
-          modules.map((module) => {
-            return (
-              <ModuleUI
-                key={module?.table?.name}
-                selectedRom={selectedRom}
-                scalingMap={scalingMap}
-                module={module}
-              />
-            )
-          })
-        }
-      </div>
+      <Flow />
     </div>
   )
 }

@@ -7,35 +7,6 @@ interface TableUIProps {
   table: Table
 }
 
-// function getColorBetween(
-//   color1: string,
-//   color2: string,
-//   min: number,
-//   max: number,
-//   value: number
-// ): string {
-//   // Ensure value is within the min-max range
-//   if (value < min || value > max) {
-//     throw new Error("Value must be between min and max");
-//   }
-
-//   // Convert colors to RGB objects
-//   const rgb1 = hexToRgb(color1);
-//   const rgb2 = hexToRgb(color2);
-
-//   // Calculate the normalized value (between 0 and 1)
-//   const normalizedValue = (value - min) / (max - min);
-
-//   // Interpolate each color channel
-//   const red = Math.round(rgb1.r + (rgb2.r - rgb1.r) * normalizedValue);
-//   const green = Math.round(rgb1.g + (rgb2.g - rgb1.g) * normalizedValue);
-//   const blue = Math.round(rgb1.b + (rgb2.b - rgb1.b) * normalizedValue);
-
-//   // Convert back to hex string
-//   const hexColor = rgbToHex({ r: red, g: green, b: blue });
-
-//   return hexColor;
-// }
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   if (!scaling || !value) return
   const xAxisMin = parseFloat(scaling.min || '')
@@ -90,6 +61,7 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                 table?.xAxis?.values?.map((value) => {
                   return (
                     <th
+                      key={value}
                       style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth * 10}px` }}
                       className="border border-gray-300"
                     >
@@ -105,7 +77,7 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
               table?.values?.map((row: (string | number | (string | number)[]), i) => {
                 let yAxisValue = table?.yAxis?.values?.[i]
                 return (
-                  <tr>
+                  <tr key={i}>
                     {yAxisValue &&
                       <th
                         className="px-2 border border-gray-300 sticky"
@@ -116,10 +88,12 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                       <th>{table.scalingValue?.name}</th>
                     }
                     {
+
                       Array.isArray(row) &&
-                      row.map((cell) => {
+                      row.map((cell, c) => {
                         return (
                           <td
+                            key={`${i}-${c}`}
                             className="text-center border border-gray-300"
                             style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
                           >
@@ -130,10 +104,6 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                     }
                   </tr>
                 )
-                // }
-                // return (
-                //   <div>{table.scalingValue.name}</div>
-                // )
               })
             }
           </tbody>

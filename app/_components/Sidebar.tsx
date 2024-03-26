@@ -1,18 +1,24 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import DirectoryFile from "./DirectoryFile"
+import useFlow from "@/app/store/useFlow"
+import { BASE_LOG_NODE_ID, BaseLog, BaseLogNodeType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLogNode"
+import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTableNode"
 
 export interface SidebarProps {
-  directoryHandle?: FileSystemDirectoryHandle
+  directoryHandle?: FileSystemDirectoryHandle | null
   setDirectoryHandle: (directoryHandle: FileSystemDirectoryHandle) => void
   setSelectedRomMetadataHandle: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRomMetadataHandle?: FileSystemFileHandle
+  selectedRomMetadataHandle?: FileSystemFileHandle | null
   setSelectedRom: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRom?: FileSystemFileHandle
+  selectedRom?: FileSystemFileHandle | null
   className: string
+  selectedLogs: FileSystemFileHandle[]
+  setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void
 }
 
+// TODO replace these props with useRom
 export default function Sidebar({
   directoryHandle,
   setDirectoryHandle,
@@ -20,10 +26,12 @@ export default function Sidebar({
   selectedRomMetadataHandle,
   setSelectedRom,
   selectedRom,
-
+  selectedLogs,
+  setSelectedLogs,
   className,
 }: SidebarProps) {
   const [step, setStep] = useState<'metadata' | 'rom' | 'logs' | undefined>()
+  const { nodes, edges, updateNode, onNodesChange } = useFlow()
 
   useEffect(() => {
     if (!selectedRomMetadataHandle) return
@@ -33,13 +41,43 @@ export default function Sidebar({
     if (!selectedRom) return
     setStep('logs')
   }, [selectedRom])
+
+
+
+  const onSelectRom = useCallback((selectedRom: FileSystemFileHandle) => {
+    setSelectedRom(selectedRom)
+    const existingBaseTableNodes = nodes.filter(n => n.type == BaseTableType) as BaseTableNodeType[]
+    // TODO optimise this in a single call
+    for (const n of existingBaseTableNodes) {
+      n.data = {
+        ...n.data,
+        selectedRom: selectedRom
+      }
+      updateNode(n)
+    }
+  }, [nodes, selectedRom])
+
+  const onSelectLog = useCallback((selectedLog: FileSystemFileHandle) => {
+    let newSelectedLogs = []
+    if (selectedLogs.includes(selectedLog)) {
+      newSelectedLogs = selectedLogs.filter(i => i !== selectedLog)
+    } else {
+      newSelectedLogs = [...selectedLogs, selectedLog]
+    }
+    setSelectedLogs(newSelectedLogs)
+    const existingNode = nodes.find(n => n.id == BASE_LOG_NODE_ID) as BaseLogNodeType || INIT_BASE_LOG_NODE
+
+    existingNode.data.selectedLogs = newSelectedLogs
+    updateNode(existingNode)
+  }, [nodes, selectedLogs])
+
   return (
     <div className={`flex flex-col ${className}`}>
       <button
         className="flex-grow-0 flex bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         onClick={async () => {
           const directoryHandle: FileSystemDirectoryHandle = await window.showDirectoryPicker({
-            startIn: 'documents'
+            // startIn: 'documents'
           });
           setDirectoryHandle(directoryHandle)
           setStep('metadata')
@@ -61,7 +99,6 @@ export default function Sidebar({
           {
             // step == 'metadata'&& 
             <div className={`${step == 'metadata' ? '' : 'hidden'}`}>
-
               <DirectoryFile
                 handle={directoryHandle}
                 selectedHandle={selectedRomMetadataHandle}
@@ -87,7 +124,7 @@ export default function Sidebar({
             <DirectoryFile
               handle={directoryHandle}
               selectedHandle={selectedRom}
-              setSelectedHandle={setSelectedRom}
+              setSelectedHandle={onSelectRom}
             />
           }
         </div>
@@ -104,12 +141,13 @@ export default function Sidebar({
             3. Choose Log(s)
           </button>
           {
-            // step == 'logs'
-            // && <DirectoryFile
-            //   handle={directoryHandle}
-            // selectedHandle={ }
-            // setSelectedHandle={ }
-            // />
+            step == 'logs'
+            && <DirectoryFile
+              multiSelect
+              handle={directoryHandle}
+              selectedHandle={selectedLogs}
+              setSelectedHandle={onSelectLog}
+            />
           }
         </div>
       }

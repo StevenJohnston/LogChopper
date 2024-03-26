@@ -6,6 +6,12 @@ import HorizontalSvg from "../icons/horizontal.svg"
 import SingleSvg from "../icons/single.svg"
 import Image from 'next/image';
 
+import useFlow, { RFState } from '@/app/store/useFlow';
+import { shallow } from 'zustand/shallow';
+import { uuid } from 'uuidv4';
+import useRom from "@/app/store/useRom";
+import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTableNode";
+
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
   tableMap?: Record<string, Table>
@@ -28,7 +34,20 @@ function demensionToIcon(table: Table) {
   return ""
 }
 
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  onNodesChange: state.onNodesChange,
+  onEdgesChange: state.onEdgesChange,
+  onConnect: state.onConnect,
+  addNode: state.addNode,
+  updateNode: state.updateNode
+});
+
 const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, addModule, className }) => {
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, updateNode } = useFlow(selector, shallow);
+
+  const { selectedRom, scalingMap } = useRom()
   return (
     <div className={`flex flex-col bg-slate-200 max-h-full overflow-auto ${className}`}>
       Table Selector
@@ -38,9 +57,12 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, addModule, clas
             <button
               className="whitespace-nowrap text-left"
               onClick={() => {
-                addModule({
-                  table: tableMap[key],
-                  type: 'base'
+                updateNode({
+                  id: uuid(),
+                  type: "BaseTableNode",
+                  data: newBaseTableData(selectedRom, tableMap[key], scalingMap),
+                  position: { x: 300, y: 25 },
+                  dragHandle: '.drag-handle'
                 })
               }}
             >

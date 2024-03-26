@@ -8,23 +8,17 @@ export interface Module {
 
 interface ModuleProps {
   module: Module
-  selectedRom?: FileSystemFileHandle
-  scalingMap?: Record<string, Scaling>
 }
 
 const ModuleUI: React.FC<ModuleProps> = ({
-  selectedRom,
-  scalingMap,
   module
 }) => {
   if (module.type == 'base') {
     return (
       <div>
-        <h1>{module.table.name}</h1>
+        {/* <h1>{module.table.name}</h1> */}
         <RomModuleUI
-          selectedRom={selectedRom}
           table={module.table}
-          scalingMap={scalingMap}
         />
       </div>
     )
