@@ -70,13 +70,13 @@ export function getScalingAlias(scaling: Scaling | undefined): string {
   return scalingAliases[scaling.name]?.["insteadUse"] || scaling?.name || "?";
 }
 
-interface reader {
-  [key: string]: {
-    reader: keyof DataView;
-    byteCount: number;
-  };
-}
-export const typeToReader: reader = {
+// interface reader {
+//   [key: string]: {
+//     reader: keyof DataView;
+//     byteCount: number;
+//   };
+// }
+export const typeToReader = {
   undefined: {
     reader: "getInt16",
     byteCount: 2,
@@ -105,4 +105,5 @@ export const typeToReader: reader = {
     reader: "getUint32",
     byteCount: 4,
   },
-};
+  bloblist: {},
+} as const;

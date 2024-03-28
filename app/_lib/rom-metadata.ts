@@ -1,6 +1,6 @@
 import { LogRecord } from "@/app/_lib/log";
 import xml2js from "xml2js";
-import { scalingAliases } from "@/app/_lib/consts";
+import { scalingAliases, typeToReader } from "@/app/_lib/consts";
 
 export interface RomMetadata {
   romid: Romid[];
@@ -42,7 +42,7 @@ export interface Scaling {
     | "STFT"
     | "LFSTFTAFR";
 
-  storageType?: string;
+  storageType?: keyof typeof typeToReader;
   units?: string;
   frExpr?: string;
   toExpr?: string;
@@ -91,9 +91,26 @@ interface Table2DX<T> extends BaseTable<T> {
 interface Table2DY<T> extends BaseTable<T> {
   type: "2D";
   yAxis: Axis;
-  values: T[];
+  values: T[][];
 }
+
 type Table2D<T> = Table2DY<T> | Table2DX<T>;
+function hasProperty<O extends object, K extends PropertyKey>(
+  obj: O,
+  prop: K
+): obj is O & Record<K, unknown> {
+  return prop in obj;
+}
+export function isTable2DX(
+  table: Table2D<unknown>
+): table is Table2DX<unknown> {
+  return hasProperty(table, "xAxis");
+}
+export function isTable2DY(
+  table: Table2D<unknown>
+): table is Table2DY<unknown> {
+  return hasProperty(table, "yAxis");
+}
 interface Table1D<T> extends BaseTable<T> {
   type: "1D";
   values: T;
@@ -126,6 +143,10 @@ export interface BaseTable<T> {
 }
 
 export type Table<T> = Table3D<T> | Table2D<T> | Table1D<T> | OtherTable<T>;
+export type UnknownTable = Table<unknown>;
+export type BasicTable = Table<string | number>;
+export type LogTable = Table<LogRecord[]>;
+
 export interface GeneratedType3 {
   name: string;
   address?: string;
