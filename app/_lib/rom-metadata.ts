@@ -77,27 +77,33 @@ export interface GeneratedType2 {
   value: string;
 }
 
-interface Table3D extends BaseTable {
+export interface Table3D<T> extends BaseTable<T> {
   type: "3D";
   xAxis: Axis;
   yAxis: Axis;
+  values: T[][];
 }
-interface Table2DX extends BaseTable {
+interface Table2DX<T> extends BaseTable<T> {
   type: "2D";
   xAxis: Axis;
-  // yAxis: Axis;
+  values: T[];
 }
-interface Table2DY extends BaseTable {
+interface Table2DY<T> extends BaseTable<T> {
   type: "2D";
-  // xAxis: Axis;
   yAxis: Axis;
+  values: T[];
 }
-type Table2D = Table2DY | Table2DX;
-interface Table1D extends BaseTable {
+type Table2D<T> = Table2DY<T> | Table2DX<T>;
+interface Table1D<T> extends BaseTable<T> {
   type: "1D";
+  values: T;
 }
 
-export interface BaseTable {
+interface OtherTable<T> extends BaseTable<T> {
+  type: "Other";
+}
+
+export interface BaseTable<T> {
   $?: GeneratedType3;
   table?: Table2[];
 
@@ -105,11 +111,12 @@ export interface BaseTable {
   category?: string;
   address?: string;
   // type: "1D" | "2D" | "3D";
+  type: string;
   swapxy?: boolean;
   scaling?: string;
   // values?: (string | number)[] | (string | number)[][];
   // values?: string[] | number[] | string[][] | number[][];
-  values?: (string | number | (string | number)[])[];
+  // values?: (string | number | (string | number)[])[];
   // xAxis?: Axis;
   // yAxis?: Axis;
   valid?: boolean;
@@ -118,7 +125,7 @@ export interface BaseTable {
   // [key: string]: any;
 }
 
-export type Table = Table3D | Table2D | Table1D;
+export type Table<T> = Table3D<T> | Table2D<T> | Table1D<T> | OtherTable<T>;
 export interface GeneratedType3 {
   name: string;
   address?: string;

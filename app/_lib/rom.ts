@@ -3,6 +3,7 @@ import { scalingAliases, typeToReader } from "./consts";
 import { Axis, Scaling, Table } from "./rom-metadata";
 import { Parser as exprParser } from "expr-eval";
 import { sprintf } from "sprintf-js";
+import { Table3D } from "@/app/_lib/rom-metadata";
 
 // Returns table filled with data from rom, inclues axis
 export async function getFilledTable(
@@ -168,12 +169,18 @@ function fillTable(
   return newTable;
 }
 
-export function FillTableFromLog(table: Table, logs: LogRecord[]): Table {
-  let newTable = duplicateTable(table);
+export function FillTableFromLog(
+  table: Table<string | number>,
+  logs: LogRecord[]
+): Table<LogRecord[]> {
+  let newTable = duplicateTable<LogRecord[]>(table, () => []);
 
   logs.forEach((l) => {
     switch (table.type) {
       case "3D":
+        if (newTable.type != "3D") {
+          return console.log("Error: duplicatated table has different type");
+        }
         let { xAxis, yAxis } = table;
         // Y axis
         let yScaling = yAxis.scaling;
@@ -192,8 +199,8 @@ export function FillTableFromLog(table: Table, logs: LogRecord[]): Table {
 
         let xScaling = xAxis.scaling;
         let xAxisLogValue = l[xScaling];
-        // TODO hit this if somehow
         if (!xAxisLogValue) {
+          // TODO hit this if somehow
           var parser = new exprParser();
           let { insteadUse, expr } = scalingAliases[xScaling];
           if (!l[insteadUse]) return;
@@ -201,8 +208,7 @@ export function FillTableFromLog(table: Table, logs: LogRecord[]): Table {
           xAxisLogValue = parser.evaluate(expr, l);
         }
         let x = nearestIndex(xAxis.values, xAxisLogValue);
-
-        newTable.rawLogs[y][x].push(l);
+        newTable.values[y][x].push(l);
         break;
       case "2D":
         break;
@@ -210,23 +216,43 @@ export function FillTableFromLog(table: Table, logs: LogRecord[]): Table {
         break;
       default:
         console.log(
-          `unknown table type ${table.type} on tableName: ${tableName}`
+          `unknown table type ${table.type} on tableName: ${table.name}`
         );
     }
   });
   return newTable;
 }
 
-// function duplicateTable({ tableName, scaling, agg, defaultValue }) {
-function duplicateTable(table: Table): Table {
-  const fillTable: Table = { ...table };
-  fillTable.values = table.values?.map((row) => {
-    if (Array.isArray(row)) {
-      return [...row];
-    } else {
-      return row;
-    }
-  });
+function duplicateTable<T>(
+  table: Table<string | number>,
+  defaultValue: (c: string | number) => T = <T>(c: string | number) => c as T
+): Table<T> {
+  let fillTable: Table<T>;
+  if (table.type == "3D") {
+    fillTable = {
+      ...table,
+      type: "3D",
+      values: table.values.map((row) => {
+        if (Array.isArray(row)) {
+          return row.map(defaultValue);
+        } else {
+          return defaultValue(row);
+        }
+      }) as T[][], // thanks typescript
+    };
+  } else if (table.type == "2D") {
+    fillTable = {
+      ...table,
+      type: "2D",
+      values: table.values.map(defaultValue),
+    };
+  } else {
+    fillTable = {
+      ...table,
+      type: "1D",
+      values: defaultValue(table.values),
+    };
+  }
   return fillTable;
 }
 
