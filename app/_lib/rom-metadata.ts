@@ -86,12 +86,12 @@ export interface Table3D<T> extends BaseTable<T> {
 interface Table2DX<T> extends BaseTable<T> {
   type: "2D";
   xAxis: Axis;
-  values: T[];
+  values: T[][];
 }
 interface Table2DY<T> extends BaseTable<T> {
   type: "2D";
   yAxis: Axis;
-  values: T[][];
+  values: T[];
 }
 
 type Table2D<T> = Table2DY<T> | Table2DX<T>;

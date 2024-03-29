@@ -46,6 +46,7 @@ export interface LogRecord {
   RPMGain?: number;
   delete?: boolean;
   deleteReason?: string;
+  // [key: string]: any;
 }
 
 // export type scalings = Exclude<LogRecord, "LogID">;

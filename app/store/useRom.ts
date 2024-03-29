@@ -2,7 +2,6 @@
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { Scaling, Table } from "@/app/_lib/rom-metadata";
-import { LogRecord, loadLogs } from "@/app/_lib/log";
 
 export type RomState = {
   directoryHandle: FileSystemDirectoryHandle | null;
@@ -42,7 +41,7 @@ export function useRomSelector(state: RomState) {
   };
 }
 
-const useRom = createWithEqualityFn<RomState>((set, get) => ({
+const useRom = createWithEqualityFn<RomState>((set) => ({
   directoryHandle: null,
   selectedRomMetadataHandle: null,
   selectedRom: null,

@@ -1,11 +1,27 @@
 import { useEffect, useState } from "react"
 
-export interface DirectoryFileProps {
+export interface BaseDirectoryFileProps {
   multiSelect?: boolean
   handle?: FileSystemDirectoryHandle | FileSystemFileHandle | null
   selectedHandle?: FileSystemFileHandle | FileSystemFileHandle[] | null
   setSelectedHandle: (handle: FileSystemFileHandle) => void
 }
+
+interface SingleSelectDirectoryFileProps extends BaseDirectoryFileProps {
+  multiSelect: false
+  selectedHandle?: FileSystemFileHandle | null
+}
+
+function isSingleSelectDirectoryFile(o: FileSystemFileHandle | FileSystemFileHandle[] | null | undefined): o is FileSystemFileHandle {
+  return !Array.isArray(o)
+}
+
+interface MultiSelectDirectoryFileProps extends BaseDirectoryFileProps {
+  multiSelect: true
+  selectedHandle?: FileSystemFileHandle[] | null
+}
+
+type DirectoryFileProps = SingleSelectDirectoryFileProps | MultiSelectDirectoryFileProps
 
 function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle }: DirectoryFileProps) {
   const [directoryFileList, setDiretoryFileList] = useState<(FileSystemFileHandle | FileSystemDirectoryHandle)[]>([])
@@ -39,16 +55,17 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle 
         <div>
           {
             expanded && directoryFileList.map((directoryFile) => {
-              return (
-                <DirectoryFile multiSelect={multiSelect} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
-              )
+              if (isSingleSelectDirectoryFile(selectedHandle)) {
+                return <DirectoryFile multiSelect={false} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+              } else {
+                return <DirectoryFile multiSelect={true} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+              }
             })
           }
         </div>
       </div>
     )
   }
-
   const selected = multiSelect ? selectedHandle?.includes(handle) : selectedHandle == handle;
   return (
     <button

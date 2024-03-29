@@ -100,6 +100,7 @@ export default function Sidebar({
             // step == 'metadata'&& 
             <div className={`${step == 'metadata' ? '' : 'hidden'}`}>
               <DirectoryFile
+                multiSelect={false}
                 handle={directoryHandle}
                 selectedHandle={selectedRomMetadataHandle}
                 setSelectedHandle={setSelectedRomMetadataHandle}
@@ -122,6 +123,7 @@ export default function Sidebar({
           {
             // step == 'rom' &&
             <DirectoryFile
+              multiSelect={false}
               handle={directoryHandle}
               selectedHandle={selectedRom}
               setSelectedHandle={onSelectRom}

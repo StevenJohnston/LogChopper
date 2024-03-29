@@ -1,6 +1,4 @@
 `use client`;
-import { create } from "zustand";
-import { uuid } from "uuidv4";
 import {
   Connection,
   Edge,
@@ -14,8 +12,6 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   updateEdge,
-  getIncomers,
-  getOutgoers,
 } from "reactflow";
 
 import { createWithEqualityFn } from "zustand/traditional";

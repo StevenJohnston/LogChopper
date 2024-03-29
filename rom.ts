@@ -8,6 +8,7 @@ import {
   isTable2DX,
   isTable2DY,
 } from "./rom-metadata";
+
 import { Parser as exprParser } from "expr-eval";
 import { sprintf } from "sprintf-js";
 import { Table3D } from "@/app/_lib/rom-metadata";
@@ -49,7 +50,14 @@ function fillAxis(
   scalingMap: Record<string, Scaling>,
   axis: Axis
 ): Axis | void {
+  var lol = Math.random();
+  if (lol < 0.5) {
+    console.log("wow");
+  }
+  let a = (b: any) => b + 1;
+  let b = [1, 2];
   // get scaling
+
   let newAxis = { ...axis };
   let { address, elements, scaling } = axis;
   if (!scaling || !elements || !address) {
@@ -66,7 +74,7 @@ function fillAxis(
   }
   if (storageType == "bloblist") {
     return console.log(
-      "We don't do bloblist for some reason, my guess is it just hardcoded values fillAxis"
+      "We don't do bloblist for some reason, my guess is it just hardcoded values, fillAxis"
     );
   }
   let { reader, byteCount } = typeToReader[storageType];
@@ -115,7 +123,7 @@ function fillTable(
   }
   if (storageType == "bloblist") {
     return console.log(
-      "We don't do bloblist for some reason, my guess is it just hardcoded values fillTable"
+      "We don't do bloblist for some reason, my guess is it just hardcoded values lol"
     );
   }
   const { reader, byteCount } = typeToReader[storageType];
@@ -144,7 +152,6 @@ function fillTable(
       }
       break;
     case "1D":
-      break;
     case "Other":
       return console.log(`fillTable unhandled table type ${newTable.type}`);
   }
@@ -163,18 +170,14 @@ function fillTable(
       }
     } catch (e) {
       debugger;
-      console.log("What this error fillTable", e);
     }
+    // let value = romBuffer[reader](offset)
     let displayValue = value;
-    if (toExpr && value !== undefined) {
+    if (toExpr) {
       displayValue = parser.evaluate(toExpr, { x: value });
       if (format) {
-        console.log("Why am in not using format");
         // displayValue = sprintf(format, displayValue)
       }
-    }
-    if (displayValue === undefined) {
-      return console.log("Display value is undefined");
     }
     // let x, y = 0
     switch (newTable.type) {
@@ -182,7 +185,7 @@ function fillTable(
         if (!yAxis || !xAxis) {
           return console.log("3D table missing xAxis or yAxis", xAxis, yAxis);
         }
-        let x: number, y: number;
+        let x, y;
         if (swapxy) {
           x = Math.floor(i / yAxis.elements);
           y = i - x * yAxis.elements;
@@ -193,20 +196,28 @@ function fillTable(
 
         if (!newTable.values) newTable.values = [];
         if (!newTable.values[y]) newTable.values[y] = [];
+        // @ts-ignore:next-line
         newTable.values[y][x] = displayValue;
         break;
       case "2D":
-        if (isTable2DX(newTable)) {
-          if (!newTable.values) newTable.values = [[]];
-          newTable.values[i] = [displayValue];
-        } else if (isTable2DY(newTable)) {
+        if (yAxis) {
           if (!newTable.values) newTable.values = [];
-          newTable.values[i] = displayValue;
+          newTable.values[i] = [displayValue];
+        } else if (xAxis) {
+          if (!newTable.values) newTable.values = [[]];
+          // @ts-ignore:next-line
+          newTable.values[0][i] = displayValue;
+        } else {
+          console.log(`2d table missing x and y axis ${newTable.name}`);
         }
         break;
       case "1D":
-        newTable.values = displayValue;
+        newTable.values = [[displayValue]];
         break;
+      default:
+        console.log(
+          `cannot fill table type ${newTable.type} tableName: ${newTable.name}`
+        );
     }
   }
   return newTable;
@@ -215,11 +226,8 @@ function fillTable(
 export function FillTableFromLog(
   table: Table<string | number>,
   logs: LogRecord[]
-): Table<LogRecord[]> | void {
-  const newTable = duplicateTable<LogRecord[]>(table, () => []);
-  if (newTable == null) {
-    return console.log("Failed to duplicate table while FillTableFromLog");
-  }
+): Table<LogRecord[]> {
+  let newTable = duplicateTable<LogRecord[]>(table, () => []);
 
   logs.forEach((l) => {
     switch (table.type) {
@@ -251,7 +259,7 @@ export function FillTableFromLog(
           let { insteadUse, expr } = scalingAliases[xScaling];
           if (!l[insteadUse]) return;
 
-          xAxisLogValue = parser.evaluate(expr, l as Record<string, any>);
+          xAxisLogValue = parser.evaluate(expr, l);
         }
         let x = nearestIndex(xAxis.values, xAxisLogValue);
         newTable.values[y][x].push(l);
@@ -272,9 +280,10 @@ export function FillTableFromLog(
 function duplicateTable<T>(
   table: Table<string | number>,
   defaultValue: (c: string | number) => T = <T>(c: string | number) => c as T
-): Table<T> | null {
+): Table<T> {
+  let fillTable: Table<T>;
   if (table.type == "3D") {
-    return {
+    fillTable = {
       ...table,
       type: "3D",
       values: table.values.map((row) => {
@@ -286,27 +295,19 @@ function duplicateTable<T>(
       }) as T[][], // thanks typescript
     };
   } else if (table.type == "2D") {
-    if (isTable2DX(table)) {
-      return {
-        ...table,
-        type: "2D",
-        values: [table.values[0].map(defaultValue)],
-      };
-    } else if (isTable2DY(table)) {
-      return {
-        ...table,
-        type: "2D",
-        values: table.values.map(defaultValue),
-      };
-    }
-  } else if (table.type == "1D") {
-    return {
+    fillTable = {
+      ...table,
+      type: "2D",
+      values: table.values.map(defaultValue),
+    };
+  } else {
+    fillTable = {
       ...table,
       type: "1D",
       values: defaultValue(table.values),
     };
   }
-  return null;
+  return fillTable;
 }
 
 function nearestIndex(array: number[], value: number): number {
