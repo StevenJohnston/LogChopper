@@ -1,21 +1,13 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Scaling, Table } from "../_lib/rom-metadata";
-import TableUI from "./TableUI";
-import { getFilledTable } from "../_lib/rom";
-import Surface from "./Surface";
 import { shallow } from 'zustand/shallow';
 import ReactFlow, {
   MiniMap,
   Controls,
   Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
   BackgroundVariant,
   OnConnect,
   OnConnectStart,
   OnConnectEnd,
-  useReactFlow,
   ReactFlowInstance,
   Connection
 } from 'reactflow';
@@ -68,36 +60,34 @@ const Flow: React.FC = () => {
     (event) => {
       if (!reactFlowInstance) return;
       if (!connectingNodeId.current) return;
+      if (event?.target instanceof HTMLElement && event instanceof MouseEvent) {
+        const targetIsPane = event?.target?.classList.contains('react-flow__pane');
 
-      const targetIsPane = event.target.classList.contains('react-flow__pane');
+        if (targetIsPane) {
+          // we need to remove the wrapper bounds, in order to get the correct position
+          const id = uuid();
+          const newNode: CombineNodeType = {
+            id,
+            type: "CombineNode",
+            position: reactFlowInstance.screenToFlowPosition({
+              x: event.clientX,
+              y: event.clientY,
+            }),
+            data: {},
+          };
 
-      if (targetIsPane) {
-        // we need to remove the wrapper bounds, in order to get the correct position
-        const id = uuid();
-        const newNode: CombineNodeType = {
-          id,
-          type: "CombineNode",
-          position: reactFlowInstance.screenToFlowPosition({
-            x: event.clientX,
-            y: event.clientY,
-          }),
-          data: {
+          addNode(newNode)
 
-          },
-          origin: [0.5, 0.0],
-        };
-
-        addNode(newNode)
-
-        addEdge({
-          id: id,
-          source: connectingNodeId.current,
-          target: id,
-          sourceHandle: connectingHandleId.current
-        })
+          addEdge({
+            id: id,
+            source: connectingNodeId.current,
+            target: id,
+            sourceHandle: connectingHandleId.current
+          })
+        }
       }
     },
-    [reactFlowInstance],
+    [addEdge, addNode, reactFlowInstance],
   );
 
   const isValidConnection = useCallback((c: Connection): boolean => {
@@ -107,7 +97,7 @@ const Flow: React.FC = () => {
       return false
     }
     return true
-  }, [nodes, edges])
+  }, [edges])
 
   return (
     <div className="w-full h-full">

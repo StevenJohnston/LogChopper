@@ -1,9 +1,6 @@
-import { useCallback, useState } from 'react';
-import { Handle, Position, NodeProps, Node, Edge } from 'reactflow';
-
-import useRom, { useRomSelector } from '@/app/store/useRom';
-import { shallow } from "zustand/shallow";
-import { LogRecord, loadLogs } from "@/app/_lib/log";
+import { useState } from 'react';
+import { Position, NodeProps, Node } from 'reactflow';
+import { loadLogs } from "@/app/_lib/log";
 
 import { LogData, RefreshableNode } from '@/app/_components/FlowNodes';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
@@ -27,7 +24,7 @@ export function newBaseLog(): BaseLogData {
   return {
     selectedLogs: [],
     logs: [],
-    refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
+    refresh: async function (node: Node): Promise<void> {
       this.logs = await loadLogs(node.data.selectedLogs);
     }
   }
@@ -53,7 +50,7 @@ function BaseLogNode({ data, isConnectable }: NodeProps<BaseLogData>) {
         expanded
         && <div>
           {
-            selectedLogs.map(l => <div>{l.name}</div>)
+            selectedLogs.map(l => <div key={`${l.kind}-${l.name}`}>{l.name}</div>)
           }
         </div>
       }

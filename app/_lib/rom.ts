@@ -10,7 +10,6 @@ import {
 } from "./rom-metadata";
 import { Parser as exprParser } from "expr-eval";
 import { sprintf } from "sprintf-js";
-import { Table3D } from "@/app/_lib/rom-metadata";
 
 // Returns table filled with data from rom, inclues axis
 export async function getFilledTable(
@@ -18,7 +17,7 @@ export async function getFilledTable(
   scalingMap: Record<string, Scaling>,
   table: BasicTable
 ): Promise<BasicTable | void> {
-  let newTable: BasicTable | void = { ...table };
+  const newTable: BasicTable | void = { ...table };
   const romFile = await romFileHandle.getFile();
   const romBuffer = await romFile.arrayBuffer();
   const romDataArray = new DataView(
@@ -26,14 +25,15 @@ export async function getFilledTable(
     romFile.name.endsWith(".srf") ? 328 : 0
   );
   switch (newTable.type) {
-    case "3D":
+    case "3D": {
       const xAxis = fillAxis(romDataArray, scalingMap, newTable.xAxis);
       if (!xAxis) return console.log("Failed to get xAxis when getFilledTable");
       newTable.xAxis = xAxis;
-      let yAxis = fillAxis(romDataArray, scalingMap, newTable.yAxis);
+      const yAxis = fillAxis(romDataArray, scalingMap, newTable.yAxis);
       if (!yAxis) return console.log("Failed to get yAxis when getFilledTable");
       newTable.yAxis = yAxis;
       break;
+    }
     //TODO handle 2DX 2DY probably going to need some type guard functions
     default:
       return console.log(
@@ -50,15 +50,15 @@ function fillAxis(
   axis: Axis
 ): Axis | void {
   // get scaling
-  let newAxis = { ...axis };
-  let { address, elements, scaling } = axis;
+  const newAxis = { ...axis };
+  const { address, elements, scaling } = axis;
   if (!scaling || !elements || !address) {
     return console.log(
       "Error fillAxis scaling, elements, or address is missing"
     );
   }
   newAxis.scalingValue = scalingMap[scaling];
-  let { storageType, endian, toExpr, format } = scalingMap[scaling];
+  const { storageType, endian, toExpr, format } = scalingMap[scaling];
   if (!storageType || !endian || !toExpr || !format) {
     return console.log(
       "Error fillAxis storageType, endian, toExpr, or format is missing"
@@ -69,17 +69,17 @@ function fillAxis(
       "We don't do bloblist for some reason, my guess is it just hardcoded values fillAxis"
     );
   }
-  let { reader, byteCount } = typeToReader[storageType];
+  const { reader, byteCount } = typeToReader[storageType];
   if (!reader || !byteCount) {
     console.log(
       `missing storagetype for axis scaling: ${scaling} storageType: ${storageType} endian: ${endian}`
     );
   }
-  let values = [];
+  const values = [];
   for (let i = 0; i < elements; i++) {
-    var parser = new exprParser();
-    let offset = parseInt(address, 16) + i * byteCount;
-    let value = romBuffer[reader](offset);
+    const parser = new exprParser();
+    const offset = parseInt(address, 16) + i * byteCount;
+    const value = romBuffer[reader](offset);
     let displayValue = value;
     if (toExpr) {
       displayValue = parser.evaluate(toExpr, { x: value });
@@ -98,15 +98,15 @@ function fillTable(
   scalingMap: Record<string, Scaling>,
   table: Table<string | number>
 ): Table<string | number> | void {
-  let newTable: BasicTable | void = { ...table };
-  let { address, scaling, swapxy } = table;
+  const newTable: BasicTable | void = { ...table };
+  const { address, scaling, swapxy } = table;
   if (!address || !scaling || !swapxy) {
     return console.log(
       "error fillTable missing one of address, scaling, swapxy"
     );
   }
   newTable.scalingValue = scalingMap[scaling];
-  let { storageType, endian, toExpr, format } = scalingMap[scaling];
+  const { storageType, endian, toExpr, format } = scalingMap[scaling];
 
   if (!storageType || !endian || !toExpr || !format) {
     return console.log(
@@ -153,8 +153,8 @@ function fillTable(
   if (yAxis && yAxis.elements) elements *= yAxis.elements;
 
   for (let i = 0; i < elements; i++) {
-    var parser = new exprParser();
-    let offset = parseInt(address, 16) + i * byteCount;
+    const parser = new exprParser();
+    const offset = parseInt(address, 16) + i * byteCount;
     let value;
     try {
       if (typeof romBuffer[reader] === "function") {
@@ -162,7 +162,6 @@ function fillTable(
         romBuffer.getBigInt64(offset, true);
       }
     } catch (e) {
-      debugger;
       console.log("What this error fillTable", e);
     }
     let displayValue = value;
@@ -178,7 +177,7 @@ function fillTable(
     }
     // let x, y = 0
     switch (newTable.type) {
-      case "3D":
+      case "3D": {
         if (!yAxis || !xAxis) {
           return console.log("3D table missing xAxis or yAxis", xAxis, yAxis);
         }
@@ -195,6 +194,7 @@ function fillTable(
         if (!newTable.values[y]) newTable.values[y] = [];
         newTable.values[y][x] = displayValue;
         break;
+      }
       case "2D":
         if (isTable2DX(newTable)) {
           if (!newTable.values) newTable.values = [[]];
@@ -223,14 +223,14 @@ export function FillTableFromLog(
 
   logs.forEach((l) => {
     switch (table.type) {
-      case "3D":
+      case "3D": {
         if (newTable.type != "3D") {
           return console.log("Error: duplicatated table has different type");
         }
-        let { xAxis, yAxis } = table;
+        const { xAxis, yAxis } = table;
         // Y axis
-        let yScaling = yAxis.scaling;
-        let yAxisLogValue = l[yScaling];
+        const yScaling = yAxis.scaling;
+        const yAxisLogValue = l[yScaling];
         if (typeof yAxisLogValue !== "number") {
           console.log(
             "Wanted log value to be of type number",
@@ -241,21 +241,22 @@ export function FillTableFromLog(
           );
           return;
         }
-        let y = nearestIndex(yAxis.values, yAxisLogValue);
+        const y = nearestIndex(yAxis.values, yAxisLogValue);
 
-        let xScaling = xAxis.scaling;
+        const xScaling = xAxis.scaling;
         let xAxisLogValue = l[xScaling];
         if (!xAxisLogValue) {
           // TODO hit this if somehow
-          var parser = new exprParser();
-          let { insteadUse, expr } = scalingAliases[xScaling];
+          const parser = new exprParser();
+          const { insteadUse, expr } = scalingAliases[xScaling];
           if (!l[insteadUse]) return;
 
           xAxisLogValue = parser.evaluate(expr, l as Record<string, any>);
         }
-        let x = nearestIndex(xAxis.values, xAxisLogValue);
+        const x = nearestIndex(xAxis.values, xAxisLogValue);
         newTable.values[y][x].push(l);
         break;
+      }
       case "2D":
         break;
       case "1D":

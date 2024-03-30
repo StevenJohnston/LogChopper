@@ -34,7 +34,7 @@ export const CustomHandle = ({ id, type, position, isConnectable, dataType, labe
     const node = nodes.find(n => n.id == c.target)
     if (!node) return console.log(`Handle onConnect could not find target node.`, "Connection", c, "Nodes", nodes)
     updateNode(node as MyNode)
-  }, [nodes])
+  }, [nodes, updateNode])
 
   id = `${dataType}#${id}`
   const positionStyle: Record<string, string> = {}

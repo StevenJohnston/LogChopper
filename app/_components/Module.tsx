@@ -1,8 +1,8 @@
-import { Scaling, Table } from "../_lib/rom-metadata";
+import { Table } from "../_lib/rom-metadata";
 import RomModuleUI from "./RomModuleUI";
 
 export interface Module {
-  table: Table
+  table: Table<unknown>
   type: 'base' | 'fill' | 'combine'
 }
 

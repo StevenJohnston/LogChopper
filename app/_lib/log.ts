@@ -1,5 +1,4 @@
 import csv from "csvtojson";
-import { Parser } from "json2csv";
 
 export interface LogRecord {
   LogID?: number;
@@ -54,7 +53,7 @@ export interface LogRecord {
 export async function loadLogs(
   selectedLogs: FileSystemFileHandle[]
 ): Promise<LogRecord[]> {
-  let logPromises = selectedLogs.map(
+  const logPromises = selectedLogs.map(
     async (f: FileSystemFileHandle): Promise<LogRecord[]> => {
       const file = await f.getFile();
       const text = await file.text();

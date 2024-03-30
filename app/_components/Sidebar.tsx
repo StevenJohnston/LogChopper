@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import DirectoryFile from "./DirectoryFile"
 import useFlow from "@/app/store/useFlow"
-import { BASE_LOG_NODE_ID, BaseLog, BaseLogNodeType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLogNode"
+import { BASE_LOG_NODE_ID, BaseLogNodeType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLogNode"
 import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTableNode"
 
 export interface SidebarProps {
@@ -31,7 +31,7 @@ export default function Sidebar({
   className,
 }: SidebarProps) {
   const [step, setStep] = useState<'metadata' | 'rom' | 'logs' | undefined>()
-  const { nodes, edges, updateNode, onNodesChange } = useFlow()
+  const { nodes, updateNode } = useFlow()
 
   useEffect(() => {
     if (!selectedRomMetadataHandle) return
@@ -55,7 +55,7 @@ export default function Sidebar({
       }
       updateNode(n)
     }
-  }, [nodes, selectedRom])
+  }, [nodes, setSelectedRom, updateNode])
 
   const onSelectLog = useCallback((selectedLog: FileSystemFileHandle) => {
     let newSelectedLogs = []
@@ -69,7 +69,7 @@ export default function Sidebar({
 
     existingNode.data.selectedLogs = newSelectedLogs
     updateNode(existingNode)
-  }, [nodes, selectedLogs])
+  }, [nodes, selectedLogs, setSelectedLogs, updateNode])
 
   return (
     <div className={`flex flex-col ${className}`}>

@@ -1,5 +1,4 @@
-import { Scaling, Table } from "../_lib/rom-metadata";
-import { Module } from "./Module";
+import { Scaling, Table, isTable2DX, isTable2DY } from "../_lib/rom-metadata";
 import GridSvg from "../icons/grid.svg"
 import VerticalSvg from "../icons/vertical.svg"
 import HorizontalSvg from "../icons/horizontal.svg"
@@ -14,20 +13,21 @@ import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTableNode";
 
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
-  tableMap?: Record<string, Table>
-  addModule: (moudule: Module) => void
+  tableMap?: Record<string, Table<unknown>>
   className: string
 }
-function demensionToIcon(table: Table) {
+function demensionToIcon(table: Table<unknown>) {
   switch (table.type) {
     case '1D':
       return SingleSvg;
-    case '2D':
-      if (table.yAxis) {
-        return VerticalSvg;
-      } else {
+    case '2D': {
+      if (isTable2DX(table)) {
         return HorizontalSvg;
+      } else if (isTable2DY(table)) {
+        return VerticalSvg;
       }
+      break
+    }
     case '3D':
       return GridSvg;
   }
@@ -44,8 +44,8 @@ const selector = (state: RFState) => ({
   updateNode: state.updateNode
 });
 
-const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, addModule, className }) => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, updateNode } = useFlow(selector, shallow);
+const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) => {
+  const { updateNode } = useFlow(selector, shallow);
 
   const { selectedRom, scalingMap } = useRom()
   return (
@@ -55,6 +55,7 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, addModule, clas
         tableMap && Object.keys(tableMap).map((key) => {
           return (
             <button
+              key={key}
               className="whitespace-nowrap text-left"
               onClick={() => {
                 updateNode({

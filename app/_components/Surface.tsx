@@ -1,22 +1,21 @@
 'use client'
 import ReactECharts, { EChartsOption } from 'echarts-for-react';
 import 'echarts-gl'
-import { Table } from '../_lib/rom-metadata';
+import { Table3D } from '../_lib/rom-metadata';
 import { getScalingAlias } from '../_lib/consts';
 import { useMemo } from 'react';
 
 interface SurfaceProps {
-  table: Table
+  table: Table3D<number | string>
 }
 
 type MinMax = [number, number]
 type point3d = [number, number, number]
 // https://echarts.apache.org/en/option-gl.html#grid3D
 const Surface: React.FC<SurfaceProps> = ({ table }) => {
-  if (table?.type !== '3D') return <></>
 
   const data: point3d[] = useMemo(() => {
-    return table?.values?.map((row, rowI) => {
+    return table.values?.map((row, rowI) => {
       if (Array.isArray(row)) {
         const point3d: [number, number, number][] = row?.map((cell, cI) => {
           return [parseFloat(table.xAxis?.values?.[cI]), parseFloat(table.yAxis?.values?.[rowI]), parseFloat(cell.toString())]
@@ -84,6 +83,7 @@ const Surface: React.FC<SurfaceProps> = ({ table }) => {
     ]
   };
 
+  if (table?.type !== '3D') return <></>
 
   return <ReactECharts option={option} />;
 }

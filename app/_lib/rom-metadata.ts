@@ -2,11 +2,11 @@ import { LogRecord } from "@/app/_lib/log";
 import xml2js from "xml2js";
 import { scalingAliases, typeToReader } from "@/app/_lib/consts";
 
-export interface RomMetadata {
+export interface RomMetadata<T> {
   romid: Romid[];
   include: string[];
   scaling: Scaling[];
-  table: Table[];
+  table: Table<T>[];
 }
 
 export interface Romid {
@@ -77,18 +77,18 @@ export interface GeneratedType2 {
   value: string;
 }
 
-export interface Table3D<T> extends BaseTable<T> {
+export interface Table3D<T> extends BaseTable {
   type: "3D";
   xAxis: Axis;
   yAxis: Axis;
   values: T[][];
 }
-interface Table2DX<T> extends BaseTable<T> {
+interface Table2DX<T> extends BaseTable {
   type: "2D";
   xAxis: Axis;
   values: T[][];
 }
-interface Table2DY<T> extends BaseTable<T> {
+interface Table2DY<T> extends BaseTable {
   type: "2D";
   yAxis: Axis;
   values: T[];
@@ -111,16 +111,17 @@ export function isTable2DY(
 ): table is Table2DY<unknown> {
   return hasProperty(table, "yAxis");
 }
-interface Table1D<T> extends BaseTable<T> {
+interface Table1D<T> extends BaseTable {
   type: "1D";
   values: T;
 }
 
-interface OtherTable<T> extends BaseTable<T> {
+interface OtherTable<T> extends BaseTable {
   type: "Other";
+  values: T;
 }
 
-export interface BaseTable<T> {
+export interface BaseTable {
   $?: GeneratedType3;
   table?: Table2[];
 
@@ -174,7 +175,7 @@ export interface GeneratedType4 {
   scaling?: string;
 }
 
-var parser = new xml2js.Parser();
+const parser = new xml2js.Parser();
 
 export const scalingMap = {
   name: "name",
@@ -265,7 +266,7 @@ export async function getAllRomMetadataMap(
   ) as unknown as PromiseFulfilledResult<RomMetadata>[];
 
   return romMetadataArray.reduce((acc: Record<string, RomMetadata>, cur) => {
-    let xmlId = cur.value.romid[0].xmlid[0];
+    const xmlId = cur.value.romid[0].xmlid[0];
     if (!acc[xmlId]) {
       acc[xmlId] = { ...cur.value };
     } else {
@@ -291,7 +292,7 @@ export async function getAllRomMetadataMap(
 
 async function fetchRomMetadata(
   fileHandle: FileSystemFileHandle
-): Promise<RomMetadata> {
+): Promise<RomMetadata<unknown>> {
   const file = await fileHandle.getFile();
   const text = await file.text();
   const xml = await parser.parseStringPromise(text);
@@ -299,13 +300,13 @@ async function fetchRomMetadata(
 }
 
 async function buildRomTables(
-  romMetadataMap: Record<string, RomMetadata>,
+  romMetadataMap: Record<string, RomMetadata<unknown>>,
   romId: string
-): Promise<[Scaling[], Record<string, Table>]> {
+): Promise<[Scaling[], Record<string, Table<unknown>>]> {
   let scalings: Scaling[] = [];
-  let tableMap: Record<string, Table> = {};
+  let tableMap: Record<string, Table<unknown>> = {};
 
-  let rom = romMetadataMap[romId];
+  const rom = romMetadataMap[romId];
   const parentRomId = rom?.include?.[0];
   if (parentRomId) {
     [scalings, tableMap] = await buildRomTables(romMetadataMap, parentRomId);
@@ -317,7 +318,7 @@ async function buildRomTables(
       });
     rom.table &&
       rom.table.forEach((table) => {
-        let mappedTable = mapTable(tableMap, table);
+        const mappedTable = mapTable(tableMap, table);
         if (mappedTable?.name) {
           tableMap[mappedTable.name] = mappedTable;
         } else {
@@ -391,12 +392,10 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
           dropTable = true;
           break;
         case "X Axis":
-          let xAxis = mapAxis(axis);
-          mappedTable.xAxis = xAxis;
+          mappedTable.xAxis = mapAxis(axis);
           break;
         case "Y Axis":
-          let yAxis = mapAxis(axis);
-          mappedTable.yAxis = yAxis;
+          mappedTable.yAxis = mapAxis(axis);
           break;
         case "Static X Axis":
           dropTable = true;
@@ -426,10 +425,10 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
 
 function mapAxis(axis: Table2): Axis {
   const attrs = axis["$"];
-  let mappedAxis: Axis = {};
+  const mappedAxis: Axis = {};
   Object.keys(attrs).map((key) => {
-    let finalAttrValue: string = attrs?.[key as keyof GeneratedType4] || "";
-    let finalAttrKey = axisMap[key as keyof typeof axisMap];
+    const finalAttrValue: string = attrs?.[key as keyof GeneratedType4] || "";
+    const finalAttrKey = axisMap[key as keyof typeof axisMap];
 
     // if (typeof finalAttrKey == 'object') {
     //   finalAttrKey = finalAttrKey['key']
@@ -448,7 +447,7 @@ function mapScaling(scaling: Scaling): Scaling {
   const attrs = scaling["$"];
   console.log('mapScaling missing "$"');
   if (!attrs) return {};
-  let mappedScaling: Scaling = {};
+  const mappedScaling: Scaling = {};
   Object.keys(attrs || {}).map((key) => {
     if (!scalingMap[key as keyof typeof scalingMap]) {
       console.log(`unknown scalling attribute ${key}`);
@@ -468,7 +467,7 @@ export const LoadRomMetadata = async (
   // Get romid from selectedRomMetadataHandle
   const selectedRom = await fetchRomMetadata(selectedRomMetadataHandle);
 
-  let [scalings, tableMap] = await buildRomTables(
+  const [scalings, tableMap] = await buildRomTables(
     allRomMetadataMap,
     selectedRom.romid[0].xmlid[0]
   );
@@ -484,7 +483,7 @@ export const LoadRomMetadata = async (
   );
 
   // Remove tables that dont have an address
-  tableMap = Object.keys(tableMap)
+  const newTableMap = Object.keys(tableMap)
     .filter((tableMapKey) => tableMap[tableMapKey].address)
     .reduce((acc, cur) => {
       return {
@@ -493,5 +492,5 @@ export const LoadRomMetadata = async (
       };
     }, {});
 
-  return { scalingMap, tableMap };
+  return { scalingMap, tableMap: newTableMap };
 };

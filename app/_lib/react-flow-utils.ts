@@ -1,5 +1,4 @@
-import { Connection, Edge, Node, getOutgoers } from "reactflow";
-import { TableData, LogData } from "@/app/_components/FlowNodes";
+import { Edge, Node, getOutgoers } from "reactflow";
 
 // Assumes all missing parent nodes have already been updated
 export function topologicalSort(
@@ -7,7 +6,7 @@ export function topologicalSort(
   nodes: Node[],
   edges: Edge[]
 ): Node[] {
-  let visitsRequired: Record<string, [number, Node]> = {};
+  const visitsRequired: Record<string, [number, Node]> = {};
   populateVisitsRequired(visitsRequired, node, nodes, edges);
   return sortVisitsRequired(visitsRequired, node, nodes, edges);
 }
@@ -19,8 +18,8 @@ export function sortVisitsRequired(
   edges: Edge[]
 ): Node[] {
   if (visitsRequired[node.id][0] == 1) {
-    let childNodes = [node];
-    let outgoers = getOutgoers(node, nodes, edges);
+    const childNodes = [node];
+    const outgoers = getOutgoers(node, nodes, edges);
     for (const o of outgoers) {
       childNodes.push(...sortVisitsRequired(visitsRequired, o, nodes, edges));
     }
@@ -43,7 +42,7 @@ export function populateVisitsRequired(
   }
 
   visitsRequired[node.id] = [1, node];
-  let outgoers = getOutgoers(node, nodes, edges);
+  const outgoers = getOutgoers(node, nodes, edges);
   if (!outgoers) {
     return;
   }

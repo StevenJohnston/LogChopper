@@ -1,9 +1,7 @@
-import { useCallback, useState } from 'react';
-import { Handle, Position, NodeProps, Node, Edge } from 'reactflow';
+import { useState } from 'react';
+import { Position, NodeProps, Node } from 'reactflow';
 
 import ModuleUI from '../Module';
-import useRom, { useRomSelector } from '@/app/store/useRom';
-import { shallow } from "zustand/shallow";
 import { Scaling, Table } from "@/app/_lib/rom-metadata";
 import { RefreshableNode, TableData } from '@/app/_components/FlowNodes';
 
@@ -25,7 +23,7 @@ export function newBaseTableData(selectedRom: FileSystemFileHandle | null, table
     table,
     selectedRom,
     scalingMap,
-    refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
+    refresh: async function (node: Node): Promise<void> {
       // TODO get this to trigger 
       // debugger
       if (!this.table) return
@@ -35,15 +33,12 @@ export function newBaseTableData(selectedRom: FileSystemFileHandle | null, table
 }
 
 function BaseTableNode({ data, isConnectable }: NodeProps<BaseTableData>) {
-  const {
-    scalingMap,
-  } = useRom(useRomSelector, shallow);
-  const { selectedRom } = data
   const [expanded, setExpanded] = useState<boolean>()
 
+  //TODO  should this be something else
   if (!data.table) {
     return (
-      <div>//TODO should this be something else</div>
+      <div>Loading?</div>
     )
   }
   return (

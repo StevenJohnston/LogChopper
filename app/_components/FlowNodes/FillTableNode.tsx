@@ -1,12 +1,10 @@
-import { useCallback, useState } from 'react';
-import { Handle, Position, NodeProps, Node, Edge, getIncomers } from 'reactflow';
+import { useState } from 'react';
+import { Position, NodeProps, Node, Edge } from 'reactflow';
 
 import { LogData, RefreshableNode, TableData } from '@/app/_components/FlowNodes';
 import { Table } from '@/app/_lib/rom-metadata';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
-import { LogRecord } from '@/app/_lib/log';
-import { edgeIsTargetHanldeId, getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
-import { Nullable } from '@/app/_lib/utils';
+import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import { FillTableFromLog } from '@/app/_lib/rom';
 import ModuleUI from '@/app/_components/Module';
 

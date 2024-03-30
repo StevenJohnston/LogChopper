@@ -28,7 +28,7 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle 
   const [expanded, setExpanded] = useState<boolean>(false)
   useEffect(() => {
     (async () => {
-      let directoryList = []
+      const directoryList = []
       if (handle?.kind == 'directory') {
         for await (const entry of handle.values()) {
           directoryList.push(entry)
@@ -56,9 +56,9 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle 
           {
             expanded && directoryFileList.map((directoryFile) => {
               if (isSingleSelectDirectoryFile(selectedHandle)) {
-                return <DirectoryFile multiSelect={false} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+                return <DirectoryFile key={directoryFile.name} multiSelect={false} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
               } else {
-                return <DirectoryFile multiSelect={true} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+                return <DirectoryFile key={directoryFile.name} multiSelect={true} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
               }
             })
           }

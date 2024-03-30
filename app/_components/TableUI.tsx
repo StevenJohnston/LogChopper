@@ -11,8 +11,8 @@ const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   if (!scaling || !value) return
   const xAxisMin = parseFloat(scaling.min || '')
   const xAxisMax = parseFloat(scaling.max || '')
-  var colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
-  let color = colorScale.getColor(value)
+  const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
+  const color = colorScale.getColor(value)
   return color.toHexString()
 }
 
@@ -24,7 +24,7 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
     // Get the max width of colomn names
     if (table.xAxis) {
       table.xAxis.values?.forEach((value) => {
-        let width = sprintf(table?.xAxis?.scalingValue?.format || '', value).length
+        const width = sprintf(table?.xAxis?.scalingValue?.format || '', value).length
         if (width > maxWidth) maxWidth = width
       })
     }
@@ -32,12 +32,12 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
       if (Array.isArray(table.values)) {
         if (Array.isArray(row)) {
           row.forEach((cell) => {
-            let width = sprintf(table?.scalingValue?.format || '', cell).length
+            const width = sprintf(table?.scalingValue?.format || '', cell).length
             if (width > maxWidth) maxWidth = width
           })
         }
       } else {
-        let width = sprintf(table?.scalingValue?.format || '', row).length
+        const width = sprintf(table?.scalingValue?.format || '', row).length
         if (width > maxWidth) maxWidth = width
       }
     })
@@ -75,7 +75,7 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
           <tbody>
             {
               table?.values?.map((row: (string | number | (string | number)[]), i) => {
-                let yAxisValue = table?.yAxis?.values?.[i]
+                const yAxisValue = table?.yAxis?.values?.[i]
                 return (
                   <tr key={i}>
                     {yAxisValue &&

@@ -6,7 +6,7 @@ import { shallow } from "zustand/shallow";
 
 import Sidebar from "./_components/Sidebar";
 import ModuleDisplay from "./_components/ModuleDisplay";
-import { LoadRomMetadata, Scaling, Table } from "./_lib/rom-metadata";
+import { LoadRomMetadata } from "./_lib/rom-metadata";
 import TableSelector from "./_components/TableSelector";
 import { Module } from "./_components/Module";
 import useRom, { useRomSelector } from "@/app/store/useRom";
@@ -23,7 +23,7 @@ async function findFileByName(
           return entry;
         }
       } else if (entry.kind === "directory") {
-        let foundFile = await findFileByName(entry, fileName);
+        const foundFile = await findFileByName(entry, fileName);
         if (foundFile) return foundFile;
       }
     }
@@ -82,7 +82,7 @@ export default function RootLayout() {
       }
       // setSelectRom to default
     })();
-  }, [directoryHandle]);
+  }, [directoryHandle, setScalingMap, setSelectedRom, setSelectedRomMetadataHandle, setTableMap]);
 
   useEffect(() => {
     if (!directoryHandle || !selectedRomMetadataHandle) return;
@@ -98,7 +98,7 @@ export default function RootLayout() {
       setTableMap(tableMap);
     })();
     setSelectedRom(null);
-  }, [directoryHandle, selectedRomMetadataHandle]);
+  }, [directoryHandle, selectedRomMetadataHandle, setScalingMap, setSelectedRom, setTableMap]);
 
   useEffect(() => {
     if (!directoryHandle || !selectedRom) return;

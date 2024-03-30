@@ -1,9 +1,6 @@
 'use client'
 
-import { useEffect } from "react"
-import ModuleUI, { Module } from "./Module"
 import Flow from "./Flow"
-import { Scaling } from "../_lib/rom-metadata"
 import useRom, { useRomSelector } from "@/app/store/useRom"
 import { shallow } from "zustand/shallow"
 

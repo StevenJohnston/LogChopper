@@ -1,17 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
-  Handle,
   Position,
   NodeProps,
   Node,
   getIncomers,
-  getOutgoers,
-  getConnectedEdges,
   Connection,
 } from 'reactflow';
 
-import useRom, { useRomSelector } from '@/app/store/useRom';
-import { shallow } from "zustand/shallow";
 import useFlow from '@/app/store/useFlow';
 import { LogFiltereNodeType, newLogFilter } from '@/app/_components/FlowNodes/LogFilterNode';
 import { LogNodeTypes, RefreshableNode, TableNodeTypes } from '@/app/_components/FlowNodes'
@@ -22,22 +17,17 @@ import { FillTableNodeType, FillTableType, newFillTable } from '@/app/_component
 export interface CombineData extends RefreshableNode { }
 export type CombineNodeType = Node<CombineData, "CombineNode">;
 
-function CombineNode({ data, isConnectable, id, type }: NodeProps<CombineData>) {
+function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
   // function CombineNode(node: Node<CombineData>) {
   const { nodes, edges, updateNode, updateEdge } = useFlow()
-
-  // function CombineNode(node: NodeProps<CombineData>) {
-  const onChange = useCallback((evt) => {
-    console.log(evt.target.value);
-  }, []);
 
   // let i = getInco÷
   const [node, parentNode]: (Node | undefined)[] = useMemo(() => {
     const node = nodes.find(n => n.id == id)
     if (!node) return [node]
-    let i = getIncomers(node, nodes, edges)
+    const i = getIncomers(node, nodes, edges)
     return [node, i[0]]
-  }, [nodes, edges])
+  }, [nodes, edges, id])
 
   if (!node) return <div>Loading</div>
   return (

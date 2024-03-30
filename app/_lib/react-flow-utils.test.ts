@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { topologicalSort } from "./react-flow-utils";
-import { Edge, Node, getOutgoers } from "reactflow";
+import { Edge, Node } from "reactflow";
 
 const nodeMaker = (id: string): Node => {
   return {
@@ -19,7 +19,7 @@ const edgeMaker = (source: string, target: string): Edge => {
   };
 };
 
-test("topologicalSort 1-2, 2-3, 2-4, 3-4, ", (t) => {
+test("topologicalSort 1-2, 2-3, 2-4, 3-4, ", () => {
   const rootNode = nodeMaker("NODE_1");
   const inputNodes: Node[] = [
     rootNode,
@@ -51,7 +51,7 @@ test("topologicalSort 1-2, 2-3, 2-4, 3-4, ", (t) => {
   );
 });
 
-test("topologicalSort 1-4, 1-2, 2-3, 3-4", (t) => {
+test("topologicalSort 1-4, 1-2, 2-3, 3-4", () => {
   const rootNode = nodeMaker("NODE_1");
   const inputNodes: Node[] = [
     rootNode,
