@@ -12,9 +12,21 @@ export interface RefreshableNode {
   refresh?: (node: Node, nodes: Node[], edges: Edge[]) => Promise<void>
 }
 
-export interface TableData {
-  table: Table<unknown> | null;
+export interface BaseTableData<T> {
+  table: Table<T> | null;
+  tableType: string
 }
+
+export const LogTableDataType = "LogRecord[]"
+export const BasicTableDataType = "string | number"
+export interface LogTableData extends BaseTableData<LogRecord[]> {
+  tableType: typeof LogTableDataType
+}
+export interface BasicTableData extends BaseTableData<string | number> {
+  tableType: typeof BasicTableDataType
+}
+
+export type TableData = LogTableData | BasicTableData
 
 export interface LogData {
   logs: LogRecord[];

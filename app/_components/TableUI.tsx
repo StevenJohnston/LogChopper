@@ -1,10 +1,10 @@
-import { Scaling, Table } from "../_lib/rom-metadata";
+import { Axis, Scaling, Table, isTable2DX } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
 import { useMemo } from "react";
 
 interface TableUIProps {
-  table: Table
+  table: Table<unknown>
 }
 
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
@@ -17,30 +17,53 @@ const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
 }
 
 const TableUI: React.FC<TableUIProps> = ({ table }) => {
-
   const maxWidth = useMemo(() => {
     if (!table) return 0
     let maxWidth = 0
+
+    let xAxis: Axis | null = null;
     // Get the max width of colomn names
-    if (table.xAxis) {
-      table.xAxis.values?.forEach((value) => {
-        const width = sprintf(table?.xAxis?.scalingValue?.format || '', value).length
+    switch (table.type) {
+      case "3D":
+        xAxis = table.xAxis;
+        break;
+      case "2D":
+        if (isTable2DX(table)) {
+          xAxis = table.xAxis;
+        }
+        break;
+      case "1D":
+        break;
+      case "Other":
+        return console.log(`fillTable unhandled table type ${table.type}`);
+    }
+
+    if (xAxis) {
+      xAxis.values?.forEach((value) => {
+        const width = sprintf(xAxis?.scalingValue?.format || '', value).length
         if (width > maxWidth) maxWidth = width
       })
     }
-    table.values?.forEach?.((row) => {
-      if (Array.isArray(table.values)) {
-        if (Array.isArray(row)) {
-          row.forEach((cell) => {
-            const width = sprintf(table?.scalingValue?.format || '', cell).length
-            if (width > maxWidth) maxWidth = width
-          })
+
+    if (!Array.isArray(table.values)) {
+      const width = sprintf(table?.scalingValue?.format || '', table.values).length
+      if (width > maxWidth) maxWidth = width
+    } else {
+      table.values.forEach?.((row) => {
+        if (Array.isArray(table.values)) {
+          if (Array.isArray(row)) {
+            row.forEach((cell) => {
+              const width = sprintf(table?.scalingValue?.format || '', cell).length
+              if (width > maxWidth) maxWidth = width
+            })
+          }
+        } else {
+          const width = sprintf(table?.scalingValue?.format || '', row).length
+          if (width > maxWidth) maxWidth = width
         }
-      } else {
-        const width = sprintf(table?.scalingValue?.format || '', row).length
-        if (width > maxWidth) maxWidth = width
-      }
-    })
+      })
+    }
+
     return maxWidth
   }, [table])
 
