@@ -21,6 +21,7 @@ import useFlow, { RFState } from '@/app/store/useFlow';
 import { uuid } from "uuidv4";
 import LogFilterNode from "@/app/_components/FlowNodes/LogFilterNode";
 import FillTableNode from "@/app/_components/FlowNodes/FillTableNode";
+import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -34,7 +35,7 @@ const selector = (state: RFState) => ({
 
 const Flow: React.FC = () => {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
-  const nodeTypes = useMemo(() => ({ BaseTableNode, BaseLogNode, CombineNode, LogFilterNode, FillTableNode }), [])
+  const nodeTypes = useMemo(() => ({ BaseTableNode, BaseLogNode, CombineNode, LogFilterNode, FillTableNode, FillLogTableNode }), [])
 
   useEffect(() => { console.log("Flow rerendered") }, [])
 

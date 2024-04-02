@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Table } from "../_lib/rom-metadata";
 import RomModuleUI from "./RomModuleUI";
 
@@ -10,24 +11,31 @@ interface ModuleProps {
   module: Module
 }
 
-const ModuleUI: React.FC<ModuleProps> = ({
-  module
-}) => {
-  if (module.type == 'base') {
+// const ModuleUI: React.FC<ModuleProps> = forwardRef(({
+const ModuleUI = forwardRef<HTMLTextAreaElement, ModuleProps>(
+  (
+    { module },
+    ref,
+  ) => {
+    if (module.type == 'base') {
+      return (
+        <div>
+          {/* <h1>{module.table.name}</h1> */}
+          <RomModuleUI
+            ref={ref}
+            table={module.table}
+          />
+        </div>
+      )
+    }
     return (
       <div>
-        {/* <h1>{module.table.name}</h1> */}
-        <RomModuleUI
-          table={module.table}
-        />
+        Undefined module type
       </div>
-    )
+    );
   }
-  return (
-    <div>
-      Undefined module type
-    </div>
-  );
-}
+)
+
+ModuleUI.displayName = "ModuleUI"
 
 export default ModuleUI;

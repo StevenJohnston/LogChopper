@@ -22,6 +22,7 @@ import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode";
 import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilterNode";
 import { topologicalSort } from "@/app/_lib/react-flow-utils";
 import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTableNode";
+import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable";
 
 export interface LogFilterData {
   logs: LogRecord[];
@@ -32,7 +33,8 @@ export type MyNode =
   | BaseLogNodeType
   | CombineNodeType
   | LogFiltereNodeType
-  | FillTableNodeType;
+  | FillTableNodeType
+  | FillLogTableNodeType;
 
 const initialNodes = [] as Node[];
 const initialEdges = [] as Edge[];

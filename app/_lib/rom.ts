@@ -216,7 +216,10 @@ export function FillTableFromLog(
   table: BasicTable,
   logs: LogRecord[]
 ): Table<LogRecord[]> | void {
-  const newTable = duplicateTable<LogRecord[]>(table, () => []);
+  const newTable = duplicateTable<LogRecord[], string | number>(
+    table,
+    () => []
+  );
   if (newTable == null) {
     return console.log("Failed to duplicate table while FillTableFromLog");
   }
@@ -270,9 +273,9 @@ export function FillTableFromLog(
   return newTable;
 }
 
-function duplicateTable<T>(
-  table: BasicTable,
-  defaultValue: (c: string | number) => T = <T>(c: string | number) => c as T
+export function duplicateTable<T, U>(
+  table: Table<U>,
+  defaultValue: (c: U) => T = <T>(c: U) => c as unknown as T
 ): Table<T> | null {
   if (table.type == "3D") {
     return {

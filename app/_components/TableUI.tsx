@@ -1,14 +1,14 @@
 import { Axis, Scaling, Table, isTable2DX } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState, MouseEvent, CSSProperties, forwardRef } from "react";
 
 interface TableUIProps {
   table: Table<unknown>
 }
-
+type CellPos = [number, number]
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
-  if (!scaling || !value) return
+  if (!scaling || value == undefined) return
   const xAxisMin = parseFloat(scaling.min || '')
   const xAxisMax = parseFloat(scaling.max || '')
   const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
@@ -16,7 +16,128 @@ const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   return color.toHexString()
 }
 
-const TableUI: React.FC<TableUIProps> = ({ table }) => {
+const selectText = (textArea: HTMLTextAreaElement, text: string) => {
+  textArea.value = text;
+  textArea.focus();
+  textArea.select();
+}
+
+const eventToCellpos = (event: MouseEvent<HTMLTableCellElement>): CellPos | void => {
+  const { cellpos } = event.currentTarget.dataset
+  if (!cellpos) return
+  const [x, y] = cellpos.split(',')
+  return [Number(x), Number(y)]
+}
+
+const sortCellPos = (cell1: CellPos, cell2: CellPos): [CellPos, CellPos] => {
+  const startCell: CellPos = [
+    cell1[0] < cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] < cell2[1] ? cell1[1] : cell2[1],
+  ]
+  const endCell: CellPos = [
+    cell1[0] > cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] > cell2[1] ? cell1[1] : cell2[1],
+  ]
+  return [startCell, endCell]
+
+}
+
+const isCellWithinSelection = (cell: CellPos, minCell: CellPos, maxCell: CellPos): boolean => {
+  if (cell[0] >= minCell[0] && cell[0] <= maxCell[0]) {
+    if (cell[1] >= minCell[1] && cell[1] <= maxCell[1]) {
+      return true
+    }
+  }
+  return false
+}
+
+const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAreaRef) => {
+  // const textAreaRef = useRef<HTMLTextAreaElement>(null)
+
+  const [selectStartCell, setSelectStartCell] = useState<CellPos>()
+  const [selectEndCell, setSelectEndCell] = useState<CellPos>()
+
+  const [mouseDown, setMouseDown] = useState<boolean>(false)
+
+  const cellOnMouseDown = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    setMouseDown(true)
+    setSelectEndCell(undefined)
+    const cellpos = eventToCellpos(event)
+    if (!cellpos) return console.log("Failed to get start cellpos from event")
+    setSelectStartCell(cellpos)
+  }, [])
+
+  const highlightCells = useCallback(() => {
+    if (!selectStartCell) return console.log("No selectStartCell")
+    // const cellpos = eventToCellpos(event)
+    const endCell = selectEndCell
+    if (!endCell) return console.log("Failed to get end cellpos from event")
+    setSelectEndCell(endCell)
+
+    const [[minRow, minCol], [maxRow, maxCol]] = sortCellPos(selectStartCell, endCell)
+    console.log(`start: [${minRow}, ${minCol}] end: [${maxRow}, ${maxCol}]`)
+
+    let csvText = ""
+    for (let y = minRow; y <= maxRow; y++) {
+      for (let x = minCol; x <= maxCol; x++) {
+        if (Array.isArray(table.values)) {
+          csvText += `${table.values[y][x]}`
+          if (x != maxCol) {
+            csvText += `,`
+          }
+        } else {
+          console.log("Attempted to highlight cells of non 3d table")
+        }
+      }
+
+      if (y != maxRow) {
+        csvText += '\n'
+      }
+    }
+
+    if (!textAreaRef) return console.log("TextAreadRef missing")
+    // if (textAreaRef.current == null) return console.log("Failed to find hidden textarea")
+    // selectText(textAreaRef.current, csvText)
+    if (typeof textAreaRef === 'function') {
+      return console.log("passed ref to TableUI is a function expect ref with .current")
+    }
+    if (textAreaRef.current == null) return console.log()
+    selectText(textAreaRef.current, csvText)
+  }, [textAreaRef, selectEndCell, selectStartCell, table])
+
+  const cellOnMouseEnter = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    if (mouseDown) {
+      const endCell = eventToCellpos(event)
+      if (!endCell) return console.log("Failed to get end cellpos from event")
+      setSelectEndCell(endCell)
+    }
+  }, [mouseDown])
+
+  const cellOnMouseUp = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    console.log("up")
+    setMouseDown(false)
+    const endCell = eventToCellpos(event)
+    if (!endCell) return console.log("Failed to get end cellpos from event")
+    setSelectEndCell(endCell)
+    highlightCells()
+  }, [highlightCells, setSelectEndCell])
+
+  const formatCell = useCallback((row: number, col: number, cell: string | number): CSSProperties => {
+    if (selectStartCell && selectEndCell) {
+      const [minCell, maxCell] = sortCellPos(selectStartCell, selectEndCell)
+      if (isCellWithinSelection([row, col], minCell, maxCell)) {
+        return {
+          backgroundColor: "#333399",
+          color: "#fff"
+        }
+      }
+    }
+
+    return {
+      backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString()))
+    }
+  }, [table, selectStartCell, selectEndCell])
+
   const maxWidth = useMemo(() => {
     if (!table) return 0
     let maxWidth = 0
@@ -70,7 +191,8 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
   if (!table) return <div>Loading Table</div>
 
   return (
-    <div className="flex flex-col items-center text-[12px]">
+    <div className="flex flex-col items-center text-[12px] pr-2">
+      <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
       <div className="flex text-center flex-grow">{table?.xAxis?.name}</div>
       <div className="flex max-w-full">
         <div className="inline text-center rotate-180" style={{ writingMode: "vertical-rl" }}>
@@ -97,10 +219,10 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
           </thead>
           <tbody>
             {
-              table?.values?.map((row: (string | number | (string | number)[]), i) => {
-                const yAxisValue = table?.yAxis?.values?.[i]
+              table?.values?.map((row: (string | number | (string | number)[]), rowI: number) => {
+                const yAxisValue = table?.yAxis?.values?.[rowI]
                 return (
-                  <tr key={i}>
+                  <tr key={rowI}>
                     {yAxisValue &&
                       <th
                         className="px-2 border border-gray-300 sticky"
@@ -113,12 +235,17 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                     {
 
                       Array.isArray(row) &&
-                      row.map((cell, c) => {
+                      row.map((cell, colI) => {
                         return (
                           <td
-                            key={`${i}-${c}`}
+                            data-cellpos={[rowI, colI]}
+                            key={`${rowI}-${colI}`}
                             className="text-center border border-gray-300"
-                            style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
+                            // style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
+                            style={formatCell(rowI, colI, cell)}
+                            onMouseDown={cellOnMouseDown}
+                            onMouseUp={cellOnMouseUp}
+                            onMouseEnter={cellOnMouseEnter}
                           >
                             {sprintf(table?.scalingValue?.format || '', cell)}
                           </td>
@@ -134,6 +261,8 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
       </div>
     </div>
   );
-}
+})
+
+TableUI.displayName = "TableUI"
 
 export default TableUI;

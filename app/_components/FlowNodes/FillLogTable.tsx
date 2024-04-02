@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
-import { BasicTableDataType, LogData, LogTableData, LogTableDataType, RefreshableNode, TableData } from '@/app/_components/FlowNodes';
+import { LogData, RefreshableNode, TableData } from '@/app/_components/FlowNodes';
 import { LogTable } from '@/app/_lib/rom-metadata';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
-import { FillTableFromLog } from '@/app/_lib/rom';
+import { FillTableFromLog, duplicateTable } from '@/app/_lib/rom';
 import ModuleUI from '@/app/_components/Module';
+import { LogRecord } from '@/app/_lib/log';
 
 
-export interface FillLogTableData extends LogTableData, RefreshableNode {
+export interface FillLogTableData extends TableData<LogRecord[]>, RefreshableNode {
   table: LogTable | null
 }
 
@@ -22,18 +23,17 @@ export const FillLogTableSources = [sourceTableHandleId, sourceLogHandleId]
 export function newFillLogTable(): FillLogTableData {
   return {
     table: null,
-    tableType: LogTableDataType,
+    // tableType: LogTableDataType,
     refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<TableData>, Node<LogData>]>(node, nodes, edges, [sourceTableHandleId, sourceLogHandleId])
+      const parentNodes = getParentsByHandleIds<[Node<TableData<string | number>>, Node<LogData>]>(node, nodes, edges, [sourceTableHandleId, sourceLogHandleId])
       if (!parentNodes) {
         this.table = null
         return console.log("One or more parents are missing")
       }
       const [parentTable, parentLog] = parentNodes
 
-      const { table, tableType } = parentTable.data
+      const { table } = parentTable.data
       if (!table) return console.log("table is missing from parent")
-      if (tableType !== BasicTableDataType) return console.log(`FillLogTable source table is not of type '${BasicTableDataType}'`)
       const logs = parentLog.data.logs
 
       const newTable = FillTableFromLog(table, logs)
@@ -46,16 +46,16 @@ export function newFillLogTable(): FillLogTableData {
 
 function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) {
   const [expanded, setExpanded] = useState<boolean>(true)
-  // if (!data.table) {
-  //   return (
-  //     <div>//TODO should this be something else</div>
-  //   )
-  // }
-  // if (!data.table) {
-  //   return (
-  //     <div>//TODO should this be something else</div>
-  //   )
-  // }
+
+  const table = useMemo(() => {
+    const { table } = data
+    if (!table) return console.log("FillLogTableNode table missing from data prop")
+
+    const recordCountTable = duplicateTable(table, (c) => c.length)
+    if (!recordCountTable) return console.log("FillLogTableNode failed to duplicatTable")
+    return recordCountTable
+  }, [data])
+  // if (!table) return <div>Loading Table</div>
   return (
     <div className="flex flex-col p-2 border border-black rounded">
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />
@@ -68,17 +68,18 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
         >
           {expanded ? "_" : "^"}
         </button>
-        {data.table
-          && <div>
-            {
-              expanded
-              && <ModuleUI
-                module={{ type: 'base', table: data.table }}
-              />
-            }
-          </div>
-        }
+
       </div>
+      {!!table
+        && <div>
+          {
+            expanded
+            && <ModuleUI
+              module={{ type: 'base', table }}
+            />
+          }
+        </div>
+      }
     </div>
   );
 }

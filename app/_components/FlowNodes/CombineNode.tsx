@@ -11,7 +11,7 @@ import useFlow from '@/app/store/useFlow';
 import { LogFiltereNodeType, newLogFilter } from '@/app/_components/FlowNodes/LogFilterNode';
 import { LogNodeTypes, RefreshableNode, TableNodeTypes } from '@/app/_components/FlowNodes'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
-import { FillTableNodeType, FillTableType, newFillTable } from '@/app/_components/FlowNodes/FillTableNode';
+import { FillLogTableNodeType, FillLogTableType, newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable';
 
 
 export interface CombineData extends RefreshableNode { }
@@ -69,10 +69,11 @@ function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
           || parentNode?.type && TableNodeTypes.includes(parentNode.type))
         && <button
           onClick={async () => {
-            const fillTable: FillTableNodeType = {
+            const fillTable: FillLogTableNodeType = {
               ...node,
-              type: FillTableType,
-              data: newFillTable()
+              type: FillLogTableType,
+              data: newFillLogTable(),
+              dragHandle: '.drag-handle'
             }
             await updateNode(fillTable)
             // let c = getConnectedEdges()

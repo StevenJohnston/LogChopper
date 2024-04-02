@@ -7,6 +7,7 @@ import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import { FillTableFromLog } from '@/app/_lib/rom';
 import ModuleUI from '@/app/_components/Module';
+import RomModuleUI from '@/app/_components/RomModuleUI';
 
 
 export interface FillTableData extends TableData, RefreshableNode {
@@ -72,8 +73,8 @@ function FillTableNode({ data, isConnectable }: NodeProps<FillTableData>) {
           && <div>
             {
               expanded
-              && <ModuleUI
-                module={{ type: 'base', table: data.table }}
+              && <RomModuleUI
+                table={data.table}
               />
             }
           </div>
