@@ -1,3 +1,4 @@
+"use client";
 import { Edge, Node, getOutgoers } from "reactflow";
 
 // Assumes all missing parent nodes have already been updated

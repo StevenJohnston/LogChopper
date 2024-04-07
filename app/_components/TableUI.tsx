@@ -1,7 +1,9 @@
+'use client'
 import { Axis, Scaling, Table, isTable2DX } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
-import { useCallback, useMemo, useRef, useState, MouseEvent, CSSProperties, forwardRef } from "react";
+import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
+
 
 interface TableUIProps {
   table: Table<unknown>
@@ -52,7 +54,6 @@ const isCellWithinSelection = (cell: CellPos, minCell: CellPos, maxCell: CellPos
 }
 
 const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAreaRef) => {
-  // const textAreaRef = useRef<HTMLTextAreaElement>(null)
 
   const [selectStartCell, setSelectStartCell] = useState<CellPos>()
   const [selectEndCell, setSelectEndCell] = useState<CellPos>()
@@ -95,14 +96,13 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
       }
     }
 
-    if (!textAreaRef) return console.log("TextAreadRef missing")
-    // if (textAreaRef.current == null) return console.log("Failed to find hidden textarea")
-    // selectText(textAreaRef.current, csvText)
+    // if (!textAreaRef) return console.log("TextAreadRef missing")
+    if (textAreaRef == null) return
     if (typeof textAreaRef === 'function') {
       return console.log("passed ref to TableUI is a function expect ref with .current")
     }
     if (textAreaRef.current == null) return console.log()
-    selectText(textAreaRef.current, csvText)
+    selectText(textAreaRef.current as HTMLTextAreaElement, csvText)
   }, [textAreaRef, selectEndCell, selectStartCell, table])
 
   const cellOnMouseEnter = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
@@ -190,6 +190,8 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
 
   if (!table) return <div>Loading Table</div>
 
+  if (table.type == "Other") return <div>Other table tyoe not supported</div>
+  if (table.type != "3D") return <div>2D 1D not supported</div>
   return (
     <div className="flex flex-col items-center text-[12px] pr-2">
       <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>

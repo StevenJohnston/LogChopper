@@ -1,3 +1,4 @@
+'use client'
 import { forwardRef } from "react";
 import { Table } from "../_lib/rom-metadata";
 import RomModuleUI from "./RomModuleUI";
@@ -11,7 +12,6 @@ interface ModuleProps {
   module: Module
 }
 
-// const ModuleUI: React.FC<ModuleProps> = forwardRef(({
 const ModuleUI = forwardRef<HTMLTextAreaElement, ModuleProps>(
   (
     { module },

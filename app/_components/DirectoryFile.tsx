@@ -1,3 +1,4 @@
+'use client'
 import { useEffect, useState } from "react"
 
 export interface BaseDirectoryFileProps {
@@ -69,7 +70,7 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle 
   const selected = multiSelect ? selectedHandle?.includes(handle) : selectedHandle == handle;
   return (
     <button
-      className={`whitespace-nowrap pl-2 ${selected ? 'selected' : ''} `}
+      className={`whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} `}
       onClick={() => {
         setSelectedHandle(handle)
       }}

@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react"
 import DirectoryFile from "./DirectoryFile"
-import useFlow from "@/app/store/useFlow"
-import { BASE_LOG_NODE_ID, BaseLogNodeType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLogNode"
-import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTableNode"
+import useFlow, { RFState } from "@/app/store/useFlow"
+import { shallow } from "zustand/shallow"
+import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes"
+import { BASE_LOG_NODE_ID, BaseLogNodeType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
 
 export interface SidebarProps {
   directoryHandle?: FileSystemDirectoryHandle | null
@@ -17,6 +18,12 @@ export interface SidebarProps {
   selectedLogs: FileSystemFileHandle[]
   setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void
 }
+
+
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  updateNode: state.updateNode
+});
 
 // TODO replace these props with useRom
 export default function Sidebar({
@@ -31,7 +38,7 @@ export default function Sidebar({
   className,
 }: SidebarProps) {
   const [step, setStep] = useState<'metadata' | 'rom' | 'logs' | undefined>()
-  const { nodes, updateNode } = useFlow()
+  const { nodes, updateNode } = useFlow(selector, shallow);
 
   useEffect(() => {
     if (!selectedRomMetadataHandle) return

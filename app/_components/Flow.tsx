@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { shallow } from 'zustand/shallow';
 import ReactFlow, {
@@ -11,17 +13,19 @@ import ReactFlow, {
   ReactFlowInstance,
   Connection
 } from 'reactflow';
+import { uuid } from "uuidv4";
 
 import 'reactflow/dist/style.css';
 
-import BaseTableNode from '@/app/_components/FlowNodes/BaseTableNode'
-import BaseLogNode from "@/app/_components/FlowNodes/BaseLogNode";
-import CombineNode, { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode";
+import BaseTableNode from '@/app/_components/FlowNodes/BaseTable/BaseTableNode'
+import BaseLogNode from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
+import CombineNode from "@/app/_components/FlowNodes/CombineNode/CombineNode";
 import useFlow, { RFState } from '@/app/store/useFlow';
-import { uuid } from "uuidv4";
-import LogFilterNode from "@/app/_components/FlowNodes/LogFilterNode";
-import FillTableNode from "@/app/_components/FlowNodes/FillTableNode";
-import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable";
+import LogFilterNode from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
+import FillTableNode from "@/app/_components/FlowNodes/FillTable/FillTableNode";
+import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
+import GroupNode from "@/app/_components/FlowNodes/Group/GroupNode";
+import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -30,19 +34,25 @@ const selector = (state: RFState) => ({
   onEdgesChange: state.onEdgesChange,
   onConnect: state.onConnect,
   addNode: state.addNode,
-  addEdge: state.addEdge
+  addEdge: state.addEdge,
+  reactFlowInstance: state.reactFlowInstance,
+  setReactFlowInstance: state.setReactFlowInstance,
+  onNodeDragStop: state.onNodeDragStop,
 });
 
 const Flow: React.FC = () => {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
-  const nodeTypes = useMemo(() => ({ BaseTableNode, BaseLogNode, CombineNode, LogFilterNode, FillTableNode, FillLogTableNode }), [])
+  const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
+  const nodeTypes = useMemo(() => {
+    console.log("nodeTypes")
+    return { BaseTableNode, BaseLogNode, CombineNode, LogFilterNode, FillTableNode, FillLogTableNode, GroupNode }
+  }, [])
 
-  useEffect(() => { console.log("Flow rerendered") }, [])
+
 
   const connectingNodeId = useRef<string | null>(null);
   const connectingHandleId = useRef<string | null>(null);
 
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance>()
+  // const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance>()
 
   const onConnectWrapper: OnConnect = useCallback(
     (params) => {
@@ -91,6 +101,16 @@ const Flow: React.FC = () => {
     [addEdge, addNode, reactFlowInstance],
   );
 
+  const [realReactFlowInstance, setRealReactFlowInstance] = useState<ReactFlowInstance>()
+
+  // Ensures after store refrest reactFlowInstance is synced
+  useEffect(() => {
+    if (!realReactFlowInstance) return
+    if (reactFlowInstance != realReactFlowInstance) {
+      setReactFlowInstance(realReactFlowInstance)
+    }
+  }, [reactFlowInstance, realReactFlowInstance])
+
   const isValidConnection = useCallback((c: Connection): boolean => {
     if (c.sourceHandle?.split("#")[0] != c.targetHandle?.split("#")[0]) return false
 
@@ -100,13 +120,24 @@ const Flow: React.FC = () => {
     return true
   }, [edges])
 
+  useEffect(() => {
+    if (!realReactFlowInstance) return
+    if (reactFlowInstance != realReactFlowInstance) {
+      setReactFlowInstance(realReactFlowInstance)
+    }
+  }, [reactFlowInstance, realReactFlowInstance])
+
+  useEffect(() => { console.log("Flow Full rerendered") }, [])
+
   return (
     <div className="w-full h-full">
+
       <ReactFlow
-        onInit={setReactFlowInstance}
+        onInit={setRealReactFlowInstance}
         nodeTypes={nodeTypes}
         nodes={nodes}
         edges={edges}
+        onNodeDragStop={onNodeDragStop}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnectWrapper}

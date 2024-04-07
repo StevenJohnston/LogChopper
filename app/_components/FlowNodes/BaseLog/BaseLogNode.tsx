@@ -1,24 +1,10 @@
-import { useState } from 'react';
-import { Position, NodeProps, Node } from 'reactflow';
+'use client'
+
+import { BaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
 import { loadLogs } from "@/app/_lib/log";
+import { useState } from "react";
+import { NodeProps, Node } from "reactflow";
 
-import { LogData, RefreshableNode } from '@/app/_components/FlowNodes';
-import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
-
-export interface BaseLogData extends LogData, RefreshableNode {
-  selectedLogs: FileSystemFileHandle[];
-}
-
-export const BaseLogType = "BaseLogNode"
-export type BaseLogNodeType = Node<BaseLogData, typeof BaseLogType>;
-
-export const BASE_LOG_NODE_ID = "SELECTED_LOGS_NODE"
-export const INIT_BASE_LOG_NODE: BaseLogNodeType = {
-  id: BASE_LOG_NODE_ID,
-  type: "BaseLogNode",
-  position: { x: 100, y: 100 },
-  data: newBaseLog()
-}
 
 export function newBaseLog(): BaseLogData {
   return {
@@ -36,7 +22,10 @@ function BaseLogNode({ data, isConnectable }: NodeProps<BaseLogData>) {
   const [expanded, setExpanded] = useState<boolean>(true)
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded">
+    <div
+      className="flex flex-col p-2 border border-black rounded"
+      onDoubleClick={() => setExpanded(!expanded)}
+    >
       <div className='flex justify-between drag-handle'>
         <div className='pr-2'>Selected Logs</div>
         <button className='border-2 border-black w-8 h-8'

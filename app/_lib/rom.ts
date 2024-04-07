@@ -1,3 +1,4 @@
+"use client";
 import { LogRecord } from "@/app/_lib/log";
 import { scalingAliases, typeToReader } from "./consts";
 import {

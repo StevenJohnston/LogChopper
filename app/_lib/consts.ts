@@ -1,3 +1,4 @@
+"use client";
 import { Scaling } from "./rom-metadata";
 
 export const scalingAliases = {

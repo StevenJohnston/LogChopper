@@ -1,4 +1,5 @@
 `use client`;
+
 import {
   Connection,
   Edge,
@@ -12,21 +13,24 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   updateEdge,
+  ReactFlowInstance,
 } from "reactflow";
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { LogRecord } from "../_lib/log";
-import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTableNode";
-import { BaseLogNodeType } from "@/app/_components/FlowNodes/BaseLogNode";
-import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode";
-import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilterNode";
+import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
+import { BaseLogNodeType } from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
+import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineNode";
+import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
 import { topologicalSort } from "@/app/_lib/react-flow-utils";
-import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTableNode";
-import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable";
+import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTable/FillTableNode";
+import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
+import {
+  GroupNodeType,
+  GroupType,
+} from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
 
-export interface LogFilterData {
-  logs: LogRecord[];
-}
+import type { MouseEvent } from "react";
 
 export type MyNode =
   | BaseTableNodeType
@@ -34,14 +38,17 @@ export type MyNode =
   | CombineNodeType
   | LogFiltereNodeType
   | FillTableNodeType
-  | FillLogTableNodeType;
+  | FillLogTableNodeType
+  | GroupNodeType;
 
 const initialNodes = [] as Node[];
 const initialEdges = [] as Edge[];
 
 export type RFState = {
+  reactFlowInstance?: ReactFlowInstance;
   nodes: Node[];
   edges: Edge[];
+  onNodeDragStop: (event: MouseEvent, node: Node, nodes: Node[]) => void;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
@@ -49,8 +56,10 @@ export type RFState = {
   setEdges: (edges: Edge[]) => void;
   addNode: (node: MyNode) => void;
   addEdge: (edge: Edge) => void;
+  softUpdateNode: (node: Node) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
+  setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
 };
 
 const useFlow = createWithEqualityFn<RFState>(
@@ -58,7 +67,78 @@ const useFlow = createWithEqualityFn<RFState>(
   (set, get) => ({
     nodes: initialNodes,
     edges: initialEdges,
+    onNodeDragStop: (event: MouseEvent, node: Node, nodes: Node[]) => {
+      const reactFlowInstance = get().reactFlowInstance;
+      if (reactFlowInstance) {
+        nodes = get().nodes;
+        if (node.type == GroupType) {
+          console.log("Dropped Group");
+          const intersections = reactFlowInstance.getIntersectingNodes(node);
+          console.log("intersections", intersections);
+          for (const interNode of intersections) {
+            // const interNode = nodes.find((n) => n.id == intersection);
+            if (!interNode) {
+              continue;
+            }
+            if (interNode.type == GroupType) {
+              console.log("Cannot add GroupNode to GroupNode");
+              continue;
+            }
+            if (interNode.parentNode) {
+              console.log("Will not steal node from another group");
+              continue;
+            }
+            if (interNode.parentNode !== node.id) {
+              interNode.position = {
+                x: interNode.position.x - node.position.x,
+                y: interNode.position.y - node.position.y,
+              };
+              interNode.parentNode = node.id;
+              get().softUpdateNode(interNode);
+            }
+          }
+        } else {
+          const intersections = reactFlowInstance.getIntersectingNodes(node);
+          // TODO check if there is atleast one group
+          const groupIntersections = intersections.filter(
+            (n) => n.type == GroupType
+          );
+
+          if (groupIntersections.length == 0) {
+            if (node.parentNode != undefined) {
+              const oldParent = nodes.find((n) => n.id == node.parentNode);
+              if (!oldParent) {
+                return console.log(
+                  "Failed to find parent node while removing node from parent"
+                );
+              }
+
+              node.parentNode = undefined;
+              node.position = {
+                x: node.position.x + oldParent.position.x,
+                y: node.position.y + oldParent.position.y,
+              };
+              get().softUpdateNode(node);
+            }
+          } else if (groupIntersections.length == 1) {
+            if (groupIntersections[0].id != node.parentNode) {
+              node.position = {
+                x: node.position.x - groupIntersections[0].position.x,
+                y: node.position.y - groupIntersections[0].position.y,
+              };
+              node.parentNode = groupIntersections[0].id;
+              get().softUpdateNode(node);
+            }
+          } else {
+            console.log("Will not update parent if in more than 1 group");
+          }
+        }
+      } else {
+        console.log("reactFlowInstance missing");
+      }
+    },
     onNodesChange: (changes: NodeChange[]) => {
+      console.log("onNodesChange");
       set({
         nodes: applyNodeChanges(changes, get().nodes),
       });
@@ -92,6 +172,11 @@ const useFlow = createWithEqualityFn<RFState>(
         edges: [...get().edges, edge],
       });
     },
+    softUpdateNode: async (node: Node) => {
+      set({
+        nodes: [...get().nodes.filter((n) => n.id != node.id), node],
+      });
+    },
     updateNode: async (node: MyNode) => {
       const nodes = get().nodes;
       const edges = get().edges;
@@ -104,6 +189,7 @@ const useFlow = createWithEqualityFn<RFState>(
         console.log(`updating node ${updateNode.id}`);
         set({
           nodes: [
+            //TODO maybe use nodes instead of ...get().nodes
             ...get().nodes.filter((n) => n.id != updateNode.id),
             updateNode,
           ],
@@ -113,6 +199,11 @@ const useFlow = createWithEqualityFn<RFState>(
     updateEdge: async (edge: Edge, connection: Connection) => {
       set({
         edges: updateEdge(edge, connection, get().edges),
+      });
+    },
+    setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => {
+      set({
+        reactFlowInstance,
       });
     },
   })

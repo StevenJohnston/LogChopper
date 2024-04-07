@@ -1,3 +1,4 @@
+'use client'
 import { Scaling, Table, isTable2DX, isTable2DY } from "../_lib/rom-metadata";
 import GridSvg from "../icons/grid.svg"
 import VerticalSvg from "../icons/vertical.svg"
@@ -9,7 +10,7 @@ import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { uuid } from 'uuidv4';
 import useRom from "@/app/store/useRom";
-import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTableNode";
+import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
 
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
@@ -63,7 +64,9 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) =>
                   type: "BaseTableNode",
                   data: newBaseTableData(selectedRom, tableMap[key], scalingMap),
                   position: { x: 300, y: 25 },
-                  dragHandle: '.drag-handle'
+                  dragHandle: '.drag-handle',
+                  extent: 'parent',
+                  parentNode: '4'
                 })
               }}
             >

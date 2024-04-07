@@ -1,3 +1,4 @@
+"use client";
 import { LogRecord } from "@/app/_lib/log";
 import xml2js from "xml2js";
 import { scalingAliases, typeToReader } from "@/app/_lib/consts";
@@ -292,11 +293,16 @@ export async function getAllRomMetadataMap(
 
 async function fetchRomMetadata(
   fileHandle: FileSystemFileHandle
-): Promise<RomMetadata<unknown>> {
+): Promise<RomMetadata<unknown> | null> {
   const file = await fileHandle.getFile();
   const text = await file.text();
-  const xml = await parser.parseStringPromise(text);
-  return xml.rom;
+  try {
+    const xml = await parser.parseStringPromise(text);
+    return xml.rom;
+  } catch (e) {
+    console.log(`Error loading xml ${fileHandle.name}`);
+    return null;
+  }
 }
 
 async function buildRomTables(
@@ -322,10 +328,9 @@ async function buildRomTables(
         if (mappedTable?.name) {
           tableMap[mappedTable.name] = mappedTable;
         } else {
-          console.log("what");
+          console.log(`Cant handle table ${table?.$?.name}`);
         }
       });
-    console.log("done");
   } catch (e) {
     console.log(e);
   }
@@ -390,6 +395,7 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
             }
           }
           dropTable = true;
+          console.log(`Dropping table due ??? tableName: ${table?.$?.name}`);
           break;
         case "X Axis":
           mappedTable.xAxis = mapAxis(axis);
@@ -399,8 +405,14 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
           break;
         case "Static X Axis":
           dropTable = true;
+          console.log(
+            `Dropping table due to Static X Axis tableName: ${table?.$?.name}`
+          );
           break;
         case "Static Y Axis":
+          console.log(
+            `Dropping table due to Static Y Axis tableName: ${table?.$?.name}`
+          );
           dropTable = true;
           break;
         default:
@@ -445,7 +457,6 @@ function mapAxis(axis: Table2): Axis {
 
 function mapScaling(scaling: Scaling): Scaling {
   const attrs = scaling["$"];
-  console.log('mapScaling missing "$"');
   if (!attrs) return {};
   const mappedScaling: Scaling = {};
   Object.keys(attrs || {}).map((key) => {
@@ -466,6 +477,11 @@ export const LoadRomMetadata = async (
 
   // Get romid from selectedRomMetadataHandle
   const selectedRom = await fetchRomMetadata(selectedRomMetadataHandle);
+
+  if (selectedRom == null) {
+    console.log("Failed to LopadRomMetadata");
+    return;
+  }
 
   const [scalings, tableMap] = await buildRomTables(
     allRomMetadataMap,

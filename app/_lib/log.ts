@@ -1,3 +1,4 @@
+"use client";
 import csv from "csvtojson";
 
 export interface LogRecord {

@@ -1,3 +1,4 @@
+'use client'
 import { Table } from "../_lib/rom-metadata";
 import TableUI from "./TableUI";
 import Surface from "./Surface";

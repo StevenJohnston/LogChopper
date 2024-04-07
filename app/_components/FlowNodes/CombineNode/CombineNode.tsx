@@ -1,3 +1,4 @@
+'use client'
 import { useMemo } from 'react';
 import {
   Position,
@@ -7,19 +8,26 @@ import {
   Connection,
 } from 'reactflow';
 
-import useFlow from '@/app/store/useFlow';
-import { LogFiltereNodeType, newLogFilter } from '@/app/_components/FlowNodes/LogFilterNode';
-import { LogNodeTypes, RefreshableNode, TableNodeTypes } from '@/app/_components/FlowNodes'
-import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle';
-import { FillLogTableNodeType, FillLogTableType, newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable';
+import useFlow, { RFState } from '@/app/store/useFlow';
+import { newLogFilter } from '@/app/_components/FlowNodes/LogFilter/LogFilterNode';
+import { LogFilterType, LogFiltereNodeType } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
+import { LogNodeTypes, TableNodeTypes } from '@/app/_components/FlowNodes'
+import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
+import { newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableNode';
+import { FillLogTableNodeType, FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
+import { shallow } from 'zustand/shallow';
+import { CombineData } from '@/app/_components/FlowNodes/CombineNode/CombineTypes';
 
-
-export interface CombineData extends RefreshableNode { }
-export type CombineNodeType = Node<CombineData, "CombineNode">;
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  updateEdge: state.updateEdge,
+  updateNode: state.updateNode
+});
 
 function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
   // function CombineNode(node: Node<CombineData>) {
-  const { nodes, edges, updateNode, updateEdge } = useFlow()
+  const { nodes, edges, updateNode, updateEdge } = useFlow(selector, shallow);
 
   // let i = getInco÷
   const [node, parentNode]: (Node | undefined)[] = useMemo(() => {
@@ -51,7 +59,7 @@ function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
           onClick={() => {
             const logFilter: LogFiltereNodeType = {
               ...node,
-              type: "LogFilterNode",
+              type: LogFilterType,
               data: newLogFilter()
             }
             updateNode(logFilter)

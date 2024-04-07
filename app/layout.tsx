@@ -49,8 +49,6 @@ export default function RootLayout() {
     setSelectedLogs
   } = useRom(useRomSelector, shallow);
 
-  const [modules, setModules] = useState<Module[]>([]);
-
   useEffect(() => {
     if (!directoryHandle) return;
     (async () => {
@@ -100,21 +98,6 @@ export default function RootLayout() {
     setSelectedRom(null);
   }, [directoryHandle, selectedRomMetadataHandle, setScalingMap, setSelectedRom, setTableMap]);
 
-  useEffect(() => {
-    if (!directoryHandle || !selectedRom) return;
-    (async () => {
-      // let file = await selectedRom.getFile()
-      // let buffer = await file.arrayBuffer()
-    })();
-  }, [directoryHandle, selectedRom]);
-
-  const addModule = useCallback(
-    (module: Module) => {
-      setModules([...modules, module]);
-    },
-    [modules, setModules]
-  );
-
   return (
     <html lang="en" className="h-full">
       <body className="h-full">
@@ -135,7 +118,6 @@ export default function RootLayout() {
           <TableSelector
             scalingMap={scalingMap}
             tableMap={tableMap}
-            addModule={addModule}
             className="w-1/6"
           />
           <ModuleDisplay
