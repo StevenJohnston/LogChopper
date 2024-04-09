@@ -17,14 +17,13 @@ import {
 } from "reactflow";
 
 import { createWithEqualityFn } from "zustand/traditional";
-import { LogRecord } from "../_lib/log";
-import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
-import { BaseLogNodeType } from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
-import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineNode";
-import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
+import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
+import { BaseLogNodeType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
+import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
+import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes";
 import { topologicalSort } from "@/app/_lib/react-flow-utils";
-import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTable/FillTableNode";
-import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
+import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTable/FillTableTypes";
+import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes";
 import {
   GroupNodeType,
   GroupType,
@@ -40,15 +39,16 @@ export type MyNode =
   | FillTableNodeType
   | FillLogTableNodeType
   | GroupNodeType;
+// | Node;
 
-const initialNodes = [] as Node[];
+const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
 
 export type RFState = {
   reactFlowInstance?: ReactFlowInstance;
-  nodes: Node[];
+  nodes: MyNode[];
   edges: Edge[];
-  onNodeDragStop: (event: MouseEvent, node: Node, nodes: Node[]) => void;
+  onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: Node[]) => void;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
@@ -56,7 +56,7 @@ export type RFState = {
   setEdges: (edges: Edge[]) => void;
   addNode: (node: MyNode) => void;
   addEdge: (edge: Edge) => void;
-  softUpdateNode: (node: Node) => void;
+  softUpdateNode: (node: MyNode) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
@@ -67,34 +67,35 @@ const useFlow = createWithEqualityFn<RFState>(
   (set, get) => ({
     nodes: initialNodes,
     edges: initialEdges,
-    onNodeDragStop: (event: MouseEvent, node: Node, nodes: Node[]) => {
+    onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: Node[]) => {
       const reactFlowInstance = get().reactFlowInstance;
       if (reactFlowInstance) {
         nodes = get().nodes;
         if (node.type == GroupType) {
-          console.log("Dropped Group");
-          const intersections = reactFlowInstance.getIntersectingNodes(node);
-          console.log("intersections", intersections);
-          for (const interNode of intersections) {
-            // const interNode = nodes.find((n) => n.id == intersection);
-            if (!interNode) {
-              continue;
-            }
-            if (interNode.type == GroupType) {
-              console.log("Cannot add GroupNode to GroupNode");
-              continue;
-            }
-            if (interNode.parentNode) {
-              console.log("Will not steal node from another group");
-              continue;
-            }
-            if (interNode.parentNode !== node.id) {
-              interNode.position = {
-                x: interNode.position.x - node.position.x,
-                y: interNode.position.y - node.position.y,
-              };
-              interNode.parentNode = node.id;
-              get().softUpdateNode(interNode);
+          const intersections = reactFlowInstance.getIntersectingNodes(
+            node
+          ) as MyNode[];
+          if (!node.data.locked) {
+            for (const interNode of intersections) {
+              if (!interNode) {
+                continue;
+              }
+              if (interNode.type == GroupType) {
+                console.log("Cannot add GroupNode to GroupNode");
+                continue;
+              }
+              if (interNode.parentNode) {
+                console.log("Will not steal node from another group");
+                continue;
+              }
+              if (interNode.parentNode !== node.id) {
+                interNode.position = {
+                  x: interNode.position.x - node.position.x,
+                  y: interNode.position.y - node.position.y,
+                };
+                interNode.parentNode = node.id;
+                get().softUpdateNode(interNode);
+              }
             }
           }
         } else {
@@ -102,7 +103,7 @@ const useFlow = createWithEqualityFn<RFState>(
           // TODO check if there is atleast one group
           const groupIntersections = intersections.filter(
             (n) => n.type == GroupType
-          );
+          ) as GroupNodeType[];
 
           if (groupIntersections.length == 0) {
             if (node.parentNode != undefined) {
@@ -121,7 +122,10 @@ const useFlow = createWithEqualityFn<RFState>(
               get().softUpdateNode(node);
             }
           } else if (groupIntersections.length == 1) {
-            if (groupIntersections[0].id != node.parentNode) {
+            if (
+              groupIntersections[0].id != node.parentNode &&
+              !groupIntersections[0].data.locked
+            ) {
               node.position = {
                 x: node.position.x - groupIntersections[0].position.x,
                 y: node.position.y - groupIntersections[0].position.y,
@@ -140,7 +144,7 @@ const useFlow = createWithEqualityFn<RFState>(
     onNodesChange: (changes: NodeChange[]) => {
       console.log("onNodesChange");
       set({
-        nodes: applyNodeChanges(changes, get().nodes),
+        nodes: applyNodeChanges(changes, get().nodes) as MyNode[],
       });
     },
     onEdgesChange: (changes: EdgeChange[]) => {
@@ -155,7 +159,7 @@ const useFlow = createWithEqualityFn<RFState>(
         edges: addEdge(connection, get().edges),
       });
     },
-    setNodes: (nodes: Node[]) => {
+    setNodes: (nodes: MyNode[]) => {
       set({ nodes });
     },
     setEdges: (edges: Edge[]) => {
@@ -172,7 +176,7 @@ const useFlow = createWithEqualityFn<RFState>(
         edges: [...get().edges, edge],
       });
     },
-    softUpdateNode: async (node: Node) => {
+    softUpdateNode: async (node: MyNode) => {
       set({
         nodes: [...get().nodes.filter((n) => n.id != node.id), node],
       });
@@ -192,7 +196,7 @@ const useFlow = createWithEqualityFn<RFState>(
             //TODO maybe use nodes instead of ...get().nodes
             ...get().nodes.filter((n) => n.id != updateNode.id),
             updateNode,
-          ],
+          ] as MyNode[],
         });
       }
     },

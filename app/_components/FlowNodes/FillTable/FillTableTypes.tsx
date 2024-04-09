@@ -1,10 +1,11 @@
 'use client'
+
 import { Node } from 'reactflow';
 
-import { RefreshableNode, TableData } from '@/app/_components/FlowNodes';
+import { RefreshableNode, SaveableNode, TableData } from '@/app/_components/FlowNodes';
 import { Table } from '@/app/_lib/rom-metadata';
 
-export interface FillTableData extends TableData<unknown>, RefreshableNode {
+export interface FillTableData extends TableData<unknown>, RefreshableNode, SaveableNode {
   table: Table<unknown> | null
 }
 

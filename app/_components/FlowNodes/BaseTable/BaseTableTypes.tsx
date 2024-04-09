@@ -11,4 +11,4 @@ export interface BaseTableData extends TableData<string | number>, RefreshableNo
 }
 
 export const BaseTableType = "BaseTableNode"
-export type BaseTableNodeType = Node<BaseTableData, "BaseTableNode">;
+export type BaseTableNodeType = Node<BaseTableData, typeof BaseTableType>;

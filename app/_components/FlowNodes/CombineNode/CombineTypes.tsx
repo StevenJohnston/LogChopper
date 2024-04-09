@@ -3,8 +3,8 @@ import {
   Node,
 } from 'reactflow';
 
-import { RefreshableNode } from '@/app/_components/FlowNodes'
+import { RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes'
 
-
-export interface CombineData extends RefreshableNode { }
-export type CombineNodeType = Node<CombineData, "CombineNode">;
+export const CombineType = "CombineNode"
+export interface CombineData extends RefreshableNode, SaveableNode { }
+export type CombineNodeType = Node<CombineData, typeof CombineType>;

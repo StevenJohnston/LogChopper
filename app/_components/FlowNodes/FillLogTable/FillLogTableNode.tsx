@@ -28,10 +28,10 @@ export function newFillLogTable(): FillLogTableData {
       const newTable = FillTableFromLog(table, logs)
       if (!newTable) return console.log("FillTableFromLog failed while NewFillLogTable.refresh")
       this.table = newTable
-    }
+    },
+    getLoadable: () => ({})
   }
 }
-
 
 function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) {
   const [expanded, setExpanded] = useState<boolean>(true)

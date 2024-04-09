@@ -5,6 +5,7 @@ import { GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/Grou
 import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode"
 import { LogFilterType, LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
 import useFlow, { RFState } from "@/app/store/useFlow"
+import useNodeStorage, { NodeStorageState, SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage"
 import { MouseEventHandler, ReactNode, useCallback, useMemo, useState } from "react"
 import { Viewport } from "reactflow"
 import { uuid } from "uuidv4"
@@ -27,11 +28,21 @@ const NodeSelectorButton = ({ onClick, children }: NodeSelectorButtonProps) => {
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
-  updateNode: state.updateNode
+  updateNode: state.updateNode,
+  addNode: state.addNode,
+  addEdge: state.addEdge
 });
 
+const nodeStorageSelector = (state: NodeStorageState) => ({
+  savedGroups: state.savedGroups,
+  saveGroup: state.saveGroup,
+});
+
+
 const NodeSelector = () => {
-  const { reactFlowInstance, updateNode } = useFlow(selector, shallow);
+  const { reactFlowInstance, updateNode, addNode, addEdge } = useFlow(selector, shallow);
+  const { savedGroups } = useNodeStorage(nodeStorageSelector, shallow)
+
 
   const [expanded, setExpanded] = useState<boolean>()
   // const { x, y, zoom } = useViewport();
@@ -47,6 +58,17 @@ const NodeSelector = () => {
       y: (viewPort?.y || 0) * -1 + y,
     }
   }, [reactFlowInstance])
+
+  const onLoadSavedGroup = useCallback((savedGroup: SavedGroup) => {
+    const newGroup = cloneSavedGroup(savedGroup)
+
+    for (const node of newGroup.nodes) {
+      addNode(node)
+    }
+    for (const edge of newGroup.edges) {
+      addEdge(edge)
+    }
+  }, [addNode, addEdge])
 
   return (
     <div className={`fixed flex top-0 right-0 bg-opacity-50 bg-blue-200 p-2 ${expanded ? 'w-[200px]' : ''} flex-col max-h-[calc(100%-200px)] m-[15px]`}>
@@ -88,8 +110,8 @@ const NodeSelector = () => {
                 position: getViewportPosition(100, 100),
                 id: uuid(),
                 type: GroupType,
-                data: newGroup(),
-                style: { width: 400, height: 400 }
+                data: newGroup({ name: "New Group", locked: false }),
+                style: { width: 400, height: 400, zIndex: -1 }
               }
               updateNode(group)
             }}
@@ -98,7 +120,28 @@ const NodeSelector = () => {
             Group
           </NodeSelectorButton>
           <div>Saved Groups</div>
-
+          {savedGroups.map((savedGroup) => {
+            return (
+              <NodeSelectorButton
+                key={savedGroup.groupName}
+                onClick={() => {
+                  onLoadSavedGroup(savedGroup)
+                  // savedGroup.nodes.forEach()
+                  // // const group: GroupNodeType = {
+                  // //   position: getViewportPosition(100, 100),
+                  // //   id: uuid(),
+                  // //   type: GroupType,
+                  // //   data: newGroup({ name: "New Group", locked: false }),
+                  // //   style: { width: 400, height: 400, zIndex: -1 }
+                  // // }
+                  // updateNode(group)
+                }}
+              // text={"Log Filter"}
+              >
+                {savedGroup.groupName}
+              </NodeSelectorButton>
+            )
+          })}
         </div>
       }
       {/* <button

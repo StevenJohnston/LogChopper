@@ -19,13 +19,13 @@ import 'reactflow/dist/style.css';
 
 import BaseTableNode from '@/app/_components/FlowNodes/BaseTable/BaseTableNode'
 import BaseLogNode from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
-import CombineNode from "@/app/_components/FlowNodes/CombineNode/CombineNode";
+import CombineNode, { newCombineData } from "@/app/_components/FlowNodes/CombineNode/CombineNode";
 import useFlow, { RFState } from '@/app/store/useFlow';
 import LogFilterNode from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
 import FillTableNode from "@/app/_components/FlowNodes/FillTable/FillTableNode";
 import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
 import GroupNode from "@/app/_components/FlowNodes/Group/GroupNode";
-import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
+import { CombineNodeType, CombineType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -79,12 +79,12 @@ const Flow: React.FC = () => {
           const id = uuid();
           const newNode: CombineNodeType = {
             id,
-            type: "CombineNode",
+            type: CombineType,
             position: reactFlowInstance.screenToFlowPosition({
               x: event.clientX,
               y: event.clientY,
             }),
-            data: {},
+            data: newCombineData(),
           };
 
           addNode(newNode)

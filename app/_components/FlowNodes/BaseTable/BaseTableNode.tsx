@@ -17,12 +17,12 @@ export function newBaseTableData(selectedRom: FileSystemFileHandle | null, table
     scalingMap,
     refresh: async function (node: Node): Promise<void> {
       if (!this.table) return
-      let filledTable = await getFilledTable(node.data.selectedRom, this.scalingMap, this.table)
+      const filledTable = await getFilledTable(node.data.selectedRom, this.scalingMap, this.table)
       if (!filledTable) {
         return console.log("Failed to getFilledTable for newBaseTableData")
       }
       this.table = filledTable
-    }
+    },
   }
 }
 

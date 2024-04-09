@@ -1,31 +1,26 @@
 'use client'
 
-import { GroupData } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
-import useFlow, { RFState } from "@/app/store/useFlow";
-import { useCallback, useMemo } from "react";
+import { GroupData, GroupNodeType, InitGroupData } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
+import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
+import useNodeStorage, { NodeStorageState } from "@/app/store/useNodeStorage";
+import { ChangeEvent, useCallback, useEffect, useMemo } from "react";
 import { NodeProps, NodeResizer, Node, Edge } from "reactflow";
 import { shallow } from "zustand/shallow";
 
 
-export function newGroup(): GroupData {
+export function newGroup({ name, locked }: InitGroupData): GroupData<InitGroupData> {
   return {
-    height: 400,
-    width: 400,
+    name,
+    locked,
     refresh: async function (node: Node): Promise<void> {
       console.log("Refresh newgroup")
     },
-    save: function (node: Node, nodes: Node[], edges: Edge[]) {
-      console.log("Saving Group")
-      //TODO get children
-
-      //TODO get Edges
-      //TODO save to persistent zustand
-      return "wow"
+    getLoadable: function (): InitGroupData {
+      return {
+        name: this.name,
+        locked: this.locked
+      }
     },
-    load: function (json: string) {
-      console.log("Loading group")
-      return
-    }
   }
 }
 
@@ -33,19 +28,72 @@ const selector = (state: RFState) => ({
   nodes: state.nodes,
   edges: state.edges,
   updateEdge: state.updateEdge,
-  updateNode: state.updateNode
+  updateNode: state.updateNode,
+  flowInstance: state.reactFlowInstance
 });
 
-function GroupNode({ id, data }: NodeProps<GroupData>) {
-  const { nodes, edges } = useFlow(selector, shallow);
-  const node = useMemo(() => {
+const nodeStorageSelector = (state: NodeStorageState) => ({
+  savedGroups: state.savedGroups,
+  saveGroup: state.saveGroup,
+});
+
+function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
+  const { flowInstance, nodes, edges, updateNode } = useFlow(selector, shallow);
+  const { savedGroups, saveGroup } = useNodeStorage(nodeStorageSelector, shallow)
+  useEffect(() => {
+    console.log("savedGroups", savedGroups)
+  }, [savedGroups])
+
+  const node: GroupNodeType | undefined = useMemo(() => {
     return nodes.find(n => n.id == id)
-  }, [data, nodes, edges])
+  }, [id, data, nodes, edges])
 
   const onSave = useCallback(() => {
+    if (!flowInstance) return console.log("Error saving due to missing flowInstance")
     if (!node) return console.log(`Error saving group node: could not find node in store ${id}`)
-    data.save(node, nodes, edges)
-  }, [node, nodes, edges, id, data])
+    if (!node.data) return console.log("Error saving group node: Missing data")
+    // node.data
+    // const savedNode = node.data.getLoadable(node, nodes, edges)
+    const saveNodes: MyNode[] = []
+    const saveEdges: Edge[] = []
+    saveNodes.push({
+      ...node,
+      data: node.data.getLoadable()
+    })
+
+    const interNodes: MyNode[] = flowInstance.getIntersectingNodes(
+      node
+    ) as MyNode[];
+
+    const interNodeIds: Record<string, boolean> = {}
+
+    for (const interNode of interNodes) {
+      interNodeIds[interNode.id] = true
+      saveNodes.push({
+        ...interNode,
+        data: interNode.data.getLoadable()
+      })
+    }
+
+    for (const edge of edges) {
+      if (interNodeIds[edge.source] && interNodeIds[edge.target]) {
+        saveEdges.push(edge)
+      }
+    }
+    // saveGroup(savedNode)
+    // data.save(node, nodes, edges)
+    saveGroup({ groupName: data.name, nodes: saveNodes, edges: saveEdges })
+  }, [flowInstance, node, nodes, edges, id, data, saveGroup])
+
+
+  const onGroupNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    updateNode({ ...node, data: { ...node.data, name: event.target.value } })
+  }, [node, updateNode])
+
+  if (!node) {
+    return <div>Loading Group Node</div>
+  }
   return (
     <>
       <NodeResizer color="red" minWidth={100} minHeight={100} handleStyle={{ width: 8, height: 8, borderRadius: 3, backgroundColor: "blue" }} />
@@ -56,13 +104,28 @@ function GroupNode({ id, data }: NodeProps<GroupData>) {
         <div
           className='flex justify-between'
         >
+          {/* <div className='pr-2'>{data.name}</div> */}
+          <input
+            className={`focus:bg-transparent bg-inherit h-4 m-1`}
+            type="text"
+            value={data.name}
+            onChange={onGroupNameChange}
+          />
+          <div>
 
-          <div className='pr-2'>Group Node</div>
-          <button className='border rounded border-black p-1'
-            onClick={onSave}
-          >
-            Save
-          </button>
+            <button className='border rounded border-black p-1'
+              onClick={() => {
+                updateNode({ ...node, data: { ...node.data, locked: !node.data.locked } })
+              }}
+            >
+              {data.locked ? "Locked" : "Unlocked"}
+            </button>
+            <button className='border rounded border-black p-1'
+              onClick={onSave}
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </>

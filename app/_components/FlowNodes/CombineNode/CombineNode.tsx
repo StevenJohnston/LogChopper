@@ -25,6 +25,12 @@ const selector = (state: RFState) => ({
   updateNode: state.updateNode
 });
 
+export function newCombineData(): CombineData {
+  return {
+    getLoadable: () => ({})
+  }
+}
+
 function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
   // function CombineNode(node: Node<CombineData>) {
   const { nodes, edges, updateNode, updateEdge } = useFlow(selector, shallow);

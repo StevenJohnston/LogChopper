@@ -11,6 +11,7 @@ import { shallow } from 'zustand/shallow';
 import { uuid } from 'uuidv4';
 import useRom from "@/app/store/useRom";
 import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
+import { BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
 
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
@@ -61,12 +62,11 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) =>
               onClick={() => {
                 updateNode({
                   id: uuid(),
-                  type: "BaseTableNode",
+                  type: BaseTableType,
                   data: newBaseTableData(selectedRom, tableMap[key], scalingMap),
                   position: { x: 300, y: 25 },
                   dragHandle: '.drag-handle',
-                  extent: 'parent',
-                  parentNode: '4'
+                  // extent: 'parent',
                 })
               }}
             >

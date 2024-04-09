@@ -1,12 +1,13 @@
 'use client'
 
 import { BaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
+import { CustomHandle } from "@/app/_components/FlowNodes/CustomHandle/CustomHandle";
 import { loadLogs } from "@/app/_lib/log";
 import { useState } from "react";
-import { NodeProps, Node } from "reactflow";
+import { NodeProps, Node, Position } from "reactflow";
 
 
-export function newBaseLog(): BaseLogData {
+export function newBaseLogData(): BaseLogData {
   return {
     selectedLogs: [],
     logs: [],

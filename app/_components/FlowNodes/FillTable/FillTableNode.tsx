@@ -28,7 +28,8 @@ export function newFillTable(): FillTableData {
       const filledTable = FillTableFromLog(table, logs)
       if (!filledTable) return console.log("failed to fill table for newFillTable")
       this.table = filledTable
-    }
+    },
+    getLoadable: () => ({})
   }
 }
 

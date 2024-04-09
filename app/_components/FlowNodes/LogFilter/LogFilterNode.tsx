@@ -8,7 +8,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import { LogFilterData } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
 
-export function newLogFilter(): LogFilterData {
+export function newLogFilter(): LogFilterData<{}> {
   return {
     logs: [],
     refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
@@ -24,7 +24,9 @@ export function newLogFilter(): LogFilterData {
         ...l,
         delete: l.delete || l.IPW == 0
       }))
-    }
+    },
+
+    getLoadable: () => ({})
   }
 }
 
