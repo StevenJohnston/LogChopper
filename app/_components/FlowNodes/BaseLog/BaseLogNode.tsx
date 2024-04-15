@@ -6,14 +6,18 @@ import { loadLogs } from "@/app/_lib/log";
 import { useState } from "react";
 import { NodeProps, Node, Position } from "reactflow";
 
+interface InitBaseLogData {
+  selectedLogs?: FileSystemFileHandle[]
+}
 
-export function newBaseLogData(): BaseLogData {
+export function newBaseLogData({ selectedLogs }: InitBaseLogData): BaseLogData {
   return {
-    selectedLogs: [],
+    selectedLogs: selectedLogs || [],
     logs: [],
     refresh: async function (node: Node): Promise<void> {
       this.logs = await loadLogs(node.data.selectedLogs);
-    }
+    },
+    getLoadable: () => ({})
   }
 }
 

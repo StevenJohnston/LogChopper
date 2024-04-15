@@ -27,7 +27,6 @@ const Surface: React.FC<SurfaceProps> = ({ table }) => {
     }).flat() || []//.filter(([x, y, z]) => !isNaN(x))
   }, [table])
 
-
   const [min, max]: MinMax = useMemo(() => {
     return data?.reduce(([min, max]: MinMax, cur: point3d): MinMax => {
       return [

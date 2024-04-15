@@ -44,6 +44,7 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
     if (!recordCountTable) return console.log("FillLogTableNode failed to duplicatTable")
     return recordCountTable
   }, [data])
+
   // if (!table) return <div>Loading Table</div>
   return (
     <div className="flex flex-col p-2 border border-black rounded">
@@ -54,7 +55,7 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
         className='flex justify-between drag-handle'
         onDoubleClick={() => setExpanded(!expanded)}
       >
-        <div className='pr-2'>Table Filler</div>
+        <div className='pr-2'>Log Table Filler - {data.table?.name}</div>
         <button className='border-2 border-black w-8 h-8'
           onClick={() => setExpanded(!expanded)}
         >
@@ -72,6 +73,8 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
           }
         </div>
       }
+
+      <CustomHandle dataType='3D' type="source" position={Position.Right} id="TableOut" top="60px" isConnectable={isConnectable} />
     </div>
   );
 }

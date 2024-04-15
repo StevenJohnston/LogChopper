@@ -16,12 +16,17 @@ import { newGroup } from '@/app/_components/FlowNodes/Group/GroupNode';
 import { newFillTable } from '@/app/_components/FlowNodes/FillTable/FillTableNode';
 import { FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import { GroupType } from '@/app/_components/FlowNodes/Group/GroupNodeTypes';
+import { MyNode } from '@/app/store/useFlow';
 
 export const LogNodeTypes: string[] = [BaseLogType, LogFilterType]
-export const TableNodeTypes: string[] = [BaseLogType, FillTableType, BaseTableType]
+export const TableNodeTypes: string[] = [BaseLogType, FillTableType, BaseTableType, FillLogTableType]
 
 export interface RefreshableNode {
-  refresh?: (node: Node, nodes: Node[], edges: Edge[]) => Promise<void>
+  refresh?: (node: MyNode, nodes: Node[], edges: Edge[]) => Promise<void>
+}
+
+export interface NodeWithType<T, U extends string> extends Node<T, U> {
+  // type: U
 }
 
 export interface SaveableNode<T = {}> {

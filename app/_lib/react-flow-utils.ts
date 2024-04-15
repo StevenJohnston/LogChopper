@@ -68,6 +68,7 @@ export function edgeIsTargetHanldeId(e: Edge, handleId: string): boolean {
   return e.targetHandle?.split("#")[1] == handleId;
 }
 
+// returns parent nodes in order of sourceHandleIds
 export function getParentsByHandleIds<T extends Node[]>(
   node: Node,
   nodes: Node[],

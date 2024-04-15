@@ -65,6 +65,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     setSelectEndCell(undefined)
     const cellpos = eventToCellpos(event)
     if (!cellpos) return console.log("Failed to get start cellpos from event")
+
     setSelectStartCell(cellpos)
   }, [])
 

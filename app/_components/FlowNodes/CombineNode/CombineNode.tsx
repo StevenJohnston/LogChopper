@@ -17,6 +17,9 @@ import { newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable/FillLo
 import { FillLogTableNodeType, FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import { shallow } from 'zustand/shallow';
 import { CombineData } from '@/app/_components/FlowNodes/CombineNode/CombineTypes';
+import { BaseTableType } from '@/app/_components/FlowNodes/BaseTable/BaseTableTypes';
+import { FillTableNodeType, FillTableType } from '@/app/_components/FlowNodes/FillTable/FillTableTypes';
+import { newFillTable } from '@/app/_components/FlowNodes/FillTable/FillTableNode';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -80,7 +83,7 @@ function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
       {
         // parentNode.type == "BaseLogNode"
         (parentNode?.type && LogNodeTypes.includes(parentNode.type)
-          || parentNode?.type && TableNodeTypes.includes(parentNode.type))
+          || parentNode?.type == BaseTableType)
         && <button
           onClick={async () => {
             const fillTable: FillLogTableNodeType = {
@@ -90,8 +93,6 @@ function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
               dragHandle: '.drag-handle'
             }
             await updateNode(fillTable)
-            // let c = getConnectedEdges()
-            // TODO Update edges 
             const edge = edges.find(e => e.target == node.id)
             if (!edge) return
             const targetType = edge?.sourceHandle?.split("#")[0]
@@ -99,18 +100,42 @@ function CombineNode({ isConnectable, id }: NodeProps<CombineData>) {
               source: edge?.source,
               target: edge?.target,
               sourceHandle: edge.sourceHandle || null,
-              // sourceHandle: parentNode?.type && LogNodeTypes.includes(parentNode.type) ? "LogIn" : `${targetType}#TableIn`,
               targetHandle: parentNode?.type && LogNodeTypes.includes(parentNode.type) ? `${targetType}#LogIn` : `${targetType}#TableIn`
             }
-            console.log(edge)
 
             updateEdge(edge, newConenction)
-            // let i = getIncomers(node, nodes, edges)
-            // let o = getOutgoers(node, nodes, edges)
-            // let c = getConnectedEdges()
           }}
         >
-          Map Filler
+          Log Table Filler
+        </button>
+      }
+      {
+        // parentNode.type == "BaseLogNode"
+        (parentNode?.type && LogNodeTypes.includes(parentNode.type)
+          || parentNode?.type == FillLogTableType)
+        && <button
+          onClick={async () => {
+            const fillTable: FillTableNodeType = {
+              ...node,
+              type: FillTableType,
+              data: newFillTable({}),
+              dragHandle: '.drag-handle'
+            }
+            await updateNode(fillTable)
+            const edge = edges.find(e => e.target == node.id)
+            if (!edge) return
+            const targetType = edge?.sourceHandle?.split("#")[0]
+            const newConenction: Connection = {
+              source: edge?.source,
+              target: edge?.target,
+              sourceHandle: edge.sourceHandle || null,
+              targetHandle: parentNode?.type && LogNodeTypes.includes(parentNode.type) ? `${targetType}#LogIn` : `${targetType}#TableIn`
+            }
+
+            updateEdge(edge, newConenction)
+          }}
+        >
+          Table Filler
         </button>
       }
       {/* {

@@ -1,6 +1,6 @@
 'use client'
 
-import { GroupData, GroupNodeType, InitGroupData } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
+import { GroupData, GroupNodeType, GroupType, InitGroupData } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
 import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
 import useNodeStorage, { NodeStorageState } from "@/app/store/useNodeStorage";
 import { ChangeEvent, useCallback, useEffect, useMemo } from "react";
@@ -45,8 +45,12 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
   }, [savedGroups])
 
   const node: GroupNodeType | undefined = useMemo(() => {
-    return nodes.find(n => n.id == id)
-  }, [id, data, nodes, edges])
+    for (const n of nodes) {
+      if (n.id == id && n.type == GroupType) {
+        return n
+      }
+    }
+  }, [id, nodes])
 
   const onSave = useCallback(() => {
     if (!flowInstance) return console.log("Error saving due to missing flowInstance")
@@ -83,7 +87,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
     // saveGroup(savedNode)
     // data.save(node, nodes, edges)
     saveGroup({ groupName: data.name, nodes: saveNodes, edges: saveEdges })
-  }, [flowInstance, node, nodes, edges, id, data, saveGroup])
+  }, [flowInstance, node, edges, id, data, saveGroup])
 
 
   const onGroupNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {

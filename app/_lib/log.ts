@@ -1,6 +1,35 @@
 "use client";
 import csv from "csvtojson";
 
+export const LogFields = [
+  "LogID",
+  "LogEntrySeconds",
+  "AFR",
+  "STFT",
+  "CurrentLTFT",
+  "Load",
+  "IPW",
+  "LoadTiming",
+  "TimingAdv",
+  "KnockSum",
+  "RPM",
+  "MAP",
+  "Boost",
+  "WGDC_Active",
+  "InVVTactual",
+  "ExVVTactual",
+  "TPS",
+  "APP",
+  "WGDCCorr",
+  "Speed",
+  "MAPCalcs",
+  "IMAPCalcs",
+  "MAFCalcs",
+  "RPMGain",
+  "delete",
+  "deleteReason",
+];
+
 export interface LogRecord {
   LogID?: number;
   // LogEntryDate?: string;

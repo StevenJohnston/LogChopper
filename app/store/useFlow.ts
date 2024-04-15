@@ -190,7 +190,6 @@ const useFlow = createWithEqualityFn<RFState>(
         await updateNode.data.refresh(updateNode, nodes, edges);
         // Force inplaced update
         updateNode.data = { ...updateNode.data };
-        console.log(`updating node ${updateNode.id}`);
         set({
           nodes: [
             //TODO maybe use nodes instead of ...get().nodes

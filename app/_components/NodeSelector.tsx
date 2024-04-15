@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image';
 import { newGroup } from "@/app/_components/FlowNodes/Group/GroupNode"
 import { GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes"
 import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode"
@@ -8,17 +9,22 @@ import useFlow, { RFState } from "@/app/store/useFlow"
 import useNodeStorage, { NodeStorageState, SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage"
 import { MouseEventHandler, ReactNode, useCallback, useMemo, useState } from "react"
 import { Viewport } from "reactflow"
-import { uuid } from "uuidv4"
+import { v4 as uuid } from "uuid";
+
+import GearSvg from "../icons/gear.svg"
+import TrashSvg from "../icons/trash.svg"
+
 import { shallow } from "zustand/shallow"
 
 interface NodeSelectorButtonProps {
   onClick: MouseEventHandler<HTMLElement>;
-  children: ReactNode
+  children: ReactNode;
+  deleteMode?: boolean;
 }
-const NodeSelectorButton = ({ onClick, children }: NodeSelectorButtonProps) => {
+const NodeSelectorButton = ({ onClick, children, deleteMode }: NodeSelectorButtonProps) => {
   return (
     <button
-      className="bg-white hover:bg-blue-500 text-blue-700 border border-blue-500 hover:text-white hover:border-transparent rounded-md h-20 w-[50%] box-border"
+      className={`flex flex-col justify-center items-center bg-white ${deleteMode ? 'hover:bg-red-500' : 'hover:bg-blue-500'} ${deleteMode ? 'text-red-700' : 'text-blue-700'} border ${deleteMode ? 'border-red-500' : 'border-blue-500'} hover:text-white hover:border-transparent rounded-md h-20 w-[50%] box-border`}
       onClick={onClick}
     >
       {children}
@@ -36,13 +42,15 @@ const selector = (state: RFState) => ({
 const nodeStorageSelector = (state: NodeStorageState) => ({
   savedGroups: state.savedGroups,
   saveGroup: state.saveGroup,
+  deleteGroup: state.deleteGroup,
 });
 
 
 const NodeSelector = () => {
   const { reactFlowInstance, updateNode, addNode, addEdge } = useFlow(selector, shallow);
-  const { savedGroups } = useNodeStorage(nodeStorageSelector, shallow)
+  const { savedGroups, deleteGroup } = useNodeStorage(nodeStorageSelector, shallow)
 
+  const [groupDelete, setGroupDelete] = useState<boolean>(false);
 
   const [expanded, setExpanded] = useState<boolean>()
   // const { x, y, zoom } = useViewport();
@@ -82,7 +90,6 @@ const NodeSelector = () => {
         >
           {expanded ? "_" : "^"}
         </button>
-
       </div>
       {expanded
         && <div
@@ -99,7 +106,6 @@ const NodeSelector = () => {
               }
               updateNode(logFilter)
             }}
-          // text={"Log Filter"}
           >
             Log Filter
           </NodeSelectorButton>
@@ -115,41 +121,54 @@ const NodeSelector = () => {
               }
               updateNode(group)
             }}
-          // text={"Log Filter"}
           >
             Group
           </NodeSelectorButton>
-          <div>Saved Groups</div>
+          {
+            savedGroups.length > 0 &&
+            <div
+              className='flex justify-between'
+            >
+              Saved Groups
+              <button
+                onClick={() => { setGroupDelete(!groupDelete) }}
+              >
+
+                <GearSvg
+                  className='inline stroke-black hover:stroke-blue-500 border border-black rounded-md'
+                  width={24}
+                  height={24}
+                />
+              </button>
+            </div>
+          }
           {savedGroups.map((savedGroup) => {
             return (
               <NodeSelectorButton
+                deleteMode={groupDelete}
                 key={savedGroup.groupName}
                 onClick={() => {
-                  onLoadSavedGroup(savedGroup)
-                  // savedGroup.nodes.forEach()
-                  // // const group: GroupNodeType = {
-                  // //   position: getViewportPosition(100, 100),
-                  // //   id: uuid(),
-                  // //   type: GroupType,
-                  // //   data: newGroup({ name: "New Group", locked: false }),
-                  // //   style: { width: 400, height: 400, zIndex: -1 }
-                  // // }
-                  // updateNode(group)
+                  groupDelete
+                    ? deleteGroup(savedGroup.groupName)
+                    : onLoadSavedGroup(savedGroup)
                 }}
-              // text={"Log Filter"}
               >
-                {savedGroup.groupName}
+                {
+                  groupDelete &&
+                  <TrashSvg
+                    className='stroke-red hover:stroke-white'
+                    width={24}
+                    height={24}
+                  />
+                }
+                <div>
+                  {savedGroup.groupName}
+                </div>
               </NodeSelectorButton>
             )
           })}
         </div>
       }
-      {/* <button
-        className="bg-transparent hover:bg-blue-500 text-blue-700 border border-blue-500 hover:text-white hover:border-transparent bg-opacity-50 rounded-md h-20 w-20"
-        onClick={}
-        >
-        Log Filter
-      </button> */}
     </div>
   )
 }

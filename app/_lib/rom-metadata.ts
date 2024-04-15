@@ -129,7 +129,6 @@ export interface BaseTable {
   name?: string;
   category?: string;
   address?: string;
-  // type: "1D" | "2D" | "3D";
   type: string;
   swapxy?: boolean;
   scaling?: string;

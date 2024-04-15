@@ -108,3 +108,11 @@ export const typeToReader = {
   },
   bloblist: {},
 } as const;
+
+export enum Aggregator {
+  COUNT = "COUNT",
+  AVG = "AVG",
+  MIN = "MIN",
+  MAX = "MAX",
+  SUM = "SUM",
+}

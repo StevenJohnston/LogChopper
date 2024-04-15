@@ -8,7 +8,8 @@ import {
 import { createWithEqualityFn } from "zustand/traditional";
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { NodeFactoryLookup } from "@/app/_components/FlowNodes";
-import { uuid } from "uuidv4";
+import { v4 as uuid } from "uuid";
+
 import { MyNode } from "@/app/store/useFlow";
 
 export interface SavedGroup {
@@ -20,7 +21,7 @@ export interface SavedGroup {
 export type NodeStorageState = {
   savedGroups: SavedGroup[]
   saveGroup(savedGroup: SavedGroup): void
-  // getSavedGroup(): SavedGroup[]
+  deleteGroup(groupName: string): void
 };
 
 
@@ -34,9 +35,11 @@ const useNodeStorage = createWithEqualityFn<NodeStorageState>()(
           savedGroups: [...get().savedGroups, savedGroup]
         })
       },
-      // getSavedGroup: () => {
-      //   return []
-      // }
+      deleteGroup: (groupName: string) => {
+        set({
+          savedGroups: get().savedGroups.filter(g => g.groupName != groupName)
+        })
+      }
     }),
     {
       name: 'saved-nodes', // name of the item in the storage (must be unique)

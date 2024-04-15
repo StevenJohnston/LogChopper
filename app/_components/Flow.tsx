@@ -13,7 +13,7 @@ import ReactFlow, {
   ReactFlowInstance,
   Connection
 } from 'reactflow';
-import { uuid } from "uuidv4";
+import { v4 as uuid } from "uuid";
 
 import 'reactflow/dist/style.css';
 

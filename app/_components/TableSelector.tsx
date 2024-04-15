@@ -4,12 +4,10 @@ import GridSvg from "../icons/grid.svg"
 import VerticalSvg from "../icons/vertical.svg"
 import HorizontalSvg from "../icons/horizontal.svg"
 import SingleSvg from "../icons/single.svg"
-import Image from 'next/image';
 
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
-import { uuid } from 'uuidv4';
-import useRom from "@/app/store/useRom";
+import { v4 as uuid } from "uuid";
 import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
 import { BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
 
@@ -21,17 +19,33 @@ interface TableSelectorProps {
 function demensionToIcon(table: Table<unknown>) {
   switch (table.type) {
     case '1D':
-      return SingleSvg;
+      return <SingleSvg
+        width={12}
+        height={12}
+        className="inline"
+      />
     case '2D': {
       if (isTable2DX(table)) {
-        return HorizontalSvg;
+        return <HorizontalSvg
+          width={12}
+          height={12}
+          className="inline"
+        />;
       } else if (isTable2DY(table)) {
-        return VerticalSvg;
+        return <VerticalSvg
+          width={12}
+          height={12}
+          className="inline"
+        />;
       }
       break
     }
     case '3D':
-      return GridSvg;
+      return <GridSvg
+        width={12}
+        height={12}
+        className="inline"
+      />;
   }
   return ""
 }
@@ -49,7 +63,6 @@ const selector = (state: RFState) => ({
 const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) => {
   const { updateNode } = useFlow(selector, shallow);
 
-  const { selectedRom, scalingMap } = useRom()
   return (
     <div className={`flex flex-col bg-slate-200 max-h-full overflow-auto ${className}`}>
       Table Selector
@@ -63,20 +76,14 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) =>
                 updateNode({
                   id: uuid(),
                   type: BaseTableType,
-                  data: newBaseTableData(selectedRom, tableMap[key], scalingMap),
+                  data: newBaseTableData({ tableKey: key }),
                   position: { x: 300, y: 25 },
                   dragHandle: '.drag-handle',
                   // extent: 'parent',
                 })
               }}
             >
-              <Image
-                alt="open table"
-                src={demensionToIcon(tableMap[key])}
-                width={12}
-                height={12}
-                className="inline"
-              />
+              {demensionToIcon(tableMap[key])}
               {`${tableMap[key].name}`}
             </button>
           )
