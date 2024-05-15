@@ -19,13 +19,16 @@ import 'reactflow/dist/style.css';
 
 import BaseTableNode from '@/app/_components/FlowNodes/BaseTable/BaseTableNode'
 import BaseLogNode from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
-import CombineNode, { newCombineData } from "@/app/_components/FlowNodes/CombineNode/CombineNode";
+import ForkNode, { newForkData } from "@/app/_components/FlowNodes/ForkNode/ForkNode";
 import useFlow, { RFState } from '@/app/store/useFlow';
 import LogFilterNode from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
 import FillTableNode from "@/app/_components/FlowNodes/FillTable/FillTableNode";
 import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
 import GroupNode from "@/app/_components/FlowNodes/Group/GroupNode";
-import { CombineNodeType, CombineType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
+import { ForkNodeType, ForkType } from "@/app/_components/FlowNodes/ForkNode/ForkTypes";
+import CombineNode from "@/app/_components/FlowNodes/Combine/CombineNode";
+import CombineAdvancedTableNode from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode";
+import LogAlterNode from "@/app/_components/FlowNodes/LogAlter/LogAlterNode";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -43,8 +46,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    console.log("nodeTypes")
-    return { BaseTableNode, BaseLogNode, CombineNode, LogFilterNode, FillTableNode, FillLogTableNode, GroupNode }
+    return { BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode }
   }, [])
 
 
@@ -77,14 +79,14 @@ const Flow: React.FC = () => {
         if (targetIsPane) {
           // we need to remove the wrapper bounds, in order to get the correct position
           const id = uuid();
-          const newNode: CombineNodeType = {
+          const newNode: ForkNodeType = {
             id,
-            type: CombineType,
+            type: ForkType,
             position: reactFlowInstance.screenToFlowPosition({
               x: event.clientX,
               y: event.clientY,
             }),
-            data: newCombineData(),
+            data: newForkData(),
           };
 
           addNode(newNode)
@@ -93,7 +95,10 @@ const Flow: React.FC = () => {
             id: id,
             source: connectingNodeId.current,
             target: id,
-            sourceHandle: connectingHandleId.current
+            sourceHandle: connectingHandleId.current,
+            style: {
+              stroke: "black"
+            }
           })
         }
       }
@@ -112,9 +117,12 @@ const Flow: React.FC = () => {
   }, [reactFlowInstance, realReactFlowInstance])
 
   const isValidConnection = useCallback((c: Connection): boolean => {
-    if (c.sourceHandle?.split("#")[0] != c.targetHandle?.split("#")[0]) return false
-
-    if (edges.find(e => e.target == e.target && e.targetHandle == c.targetHandle)) {
+    if (c.sourceHandle?.split("#")[0] != c.targetHandle?.split("#")[0]) {
+      return false
+    }
+    // Don't allow duplicate connections
+    if (edges.find(e => e.target == c.target && e.targetHandle == c.targetHandle)) {
+      console.log('isValidConnection duplicate connection not allowed')
       return false
     }
     return true

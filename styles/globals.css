@@ -25,3 +25,7 @@
   background-color: #d55959;
   opacity: 50%;
 }
+
+.selected {
+  background-color: rebeccapurple !important;
+}

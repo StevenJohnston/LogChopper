@@ -14,8 +14,12 @@ const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   const xAxisMin = parseFloat(scaling.min || '')
   const xAxisMax = parseFloat(scaling.max || '')
   const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
-  const color = colorScale.getColor(value)
-  return color.toHexString()
+  try {
+    const color = colorScale.getColor(value)
+    return color.toHexString()
+  } catch (e) {
+    return "#FFF"
+  }
 }
 
 const selectText = (textArea: HTMLTextAreaElement, text: string) => {
@@ -97,8 +101,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
       }
     }
 
-    // if (!textAreaRef) return console.log("TextAreadRef missing")
-    if (textAreaRef == null) return
+    if (textAreaRef == null) return console.log("TextAreadRef missing")
     if (typeof textAreaRef === 'function') {
       return console.log("passed ref to TableUI is a function expect ref with .current")
     }
@@ -135,7 +138,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     }
 
     return {
-      backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString()))
+      backgroundColor: getColor(table.scalingValue, parseFloat(cell?.toString() || ""))
     }
   }, [table, selectStartCell, selectEndCell])
 
@@ -175,8 +178,12 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
         if (Array.isArray(table.values)) {
           if (Array.isArray(row)) {
             row.forEach((cell) => {
-              const width = sprintf(table?.scalingValue?.format || '', cell).length
-              if (width > maxWidth) maxWidth = width
+              try {
+                const width = sprintf(table?.scalingValue?.format || '', cell).length
+                if (width > maxWidth) maxWidth = width
+              } catch (e) {
+                console.log("TableUI maxWidth failed to get", e)
+              }
             })
           }
         } else {
@@ -188,6 +195,15 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
 
     return maxWidth
   }, [table])
+
+  const getTableValue = useCallback((fmt: string, cell: string | number) => {
+    try {
+      return sprintf(fmt, cell)
+    } catch (error) {
+      return ""
+    }
+
+  }, [])
 
   if (!table) return <div>Loading Table</div>
 
@@ -250,7 +266,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
                             onMouseUp={cellOnMouseUp}
                             onMouseEnter={cellOnMouseEnter}
                           >
-                            {sprintf(table?.scalingValue?.format || '', cell)}
+                            {getTableValue(table?.scalingValue?.format || '', cell)}
                           </td>
                         )
                       })

@@ -28,7 +28,7 @@ function BaseLogNode({ data, isConnectable }: NodeProps<BaseLogData>) {
 
   return (
     <div
-      className="flex flex-col p-2 border border-black rounded"
+      className={`flex flex-col p-2 border border-black rounded bg-white`}
       onDoubleClick={() => setExpanded(!expanded)}
     >
       <div className='flex justify-between drag-handle'>

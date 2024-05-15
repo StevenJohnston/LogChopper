@@ -1,10 +1,9 @@
 'use client'
 
-import NodeSelector from "@/app/_components/NodeSelector"
+import NodeSelector from "@/app/_components/NodeSelector/NodeSelector"
 import Flow from "./Flow"
 import useRom, { useRomSelector } from "@/app/store/useRom"
 import { shallow } from "zustand/shallow"
-import { useEffect } from "react"
 
 export interface ModuleDisplayProps {
   className: string

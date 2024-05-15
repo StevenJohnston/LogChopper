@@ -1,5 +1,6 @@
 "use client";
 import csv from "csvtojson";
+import { Parser as exprParser } from "expr-eval";
 
 export const LogFields = [
   "LogID",
@@ -75,7 +76,7 @@ export interface LogRecord {
   RPMGain?: number;
   delete?: boolean;
   deleteReason?: string;
-  // [key: string]: any;
+  [key: string]: any;
 }
 
 // export type scalings = Exclude<LogRecord, "LogID">;
@@ -97,4 +98,41 @@ export async function loadLogs(
     // if (cur.)
     return [...acc, ...cur.value];
   }, []); //as unknown as LogRecord[];
+}
+export function filterLogs(logRecords: LogRecord[], func: string): LogRecord[] {
+  if (func == "") return logRecords;
+  const parser = new exprParser();
+  try {
+    return logRecords.map((logRecord) => {
+      // TODO I dont think this returning a true or false
+      return {
+        ...logRecord,
+        delete: logRecord.delete || !parser.evaluate(func, logRecord),
+      };
+    });
+  } catch (e) {
+    console.log("Error filterLogs", e);
+    return [];
+  }
+}
+
+export function alterLogs(
+  logRecords: LogRecord[],
+  func: string,
+  newLogField: string
+): LogRecord[] {
+  if (func == "" || newLogField == "") return logRecords;
+  const parser = new exprParser();
+  try {
+    return logRecords.map((logRecord) => {
+      // TODO I dont think this returning a true or false
+      return {
+        ...logRecord,
+        [newLogField]: parser.evaluate(func, logRecord),
+      };
+    });
+  } catch (e) {
+    console.log("Error filterLogs", e);
+    return [];
+  }
 }

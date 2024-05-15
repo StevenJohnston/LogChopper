@@ -1,9 +1,10 @@
 "use client";
-import { LogRecord } from "@/app/_lib/log";
-import { scalingAliases, typeToReader } from "./consts";
+import { LogFields, LogRecord } from "@/app/_lib/log";
+import { Aggregator, scalingAliases, typeToReader } from "./consts";
 import {
   Axis,
   BasicTable,
+  LogTable,
   Scaling,
   Table,
   isTable2DX,
@@ -213,9 +214,11 @@ function fillTable(
   return newTable;
 }
 
+// Fill each cell with an array of LogRecords
 export function FillTableFromLog(
   table: BasicTable,
-  logs: LogRecord[]
+  logs: LogRecord[],
+  weighted: boolean = false
 ): Table<LogRecord[]> | void {
   const newTable = duplicateTable<LogRecord[], string | number>(
     table,
@@ -226,6 +229,7 @@ export function FillTableFromLog(
   }
 
   logs.forEach((l) => {
+    if (l.delete) return;
     switch (table.type) {
       case "3D": {
         if (newTable.type != "3D") {
@@ -314,7 +318,11 @@ export function duplicateTable<T, U>(
   return null;
 }
 
-function nearestIndex(array: number[], value: number): number {
+function nearestIndex(
+  array: number[],
+  value: number,
+  weighted: boolean = false
+): number {
   return array.indexOf(
     array.reduce((c, n) => {
       if (Math.abs(c - value) >= Math.abs(n - value)) {
@@ -325,556 +333,198 @@ function nearestIndex(array: number[], value: number): number {
   );
 }
 
-// import { Parser as exprParser } from "expr-eval";
-// import { sprintf } from 'sprintf-js'
-// import { typeToReader, scalingAliases } from "./consts";
+export function FillLogTable(
+  table: LogTable,
+  field: keyof LogRecord,
+  aggregator: Aggregator
+): BasicTable | void {
+  let newTable: BasicTable | null = null;
+  if (!table.scalingValue?.name) {
+    return console.log("FillLogTable scalingValue.name missing on table");
+  }
 
-// async function getRomBuffer(): Promise<Buffer> {
-//   return new Promise(async (resolve, reject) => {
+  switch (aggregator) {
+    case Aggregator.AVG:
+      // newTable.values[y][x] = 0;
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          return (
+            logRecords.reduce((sum, logRecord) => {
+              // const parser = new exprParser();
+              // let { insteadUse, expr } = scalingAliases[scalingName];
+              // if (!logRecord[])
 
-//     const config = { type: 'open-file' }
-//     let dir = await dialog(config)
-//     fs.readFile(dir[0], (err, data) => {
-//       if (err) reject(err);
-//       resolve(data)
-//     });
-//   })
-// }
+              //TODO better number
+              const n = Number(logRecord[field]);
+              if (isNaN(n)) {
+                return sum;
+              }
+              return sum + n;
+            }, 0) / (logRecords.length || 1)
+          );
+        }
+      );
+      break;
+    case Aggregator.COUNT:
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          return logRecords.length;
+        }
+      );
+      break;
+    case Aggregator.MIN:
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          return logRecords.reduce((min, logRecord) => {
+            const fieldValue = Number(logRecord[field]);
+            return min < fieldValue ? min : fieldValue;
+          }, 0);
+        }
+      );
+      break;
+    case Aggregator.MAX:
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          return logRecords.reduce((max, logRecord) => {
+            const fieldValue = Number(logRecord[field]);
+            return max > fieldValue ? max : fieldValue;
+          }, 0);
+        }
+      );
+      break;
+    case Aggregator.SUM:
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          return logRecords.reduce((sum, logRecord) => {
+            const fieldValue = Number(logRecord[field]);
+            return sum + fieldValue;
+          }, 0);
+        }
+      );
+      break;
+    default:
+      console.log("FillLogTable missing Aggregator", aggregator);
+  }
+  if (newTable == null) {
+    return console.log("Failed to duplicate table while FillLogTable");
+  }
+  return newTable;
+}
 
-// interface Table {
-//   values: any[]
-//   rawLogs: any[]
-//   scaling: any
-// }
+// Takes 2 maps and aggregates them together
+export function MapCombine(
+  sourceTable: BasicTable,
+  joinTable: BasicTable,
+  func: string
+): BasicTable | void {
+  const newTable = duplicateTable(sourceTable, () => 0);
+  if (newTable == null)
+    return console.log("MapCombine failed to duplicate sourceTable");
+  if (
+    newTable.type == "3D" &&
+    sourceTable.type == "3D" &&
+    joinTable.type == "3D"
+  ) {
+    const parser = new exprParser();
 
-// interface Axis {
-//   address: string
-//   elements: string
-//   name: string
-//   scaling: string
-//   type: string
-//   values: number[]
-// }
+    newTable?.values.forEach((row, y) => {
+      row.forEach((cell, x) => {
+        try {
+          const newValue = parser.evaluate(func, {
+            sourceTable: sourceTable.values,
+            joinTable: joinTable.values,
+            y,
+            x,
+          });
+          newTable.values[y][x] = newValue;
+        } catch (error) {
+          return console.log("MapCombine func failed to evaluate");
+        }
+      });
+    });
+  } else {
+    console.log("TODO MapCombine only works on 3D tables");
+  }
+  return newTable;
+}
 
-// interface RomScaling {
-//   name: string
-//   storageType: string
-//   endian?: string
-//   format?: string
-//   frExpr?: string
-//   inc?: string
-//   max?: string
-//   min?: string
-//   toExpr?: string
-//   units?: string
-// }
+export type SourceField = "XAxis" | "YAxis" | "Value";
+export interface MatchCriteria {
+  sourceSourceField: SourceField;
+  destSourceField: SourceField;
+}
+// dest table will be dupicalted
+export function MapCombineAdv(
+  sourceTable: BasicTable,
+  destTable: BasicTable,
+  // axisMap: (x: number, y: number, cell: number | string) => [number, number] // (toTable x, y, value): {xValue: , yValue: }
+  // matchCriteria: [Axis, Axis][]
+  matchCriteria: MatchCriteria[]
+): BasicTable | void {
+  const newTable = duplicateTable(destTable, () => 0 as number | string);
 
-// interface RomTable {
-//   address?: string
-//   category?: string
-//   name?: string
-//   scaling?: string
-//   type?: string
-//   swapxy?: string
-//   xAxis?: Axis
-//   yAxis?: Axis
-//   values?: number[][]
-//   rawLogs?: Log[][][]
+  if (newTable == null)
+    return console.log("MapCombineAdv failed to duplicate sourceTable");
 
-//   [tableNameOrIndex: string | number]: RomTable | string | Axis | number[][] | Log[][][]
-//   // Can also be a map of maps [scaling][agg]: table
+  if (
+    newTable.type == "3D" &&
+    sourceTable.type == "3D" &&
+    destTable.type == "3D"
+  ) {
+    destTable.values.forEach((row, y) => {
+      const destYValue = destTable.yAxis.values[y];
+      row.forEach((destCell, x) => {
+        const destXValue = destTable.xAxis.values[x];
+        // const newAxisValues = axisMap(destXValue, destYValue, destCell);
+        // TODO get the x and y. To do this we need to get the values from the dest table using (dest[X,Y,Cell]) and map to the source table using the 2 matching criteria
 
-// }
+        let sourceXLookup: number | undefined;
+        let sourceYLookup: number | undefined;
+        matchCriteria.forEach((m) => {
+          if (m.sourceSourceField == "XAxis") {
+            if (m.destSourceField == "XAxis") {
+              sourceXLookup = destXValue;
+            } else if (m.destSourceField == "YAxis") {
+              sourceXLookup = destYValue;
+            } else if (m.destSourceField == "Value") {
+              sourceXLookup = Number(destCell);
+            }
+          } else if (m.sourceSourceField == "YAxis") {
+            if (m.destSourceField == "XAxis") {
+              sourceYLookup = destXValue;
+            } else if (m.destSourceField == "YAxis") {
+              sourceYLookup = destYValue;
+            } else if (m.destSourceField == "Value") {
+              sourceYLookup = Number(destCell);
+            }
+          }
+        });
+        if (sourceXLookup == undefined)
+          return console.log("sourceXLookup missing");
+        if (sourceYLookup == undefined)
+          return console.log("sourceYLookup missing");
 
-// interface RomTables {
-//   [tableName: string]: RomTable;
-// }
+        const axes = getAxes(sourceTable, sourceXLookup, sourceYLookup);
+        if (!axes) return console.log("MapCombineAdv failed to get axes");
+        newTable.values[y][x] = sourceTable.values[axes.y][axes.x];
+      });
+    });
+  } else {
+    console.log("TODO MapCombineAdv only works on 3D tables");
+  }
+  return newTable;
+}
 
-// interface RomScalings {
-//   [scalingName: string]: RomScaling;
-// }
-
-// interface Tables {
-//   [tableName: string]: Table;
-// }
-
-// interface TableRef {
-//   tableName: string;
-//   scaling: string;
-//   agg?: string;
-// }
-
-// interface Log {
-//   LogID: number,
-//   LogEntryDate: string,
-//   LogEntryTime: string,
-//   LogEntrySeconds: number,
-//   LogNotes: string,
-//   AFR: number,
-//   STFT: number,
-//   CurrentLTFT: number,
-//   IdleLTFT: number,
-//   CruiseLTFT: number,
-//   Load: number,
-//   O2Sensor2: number,
-//   IPW: number,
-//   AFRMAP: number,
-//   LoadTiming: number,
-//   TimingAdv: number,
-//   KnockSum: number,
-//   RPM: number,
-//   Baro: number,
-//   WGDC_Active: number,
-//   MAP: number,
-//   Boost: number,
-//   MAF: number,
-//   IDC: number,
-//   ExVVTtarget: number,
-//   InVVTtarget: number,
-//   InVVTactual: number,
-//   ExVVTactual: number,
-//   TPS: number,
-//   APP: number,
-//   IAT: number,
-//   WGDCCorr: number,
-//   Speed: number,
-//   Battery: number,
-//   ECT: number,
-//   MAT: number,
-//   MAPCalcs: number,
-//   IMAPCalcs: number,
-//   MAFCalcs: number,
-//   ChosenCalc: number,
-//   boost_error: string,
-//   Custom: string,
-//   AFROffsetSeconds: number,
-//   RPMGain: number
-// }
-
-// export class Rom {
-//   tableMap: RomTables
-//   tables: RomTable[]
-//   scalingsMap: RomScaling
-//   log: Log[]
-
-//   romBuffer: Buffer | number
-
-//   constructor(tables, scalingsMap, log) {
-//     this.tables = tables //  table[scaling][agg]
-//     this.tableMap = {}
-//     this.scalingsMap = scalingsMap
-//     this.log = log
-//   }
-
-//   async LoadRom() {
-//     try {
-//       this.romBuffer = await getRomBuffer()
-//     } catch (err) {
-//       console.log(err)
-//     }
-//   }
-
-//   FillTables() {
-//     this.tables.forEach(table => {
-//       if (table.xAxis) {
-//         table.xAxis = this.fillAxis(table.xAxis)
-//       }
-//       if (table.yAxis) {
-//         table.yAxis = this.fillAxis(table.yAxis)
-//       }
-//       // Fill table
-//       this.fillTable(table)
-//       if (table.name) {
-//         this.tableMap[table.name] = table
-//       }
-//     });
-//   }
-
-//   fillAxis(axis) {
-//     // get scaling
-//     let { address, elements, scaling } = axis
-//     let { storageType, endian, toExpr, format } = this.scalingsMap[scaling]
-//     let { reader, byteCount } = typeToReader[storageType][endian]
-//     if (!reader || !byteCount) {
-//       console.log(`missing storagetype for axis scaling: ${scaling} storageType: ${storageType} endian: ${endian}`)
-//     }
-//     let values = []
-//     for (let i = 0; i < elements; i++) {
-//       var parser = new exprParser()
-//       let offset = parseInt(address, 16) + i * byteCount
-//       let value = this.romBuffer[reader](offset)
-//       let displayValue = value
-//       if (toExpr) {
-//         displayValue = parser.evaluate(toExpr, { x: value })
-//         if (format) {
-//           displayValue = sprintf(format, displayValue)
-//         }
-//       }
-//       values.push(displayValue)
-//     }
-//     axis.values = values
-//     return axis
-//   }
-
-//   PrintTable({
-//     tableName,
-//     agg,
-//     scaling,
-//     tabs,
-//     noAxis,
-//     formatter
-//   }: {
-//     tableName,
-//     agg,
-//     scaling,
-//     tabs,
-//     noAxis,
-//     formatter?
-//   }) {
-//     let table = this.tableMap[tableName]
-
-//     if (!scaling) scaling = table.scaling
-
-//     let tableValues
-//     if (agg) {
-//       tableValues = table[scaling][agg]
-//     } else {
-//       tableValues = table.values
-//     }
-//     let tableCellWidth = Math.max(...tableValues.flat().map(x => {
-//       // if (formatter) {
-//       //     x = formatter(x)
-//       // }
-//       return `${x}`.length
-//     }))
-//     if (table.xAxis) {
-//       tableCellWidth = Math.max(tableCellWidth, ...table.xAxis.values.map(x => {
-//         // if (formatter) {
-//         //     x = formatter(x)
-//         // }
-//         return `${x}`.length
-//       }))
-//     }
-//     tableCellWidth++
-
-//     if (!table) {
-//       console.log(`missing table name ${tableName} in tableMap`)
-//       return
-//     }
-//     let tableAsString = ''
-//     let tableXAxis = ''
-//     if (table.xAxis) {
-//       if (table.yAxis) {
-//         // Y axis padding
-//         tableXAxis += ''.padStart(tableCellWidth)
-//       }
-//       table.xAxis.values.forEach(xAxisValue => {
-//         tableXAxis += `${xAxisValue}`.padStart(tableCellWidth)
-//       })
-//     }
-//     tableValues.forEach((y, yIndex) => {
-//       if (tableAsString !== '') tableAsString += '\n'
-//       if (table.yAxis && !noAxis) {
-//         tableAsString += `${table.yAxis.values[yIndex]}`.padStart(tableCellWidth)
-//       }
-//       y.forEach((x) => {
-//         if (formatter) {
-//           x = formatter(x)
-//         }
-//         if (!noAxis) {
-//           tableAsString += `${x}`.padStart(tableCellWidth)
-//         } else {
-//           tableAsString += `${x}\t`
-//         }
-//       })
-//       tableAsString = tableAsString.substring(0, tableAsString.length - 1)
-//     })
-//     if (tabs) {
-//       console.log('\n')
-//       console.log(`${tableName} ${scaling} ${agg}`)
-//       console.log((noAxis ? '' : '\t') + tableXAxis.split(/(?:(?![\n\r])\s)+/).join('\t'))
-//       console.log(tableAsString.split(/(?:(?![\n\r])\s)+/).join('\t'))
-//     } else {
-//       console.log(`\n${tableName} ${scaling} ${agg}\n`, tableAsString)
-//     }
-//   }
-
-//   //
-//   FillTableFromLog(tableName) {
-//     let table = this.tableMap[tableName]
-//     this.duplicateTable({
-//       tableName,
-//       scaling: 'rawLogs',
-//       defaultValue: () => []
-//     })
-//     let { xAxis, yAxis } = table
-//     this.log.forEach(l => {
-//       switch (table.type) {
-//         case "3D":
-//           // Y axis
-//           let yScaling = yAxis.scaling
-//           let yAxisLogValue = l[yScaling]
-//           let y = nearestIndex(yAxis.values, yAxisLogValue)
-//           // X axis
-
-//           let xScaling = xAxis.scaling
-//           let xAxisLogValue = l[xScaling]
-//           if (!xAxisLogValue) {
-//             var parser = new exprParser()
-//             let { insteadUse, expr } = scalingAliases[xScaling]
-//             if (!l[insteadUse]) return
-
-//             xAxisLogValue = parser.evaluate(expr, l)
-//           }
-//           let x = nearestIndex(xAxis.values, xAxisLogValue)
-
-//           table.rawLogs[y][x].push(l)
-//           break
-//         case "2D":
-//           break
-//         case "1D":
-//           break
-//         default:
-//           console.log(`unknown table type ${table.type} on tableName: ${tableName}`)
-//       }
-//     })
-//   }
-
-//   duplicateTable({
-//     tableName,
-//     scaling,
-//     agg,
-//     defaultValue
-//   }) {
-//     let table = this.tableMap[tableName]
-//     let fillTable = [] as number[][]
-//     table.values.forEach((row, y) => {
-//       fillTable[y] = [] as number[]
-//       row.forEach((cell, x) => {
-//         fillTable[y][x] = defaultValue()
-//       })
-//     })
-
-//     if (agg) {
-//       if (!table[scaling]) table[scaling] = {} as RomTable
-//       table[scaling][agg] = fillTable
-//     } else {
-//       table[scaling] = fillTable
-//     }
-//   }
-
-//   // FillLogTable fills a table from rawLogs
-//   // scalingAlias: {insteadUse: , expr: } which column of log to use and how to interpret it
-//   FillLogTable({
-//     tableName,
-//     scaling,
-//     agg,
-//     scalingAlias // The value to fill in the table with. Aka use the "AFR" from the log
-//   }) {
-//     let table = this.tableMap[tableName]
-//     let { rawLogs, scaling: tableScaling } = table
-
-//     if (!scaling) {
-//       scaling = tableScaling
-//     }
-//     this.duplicateTable({
-//       tableName,
-//       scaling,
-//       agg,
-//       defaultValue: () => 0
-//     })
-
-//     if (!rawLogs) {
-//       console.log('Must run FillTableFromLog before FillLogTable')
-//       return
-//     }
-
-//     switch (table.type) {
-//       case "3D":
-//         rawLogs.forEach((row, y) => {
-//           row.forEach((cell, x) => {
-//             switch (agg) {
-//               case 'avg':
-//                 table[scaling][agg][y][x] = (cell.reduce((c2, log) => {
-//                   if (scalingAlias) {
-//                     var parser = new exprParser()
-//                     let { insteadUse, expr } = scalingAlias
-//                     if (!log[insteadUse]) return c2
-//                     // return c2 + parser.evaluate(expr, { x: log[insteadUse] })
-//                     return c2 + parser.evaluate(expr, log)
-//                   } else if (log[tableScaling] == null) {
-//                     var parser = new exprParser()
-//                     let { insteadUse, expr } = scalingAliases[tableScaling]
-//                     return c2 + parser.evaluate(expr, log)
-//                   } else {
-//                     return c2 + log[tableScaling]
-//                   }
-//                 }, 0) / cell.length || 0).toFixed(2)
-//                 break
-//               case 'avgDiff':
-//                 table[scaling][agg][y][x] = (cell.reduce((c2, log) => {
-//                   if (scalingAlias) {
-//                     var parser = new exprParser()
-//                     let { insteadUse, expr } = scalingAlias
-//                     let logValue = parser.evaluate(expr, log)
-//                     let tableValue = table.values[y][x]
-//                     let diff = tableValue - logValue
-//                     return c2 + diff
-//                   } else if (!log[tableScaling]) {
-//                     var parser = new exprParser()
-//                     let { insteadUse, expr } = scalingAliases[tableScaling]
-//                     let logValue = parser.evaluate(expr, log)
-//                     let tableValue = table.values[y][x]
-//                     let diff = tableValue - logValue
-//                     return c2 + diff
-//                   } else {
-//                     let logValue = log[tableScaling]
-//                     let tableValue = table.values[y][x]
-//                     let diff = tableValue - logValue
-//                     return c2 + diff
-//                   }
-//                 }, 0) / cell.length || 0).toFixed(2)
-//               case 'count':
-//                 table[scaling][agg][y][x] = cell.length
-//                 break
-//             }
-//           })
-//         })
-//         break
-//       default:
-//         console.log(`PrintLogTable: unknown table type ${table.type} on tableName: ${tableName}`)
-//     }
-//   }
-
-//   // Takes 2 maps and aggregates them together
-//   MapCombine({
-//     tableName, // destination table
-//     tableOne: { aggOne, scalingOne },
-//     tableTwo: { tableTwoName, aggTwo, scalingTwo },
-//     aggregator,
-//     isAdvancedAggregator,
-//     newTable: { newAgg, newScaling }
-//   }) {
-//     if (tableTwoName == null) {
-//       tableTwoName = tableName
-//     }
-//     this.duplicateTable({
-//       tableName,
-//       agg: newAgg,
-//       scaling: newScaling,
-//       defaultValue: () => 0
-//     })
-//     let tableRef = this.tableMap[tableName]
-//     let tableTwoRef = this.tableMap[tableTwoName]
-
-//     let aggOneTable = tableRef.values
-//     if (scalingOne) {
-//       aggOneTable = tableRef[scalingOne]
-//       if (aggOne) {
-//         aggOneTable = tableRef[scalingOne][aggOne]
-//       }
-//     }
-//     let aggTwoTable = tableTwoRef.values
-//     if (scalingTwo) {
-//       aggTwoTable = tableTwoRef[scalingTwo]
-//       if (aggTwo) {
-//         aggTwoTable = tableTwoRef[scalingTwo][aggTwo]
-//       }
-//     }
-//     if (!tableRef[newScaling]) {
-//       tableRef[newScaling] = {}
-//     }
-//     let newAggTable = tableRef[newScaling][newAgg]
-//     newAggTable.forEach((row, y) => {
-//       row.forEach((cell, x) => {
-//         if (!isAdvancedAggregator) {
-//           newAggTable[y][x] = aggregator(aggOneTable[y][x], aggTwoTable[y][x])
-//         } else {
-//           newAggTable[y][x] = aggregator(aggOneTable, aggTwoTable, y, x)
-//         }
-//       })
-//     })
-//   }
-//   // This will combine 2 different maps,
-//   // Take the values (x, y, cell) from toTable look them up in fromTable and place in destTable
-//   MapCombineAdv({
-//     toTable, // name, scaling, agg
-//     fromTable,
-//     destTable,
-//     axisMap, // (toTable x, y, value): {xValue: , yValue: }
-//   }) {
-//     this.duplicateTable({
-//       tableName: destTable.tableName,
-//       scaling: destTable.scaling,
-//       agg: destTable.agg,
-//       defaultValue: () => 0
-//     })
-
-//     let realToTable = this.tableMap[toTable.tableName]
-//     let realToTableValues = this.getTableByObj(toTable)
-
-//     let realFromTable = this.tableMap[fromTable.tableName]
-//     let realFromTableValues = this.getTableByObj(fromTable)
-//     let realDestTable = this.getTableByObj(destTable)
-
-//     realToTableValues.forEach((row, y) => {
-//       let yValue = realToTable.yAxis.values[y]
-//       row.forEach((cellValue, x) => {
-//         let xValue = realToTable.xAxis.values[x]
-//         // get cell value
-//         let newAxisValues = axisMap(xValue, yValue, cellValue)
-//         let axes = this.getAxes(realFromTable, newAxisValues.xValue, newAxisValues.yValue)
-//         realDestTable[y][x] = realFromTableValues[axes.y][axes.x]
-//       })
-//     })
-//   }
-
-//   Map({
-//     sourceTable, // name, scaling, agg
-//     destTable,
-//     aggregator,
-//   }) {
-//     this.duplicateTable({
-//       tableName: destTable.tableName,
-//       scaling: destTable.scaling,
-//       agg: destTable.agg,
-//       defaultValue: () => 0
-//     })
-
-//     let realSourceTableValues = this.getTableByObj(sourceTable)
-//     let realDestTableValues = this.getTableByObj(destTable)
-
-//     realSourceTableValues.forEach((row, y) => {
-//       row.forEach((cellValue, x) => {
-//         realDestTableValues[y][x] = aggregator(realSourceTableValues, x, y)
-//       })
-//     })
-//   }
-//   getTableByObj({ tableName, scaling, agg }) {
-//     if (scaling) {
-//       if (agg) {
-//         return this.tableMap[tableName][scaling][agg]
-//       }
-//     }
-//     return this.tableMap[tableName].values
-//   }
-//   // Get the value closest to x, y axis
-//   getAxes(table, xAxis, yAxis) {
-//     let x = nearestIndex(table.xAxis.values, xAxis)
-//     let y = nearestIndex(table.yAxis.values, yAxis)
-//     return { x, y }
-//   }
-// }
-
-// const nearestIndex = (array, value) => {
-//   return array.indexOf(array.reduce((c, n) => {
-//     if (Math.abs(c - value) >= Math.abs(n - value)) {
-//       return n
-//     }
-//     return c
-//   }, 99999))
-// }
-
-// exports.Rom = Rom
-// exports.ScalingAliases = scalingAliases
-// export { scalingAliases as ScalingAliases }
+// Get the value closest to x, y axis
+// TODO make a version of this that uses nearby values / smoothed
+function getAxes(table: BasicTable, xAxis: number, yAxis: number) {
+  if (table.type != "3D") return console.log("getAxis only works on 3D table");
+  const x = nearestIndex(table.xAxis.values, xAxis);
+  const y = nearestIndex(table.yAxis.values, yAxis);
+  return { x, y };
+}

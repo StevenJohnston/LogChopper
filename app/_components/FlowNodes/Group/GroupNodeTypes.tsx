@@ -1,8 +1,6 @@
 'use client'
 
-import { Node } from 'reactflow';
-
-import { RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes';
+import { NodeWithType, RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes';
 
 export interface InitGroupData {
   name: string
@@ -19,6 +17,6 @@ export interface GroupData<T> extends InitGroupData, RefreshableNode, SaveableNo
 }
 
 export const GroupType = "GroupNode"
-export type GroupNodeType = Node<GroupData<InitGroupData>, typeof GroupType>;
+export type GroupNodeType = NodeWithType<GroupData<InitGroupData>, typeof GroupType>;
 
 // export default GroupNode

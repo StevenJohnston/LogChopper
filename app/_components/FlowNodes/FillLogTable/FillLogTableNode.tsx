@@ -34,7 +34,7 @@ export function newFillLogTable(): FillLogTableData {
 }
 
 function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) {
-  const [expanded, setExpanded] = useState<boolean>(true)
+  const [expanded, setExpanded] = useState<boolean>(false)
 
   const table = useMemo(() => {
     const { table } = data

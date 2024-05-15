@@ -64,6 +64,9 @@ export function cloneSavedGroup(savedGroup: SavedGroup): SavedGroup {
       console.log("Failed to init node", node)
       continue
     }
+    if (!NodeFactoryLookup[node.type]) {
+      console.log(`NodeFactoryLookup missing node type ${node.type}`)
+    }
 
     newNodes.push({
       ...node,

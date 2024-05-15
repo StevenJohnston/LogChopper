@@ -19,8 +19,8 @@ import {
 import { createWithEqualityFn } from "zustand/traditional";
 import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
 import { BaseLogNodeType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
-import { CombineNodeType } from "@/app/_components/FlowNodes/CombineNode/CombineTypes";
-import { LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes";
+import { ForkNodeType } from "@/app/_components/FlowNodes/ForkNode/ForkTypes";
+import { LogFilterNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes";
 import { topologicalSort } from "@/app/_lib/react-flow-utils";
 import { FillTableNodeType } from "@/app/_components/FlowNodes/FillTable/FillTableTypes";
 import { FillLogTableNodeType } from "@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes";
@@ -30,16 +30,21 @@ import {
 } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
 
 import type { MouseEvent } from "react";
+import { CombineNodeType } from "@/app/_components/FlowNodes/Combine/CombineTypes";
+import { CombineAdvancedTableNodeType } from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes";
+import { LogAlterNodeType } from "@/app/_components/FlowNodes/LogAlter/LogAlterTypes";
 
 export type MyNode =
   | BaseTableNodeType
   | BaseLogNodeType
-  | CombineNodeType
-  | LogFiltereNodeType
+  | ForkNodeType
+  | LogFilterNodeType
+  | LogAlterNodeType
   | FillTableNodeType
   | FillLogTableNodeType
-  | GroupNodeType;
-// | Node;
+  | GroupNodeType
+  | CombineNodeType
+  | CombineAdvancedTableNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -187,10 +192,10 @@ const useFlow = createWithEqualityFn<RFState>(
       const updateOrder = topologicalSort(node, nodes, edges);
       for (const updateNode of updateOrder) {
         // Updates Node in place
-        await updateNode.data.refresh(updateNode, nodes, edges);
+        await updateNode.data.refresh(updateNode, get().nodes, get().edges);
         // Force inplaced update
         updateNode.data = { ...updateNode.data };
-        set({
+        await set({
           nodes: [
             //TODO maybe use nodes instead of ...get().nodes
             ...get().nodes.filter((n) => n.id != updateNode.id),

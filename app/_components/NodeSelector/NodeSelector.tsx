@@ -1,36 +1,20 @@
 'use client'
 
-import Image from 'next/image';
 import { newGroup } from "@/app/_components/FlowNodes/Group/GroupNode"
 import { GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes"
 import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode"
-import { LogFilterType, LogFiltereNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
+import { LogFilterType, LogFilterNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
 import useFlow, { RFState } from "@/app/store/useFlow"
 import useNodeStorage, { NodeStorageState, SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage"
-import { MouseEventHandler, ReactNode, useCallback, useMemo, useState } from "react"
-import { Viewport } from "reactflow"
+import { useCallback, useState } from "react"
 import { v4 as uuid } from "uuid";
 
-import GearSvg from "../icons/gear.svg"
-import TrashSvg from "../icons/trash.svg"
+import GearSvg from "../../icons/gear.svg"
+import TrashSvg from "../../icons/trash.svg"
 
 import { shallow } from "zustand/shallow"
-
-interface NodeSelectorButtonProps {
-  onClick: MouseEventHandler<HTMLElement>;
-  children: ReactNode;
-  deleteMode?: boolean;
-}
-const NodeSelectorButton = ({ onClick, children, deleteMode }: NodeSelectorButtonProps) => {
-  return (
-    <button
-      className={`flex flex-col justify-center items-center bg-white ${deleteMode ? 'hover:bg-red-500' : 'hover:bg-blue-500'} ${deleteMode ? 'text-red-700' : 'text-blue-700'} border ${deleteMode ? 'border-red-500' : 'border-blue-500'} hover:text-white hover:border-transparent rounded-md h-20 w-[50%] box-border`}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
+import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
+import IPW from "@/app/_components/NodeSelector/IPW"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -53,11 +37,6 @@ const NodeSelector = () => {
   const [groupDelete, setGroupDelete] = useState<boolean>(false);
 
   const [expanded, setExpanded] = useState<boolean>()
-  // const { x, y, zoom } = useViewport();
-
-  const viewPort = useMemo<Viewport | undefined>(() => {
-    return reactFlowInstance?.getViewport()
-  }, [reactFlowInstance])
 
   const getViewportPosition = useCallback((x: number = 0, y: number = 0) => {
     const viewPort = reactFlowInstance?.getViewport()
@@ -95,20 +74,21 @@ const NodeSelector = () => {
         && <div
           className="max-h-[10%] flex-wrap content-start w-full mt-2"
         >
-          <div>Base Nodes</div>
+          <div>Log Filters</div>
           <NodeSelectorButton
             onClick={() => {
-              const logFilter: LogFiltereNodeType = {
+              const logFilter: LogFilterNodeType = {
                 position: getViewportPosition(100, 100),
                 id: uuid(),
                 type: LogFilterType,
-                data: newLogFilter()
+                data: newLogFilter({})
               }
               updateNode(logFilter)
             }}
           >
-            Log Filter
+            Base Log Filter
           </NodeSelectorButton>
+          <IPW />
           <div>Group Node</div>
           <NodeSelectorButton
             onClick={() => {

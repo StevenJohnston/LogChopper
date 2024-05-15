@@ -73,7 +73,7 @@ export default function RootLayout() {
       setSelectedRomMetadataHandle(defaultRomMetadata);
       const defaultRom = await findFileByName(
         directoryHandle,
-        "Steven Johnston 2.0L 8474 ID1300 GSC S2 FR3.5 Intake 94 oct V3.17.00.6.srf"
+        "Steven Johnston 2.0L 8474 ID1300 GSC S2 FR3.5 Intake 94 oct V3.17.00.6-openloop-enrichedidle.srf"
       );
       if (defaultRom) {
         setSelectedRom(defaultRom);

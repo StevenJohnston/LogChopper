@@ -8,8 +8,8 @@ import { LogRecord } from '@/app/_lib/log';
 import { LogFilterType } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
 import { newBaseLogData } from '@/app/_components/FlowNodes/BaseLog/BaseLogNode';
 import { newBaseTableData } from '@/app/_components/FlowNodes/BaseTable/BaseTableNode';
-import { newCombineData } from '@/app/_components/FlowNodes/CombineNode/CombineNode';
-import { CombineType } from '@/app/_components/FlowNodes/CombineNode/CombineTypes';
+import { newForkData } from '@/app/_components/FlowNodes/ForkNode/ForkNode';
+import { ForkType } from '@/app/_components/FlowNodes/ForkNode/ForkTypes';
 import { newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableNode';
 import { newLogFilter } from '@/app/_components/FlowNodes/LogFilter/LogFilterNode';
 import { newGroup } from '@/app/_components/FlowNodes/Group/GroupNode';
@@ -17,16 +17,22 @@ import { newFillTable } from '@/app/_components/FlowNodes/FillTable/FillTableNod
 import { FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import { GroupType } from '@/app/_components/FlowNodes/Group/GroupNodeTypes';
 import { MyNode } from '@/app/store/useFlow';
+import { CombineAdvancedTableType } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes';
+import { newCombineAdvanced } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode';
+import { newCombine } from '@/app/_components/FlowNodes/Combine/CombineNode';
+import { CombineType } from '@/app/_components/FlowNodes/Combine/CombineTypes';
+import { LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
+import { newLogAlter } from '@/app/_components/FlowNodes/LogAlter/LogAlterNode';
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType]
-export const TableNodeTypes: string[] = [BaseLogType, FillTableType, BaseTableType, FillLogTableType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType]
+export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 export interface RefreshableNode {
   refresh?: (node: MyNode, nodes: Node[], edges: Edge[]) => Promise<void>
 }
 
 export interface NodeWithType<T, U extends string> extends Node<T, U> {
-  // type: U
+  type: U
 }
 
 export interface SaveableNode<T = {}> {
@@ -44,9 +50,12 @@ export interface LogData {
 export const NodeFactoryLookup = {
   [BaseLogType]: newBaseLogData,
   [BaseTableType]: newBaseTableData,
-  [CombineType]: newCombineData,
+  [ForkType]: newForkData,
   [FillLogTableType]: newFillLogTable,
   [FillTableType]: newFillTable,
   [GroupType]: newGroup,
   [LogFilterType]: newLogFilter,
+  [LogAlterType]: newLogAlter,
+  [CombineAdvancedTableType]: newCombineAdvanced,
+  [CombineType]: newCombine,
 } as const

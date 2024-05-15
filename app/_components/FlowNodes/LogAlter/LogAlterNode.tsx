@@ -2,41 +2,49 @@
 import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
-import { LogRecord, filterLogs } from '@/app/_lib/log';
+import { LogRecord, alterLogs } from '@/app/_lib/log';
 import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { InitLogFilterData, LogFilterData, LogFilterSourceLogHandleId, LogFilterTargetLogHandleId, LogFilterType, LogFilterNodeType } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
+import { InitLogAlterData, LogAlterData, LogAlterSourceLogHandleId, LogAlterTargetLogHandleId, LogAlterType, LogAlterNodeType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import { LogData } from '@/app/_components/FlowNodes';
 
-export function newLogFilter({ func }: InitLogFilterData): LogFilterData {
+export function newLogAlter({ func, newLogField }: InitLogAlterData): LogAlterData {
   return {
     func,
+    newLogField,
     logs: [],
     refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<LogData>]>(node, nodes, edges, [LogFilterTargetLogHandleId])
+      const parentNodes = getParentsByHandleIds<[Node<LogData>]>(node, nodes, edges, [LogAlterTargetLogHandleId])
       if (!parentNodes) {
         this.logs = []
-        return console.log("newLogFilter One or more parents are missing")
+        return console.log("newLogAlter One or more parents are missing")
       }
       const [sourceLogNode] = parentNodes
 
-      if (!this.func) return console.log("newLogFilter func missing")
-      if (sourceLogNode.data.logs == null) return console.log("newLogFilter sourceLogNode missing logs")
-
+      if (!this.func) return console.log("newLogAlter func missing")
+      if (!this.newLogField) return console.log("newLogAlter newLogField missing")
+      if (sourceLogNode.data.logs == null) return console.log("newLogAlter sourceLogNode missing logs")
 
       // const newTable = MapCombine(sourceLogNode.data.table, joinTable.data.table, this.func)
       // if (!newTable) return console.log("Failed to create new table for combine")
       // this.table = newTable
-      this.logs = filterLogs(sourceLogNode.data.logs, this.func)
+      try {
+
+        this.logs = alterLogs(sourceLogNode.data.logs, this.func, this.newLogField)
+      } catch (e) {
+        console.log("newLogAlter refresh failed to alterLogs")
+        this.logs = []
+      }
     },
 
     getLoadable: function () {
       return {
-        func: this.func
+        func: this.func,
+        newLogField: this.newLogField
       }
     }
   }
@@ -47,8 +55,9 @@ const selector = (state: RFState) => ({
   updateNode: state.updateNode
 });
 
-function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
+function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
   const [funcVal, setFuncVal] = useState(data.func || "")
+  const [newLogFieldVal, setNewLogFieldVal] = useState(data.newLogField || "")
   const { nodes, updateNode } = useFlow(selector, shallow);
   const [expanded, setExpanded] = useState<boolean>(false)
 
@@ -79,9 +88,9 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
   })
 
 
-  const node: LogFilterNodeType | undefined = useMemo(() => {
+  const node: LogAlterNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
-      if (n.id == id && n.type == LogFilterType) {
+      if (n.id == id && n.type == LogAlterType) {
         return n
       }
     }
@@ -93,16 +102,22 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
     updateNode({ ...node, data: { ...node.data, func: event.target.value } })
   }, [node, updateNode])
 
+  const onNewLogFieldChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    setNewLogFieldVal(event.target.value)
+    updateNode({ ...node, data: { ...node.data, newLogField: event.target.value } })
+  }, [node, updateNode])
+
   return (
     <div className="flex flex-col p-2 border border-black rounded nowheel bg-blue-500 bg-opacity-50">
-      <CustomHandle dataType="Log" type="target" position={Position.Left} id={LogFilterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
-      <CustomHandle dataType="Log" type="source" position={Position.Right} id={LogFilterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
+      <CustomHandle dataType="Log" type="target" position={Position.Left} id={LogAlterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
+      <CustomHandle dataType="Log" type="source" position={Position.Right} id={LogAlterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
       <div
         onDoubleClick={() => setExpanded(!expanded)}
         className='flex justify-between drag-handle'
       >
-        <div className='pr-2'>Log Filter</div>
+        <div className='pr-2'>Log Alter</div>
         <button className='border-2 border-black w-8 h-8'
           onClick={() => setExpanded(!expanded)}
         >
@@ -114,7 +129,17 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
         <div className="max-w-sm">
           <div className='flex flex-col'>
             <div className='mr-2'>
-              <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
+              <label className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
+              <input
+                type="text"
+                value={newLogFieldVal}
+                onChange={onNewLogFieldChange}
+              />
+            </div>
+          </div>
+          <div className='flex flex-col'>
+            <div className='mr-2'>
+              <label className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
               <input
                 type="text"
                 value={funcVal}
@@ -230,4 +255,4 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
   );
 }
 
-export default LogFilterNode
+export default LogAlterNode

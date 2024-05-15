@@ -1,8 +1,7 @@
 'use client'
 
-import { Node } from 'reactflow';
 import { BasicTable, Scaling } from "@/app/_lib/rom-metadata";
-import { RefreshableNode, SaveableNode, TableData } from '@/app/_components/FlowNodes';
+import { NodeWithType, RefreshableNode, SaveableNode, TableData } from '@/app/_components/FlowNodes';
 
 export interface InitBaseTableData {
   tableKey: string
@@ -14,4 +13,4 @@ export interface BaseTableData<T> extends InitBaseTableData, TableData<string | 
 }
 
 export const BaseTableType = "BaseTableNode"
-export type BaseTableNodeType = Node<BaseTableData<InitBaseTableData>, typeof BaseTableType>;
+export type BaseTableNodeType = NodeWithType<BaseTableData<InitBaseTableData>, typeof BaseTableType>;

@@ -1,25 +1,31 @@
 'use client'
-import { ChangeEvent, useCallback, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
-import { LogData, TableData } from '@/app/_components/FlowNodes';
+import { TableData } from '@/app/_components/FlowNodes';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import RomModuleUI from '@/app/_components/RomModuleUI';
-import { FillTableData, FillTableNodeType, FillTableType, InitFillTableData, sourceTableHandleId } from '@/app/_components/FlowNodes/FillTable/FillTableTypes';
-import { LogFields, LogRecord } from '@/app/_lib/log';
+import { FillTableData, FillTableNodeType, FillTableType, InitFillTableData, sourceTableHandleId, targetTableHandleId } from '@/app/_components/FlowNodes/FillTable/FillTableTypes';
+import { LogRecord } from '@/app/_lib/log';
 import useFlow, { MyNode, RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import { Aggregator } from '@/app/_lib/consts';
+import { FillLogTable } from '@/app/_lib/rom';
+import useRom from '@/app/store/useRom';
 
 export function newFillTable({ logField, aggregator }: InitFillTableData): FillTableData {
   return {
     logField,
     aggregator,
     table: null,
+    scalingMap: {},
+    parentTable: null,
+
     refresh: async function (node: MyNode, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<TableData<LogRecord[]>>, Node<LogData>]>(node, nodes, edges, [sourceTableHandleId])
+      if (!this.scalingMap) return console.log("newFillTable: missing this.scalingMap")
+      const parentNodes = getParentsByHandleIds<[Node<TableData<LogRecord[]>>]>(node, nodes, edges, [sourceTableHandleId])
       if (!parentNodes) {
         this.table = null
         return console.log("newFillTable One or more parents are missing")
@@ -28,18 +34,32 @@ export function newFillTable({ logField, aggregator }: InitFillTableData): FillT
       if (parentTable.type != FillLogTableType) {
         return console.log("newFillTable parent is not of type FillLogTableType")
       }
+      this.parentTable = parentTable.data.table
 
-      if (node.type != logField) {
+      if (node.type != FillTableType) {
         return console.log("FillTable Node type missmatch on refresh")
       }
-
-      switch (node.data.aggregator) {
-
+      if (parentTable.data.table == null) {
+        return console.log("newFilleTable parent node missing table")
+      }
+      if (!this.logField) {
+        return console.log("newFilleTable missing log field")
+      }
+      if (!this.aggregator) {
+        return console.log("newFilleTable missing aggregator")
+      }
+      const newTable = FillLogTable(parentTable.data.table, this.logField, this.aggregator)
+      if (newTable == null) {
+        return console.log("newFilleTable failed to create aggregate table")
       }
 
-      const table = parentTable.data.table
-      if (!table) {
-        return console.log("table is missing from parent")
+      this.table = newTable
+      if (this.scalingMap[this.logField]) {
+        this.table.scalingValue = this.scalingMap[this.logField]
+      } else {
+        this.table.scalingValue = {
+          format: "%.2f",
+        }
       }
     },
     getLoadable: function () {
@@ -58,7 +78,31 @@ const selector = (state: RFState) => ({
 function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   const { nodes, updateNode } = useFlow(selector, shallow);
 
-  const [expanded, setExpanded] = useState<boolean>(true)
+  const [expanded, setExpanded] = useState<boolean>(false)
+  const { scalingMap } = useRom()
+
+  const node: FillTableNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == FillTableType) {
+        return n
+      }
+    }
+  }, [id, nodes])
+
+  useEffect(() => {
+    if (!node) return console.log("FillTableNode node missing")
+    if (!scalingMap) return console.log("FillTableNode scalingMap missing")
+
+    if (scalingMap == data.scalingMap) return console.log("FillTableNode No update required")
+
+    updateNode({
+      ...node,
+      data: {
+        ...node.data,
+        scalingMap,
+      }
+    } as FillTableNodeType)
+  }, [node, scalingMap, updateNode, data])
 
 
   const onFilterSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
@@ -66,7 +110,6 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
     const node = nodes.find(n => n.id == id) as FillTableNodeType
     if (!node) return console.log('FillTableNode failed to find self node')
     updateNode({
-      type: FillTableType,
       ...node,
       data: {
         ...node.data,
@@ -80,7 +123,6 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
     const node = nodes.find(n => n.id == id) as FillTableNodeType
     if (!node) return console.log('FillTableNode failed to find self node')
     updateNode({
-      type: FillTableType,
       ...node,
       data: {
         ...node.data,
@@ -88,6 +130,20 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       }
     })
   }, [id, nodes, updateNode])
+
+
+  const fields: string[] | void = useMemo(() => {
+    if (node?.data.parentTable?.type != "3D") {
+      return console.log("FillTableNode only handels 3d tables")
+    }
+    for (let y = 0; y < node.data.parentTable.values.length; y++) {
+      for (let x = 0; x < node.data.parentTable.values[y].length; x++) {
+        const logRecords = node.data.parentTable.values[y][x]
+        if (logRecords.length != 0)
+          return Object.keys(logRecords[0])
+      }
+    }
+  }, [node?.data.parentTable])
 
   return (
     <div className="flex flex-col p-2 border border-black rounded">
@@ -106,7 +162,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
 
       </div>
       <div>
-        <form className="max-w-sm mx-auto">
+        <div className="max-w-sm">
           <div className='flex'>
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Fill log field</label>
@@ -116,8 +172,9 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
                 onChange={onFilterSelect}
                 value={data.logField}
               >
+                <option>Select field</option>
                 {
-                  LogFields.map((f) => {
+                  fields?.map((f) => {
                     return (
                       <option key={f} value={f}>{f}</option>
                     )
@@ -134,6 +191,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
                 onChange={onAggregatorSelect}
                 value={data.aggregator}
               >
+                <option>Select aggregator</option>
                 {
                   Object.keys(Aggregator).map((f) => {
                     return (
@@ -144,7 +202,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
               </select>
             </div>
           </div>
-        </form>
+        </div>
       </div>
       <div>
         {data.table
@@ -158,6 +216,8 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
           </div>
         }
       </div>
+      <CustomHandle dataType='3D' type="source" position={Position.Right} id={targetTableHandleId} top="20px" isConnectable={isConnectable} />
+
     </div>
   );
 }
