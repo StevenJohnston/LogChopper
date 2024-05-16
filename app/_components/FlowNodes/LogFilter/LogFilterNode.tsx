@@ -60,7 +60,10 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
     })
   })
 
-  const table = useReactTable({ columns, data: data.logs, getCoreRowModel: getCoreRowModel(), })
+  const filteredLogs = useMemo(() => {
+    return data.logs.filter(l => !l.delete)
+  }, [data.logs])
+  const table = useReactTable({ columns, data: filteredLogs, getCoreRowModel: getCoreRowModel(), })
   const { rows } = table.getRowModel()
   //The virtualizer needs to know the scrollable container element
   const tableContainerRef = useRef<HTMLDivElement>(null)

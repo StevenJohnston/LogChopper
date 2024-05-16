@@ -93,7 +93,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
               source: edge?.source,
               target: edge?.target,
               sourceHandle: edge.sourceHandle || null,
-              targetHandle: `${targetType}#${LogFilterTargetLogHandleId}`
+              targetHandle: `${targetType}#${LogFilterTargetLogHandleId}`,
             }
 
             updateEdge(edge, newConenction)

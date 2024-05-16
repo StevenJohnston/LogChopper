@@ -73,7 +73,7 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
 
   // if (!table) return <div>Loading Table</div>
   return (
-    <div className="flex flex-col p-2 border border-black rounded">
+    <div className="flex flex-col p-2 border border-black rounded bg-orange-300">
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceTableHandleId} top="60px" isConnectable={isConnectable} />
 

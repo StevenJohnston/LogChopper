@@ -29,3 +29,9 @@
 .selected {
   background-color: rebeccapurple !important;
 }
+
+.react-flow__edge{
+  path {
+    stroke: black;
+  }
+}

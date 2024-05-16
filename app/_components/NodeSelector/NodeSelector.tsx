@@ -15,6 +15,7 @@ import TrashSvg from "../../icons/trash.svg"
 import { shallow } from "zustand/shallow"
 import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
 import IPW from "@/app/_components/NodeSelector/IPW"
+import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -104,6 +105,7 @@ const NodeSelector = () => {
           >
             Group
           </NodeSelectorButton>
+          <MapAfrGroup />
           {
             savedGroups.length > 0 &&
             <div

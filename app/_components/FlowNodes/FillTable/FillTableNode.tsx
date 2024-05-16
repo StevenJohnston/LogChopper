@@ -1,5 +1,5 @@
 'use client'
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
 import { TableData } from '@/app/_components/FlowNodes';
@@ -77,6 +77,7 @@ const selector = (state: RFState) => ({
 });
 function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   const { nodes, updateNode } = useFlow(selector, shallow);
+  const childRef = useRef<HTMLTextAreaElement>(null)
 
   const [expanded, setExpanded] = useState<boolean>(false)
   const { scalingMap } = useRom()
@@ -146,7 +147,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   }, [node?.data.parentTable])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded">
+    <div className="flex flex-col p-2 border border-black rounded bg-green-400">
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceTableHandleId} top="20px" isConnectable={isConnectable} />
 
       <div
@@ -210,6 +211,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
             {
               expanded
               && <RomModuleUI
+                ref={childRef}
                 table={data.table}
               />
             }
