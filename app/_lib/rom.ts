@@ -218,7 +218,7 @@ function fillTable(
 export function FillTableFromLog(
   table: BasicTable,
   logs: LogRecord[],
-  weighted: boolean = false
+  weighted: boolean = true
 ): Table<LogRecord[]> | void {
   const newTable = duplicateTable<LogRecord[], string | number>(
     table,
@@ -249,7 +249,12 @@ export function FillTableFromLog(
           );
           return;
         }
-        const y = nearestIndex(yAxis.values, yAxisLogValue);
+        let y = 0;
+        if (weighted) {
+          y = getIndexFloat(yAxis.values, yAxisLogValue);
+        } else {
+          y = nearestIndex(yAxis.values, yAxisLogValue);
+        }
 
         const xScaling = xAxis.scaling;
         let xAxisLogValue = l[xScaling];
@@ -261,8 +266,48 @@ export function FillTableFromLog(
 
           xAxisLogValue = parser.evaluate(expr, l as Record<string, any>);
         }
-        const x = nearestIndex(xAxis.values, xAxisLogValue);
-        newTable.values[y][x].push(l);
+
+        let x = 0;
+        if (weighted) {
+          x = getIndexFloat(xAxis.values, xAxisLogValue);
+        } else {
+          x = nearestIndex(xAxis.values, xAxisLogValue);
+        }
+
+        if (weighted) {
+          // TODO get up, down, left, right. And weight it
+          const floorX = Math.floor(x);
+          const ceilX = Math.ceil(x);
+          const floorY = Math.floor(y);
+          const ceilY = Math.ceil(y);
+
+          newTable.values[floorY][floorX].push({
+            ...l,
+            weight: (1 - (y % 1)) * (1 - (x % 1)),
+          });
+
+          if (floorX != ceilX) {
+            newTable.values[floorY][ceilX].push({
+              ...l,
+              weight: (1 - (y % 1)) * (x % 1),
+            });
+          }
+          if (floorY != ceilY) {
+            newTable.values[ceilY][floorX].push({
+              ...l,
+              weight: (y % 1) * (1 - (x % 1)),
+            });
+          }
+
+          if (floorX != ceilX && floorY != ceilY) {
+            newTable.values[ceilY][ceilX].push({
+              ...l,
+              weight: (y % 1) * (x % 1),
+            });
+          }
+        } else {
+          newTable.values[y][x].push(l);
+        }
         break;
       }
       case "2D":
@@ -318,11 +363,8 @@ export function duplicateTable<T, U>(
   return null;
 }
 
-function nearestIndex(
-  array: number[],
-  value: number,
-  weighted: boolean = false
-): number {
+// Returns the index closest to value
+function nearestIndex(array: number[], value: number): number {
   return array.indexOf(
     array.reduce((c, n) => {
       if (Math.abs(c - value) >= Math.abs(n - value)) {
@@ -331,6 +373,44 @@ function nearestIndex(
       return c;
     }, 99999)
   );
+}
+
+// Returns the index of value in array as a float. eg, array [0,10,20], value: 3, return: 0.3
+export function getIndexFloat(array: number[], value: number): number {
+  const closestIndex = nearestIndex(array, value);
+  if (array[closestIndex] == value) {
+    return closestIndex;
+  } else if (array[closestIndex] > value) {
+    const high = array[closestIndex];
+    const low = array[closestIndex - 1];
+    if (low == undefined) return closestIndex;
+    return closestIndex - 1 + calculateFloatBetween(low, high, value);
+  } else {
+    const low = array[closestIndex];
+    const high = array[closestIndex + 1];
+    if (high == undefined) {
+      return closestIndex;
+    }
+    return closestIndex + calculateFloatBetween(low, high, value);
+  }
+}
+
+// Returns float between min and max
+function calculateFloatBetween(
+  min: number,
+  max: number,
+  value: number
+): number {
+  if (min > max) {
+    throw new Error("min cannot be lower than max");
+  }
+
+  if (value < min) return 0;
+  if (value > max) return 0;
+  const normalizedValue = value - min;
+  const range = max - min;
+
+  return normalizedValue / range;
 }
 
 export function FillLogTable(
@@ -349,20 +429,24 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          return (
-            logRecords.reduce((sum, logRecord) => {
-              // const parser = new exprParser();
-              // let { insteadUse, expr } = scalingAliases[scalingName];
-              // if (!logRecord[])
-
+          // return (
+          const [mSum, wSum] = logRecords.reduce(
+            ([mSum, wSum], logRecord) => {
               //TODO better number
               const n = Number(logRecord[field]);
               if (isNaN(n)) {
-                return sum;
+                return [mSum, wSum];
               }
-              return sum + n;
-            }, 0) / (logRecords.length || 1)
+              let weight = logRecord.weight || 1;
+              if (field == "weight") {
+                weight = 1;
+              }
+              return [mSum + n * weight, wSum + weight];
+            },
+            [0, 0]
           );
+          if (wSum == 0) return 0;
+          return mSum / wSum;
         }
       );
       break;

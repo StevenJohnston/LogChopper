@@ -76,6 +76,8 @@ export interface LogRecord {
   RPMGain?: number;
   delete?: boolean;
   deleteReason?: string;
+
+  weight?: number;
   [key: string]: any;
 }
 

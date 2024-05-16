@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useMemo, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
 import { LogData, TableData } from '@/app/_components/FlowNodes';
@@ -7,12 +7,14 @@ import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHan
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import { FillTableFromLog, duplicateTable } from '@/app/_lib/rom';
 import ModuleUI from '@/app/_components/Module';
-import { FillLogTableData, sourceLogHandleId, sourceTableHandleId } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
+import { FillLogTableData, FillLogTableNodeType, FillLogTableType, InitFillLogTableData, sourceLogHandleId, sourceTableHandleId } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
+import useFlow, { RFState } from '@/app/store/useFlow';
+import { shallow } from 'zustand/shallow';
 
-export function newFillLogTable(): FillLogTableData {
+export function newFillLogTable({ weighted }: InitFillLogTableData): FillLogTableData {
   return {
     table: null,
-    // tableType: LogTableDataType,
+    weighted,
     refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
       const parentNodes = getParentsByHandleIds<[Node<TableData<string | number>>, Node<LogData>]>(node, nodes, edges, [sourceTableHandleId, sourceLogHandleId])
       if (!parentNodes) {
@@ -25,16 +27,25 @@ export function newFillLogTable(): FillLogTableData {
       if (!table) return console.log("table is missing from parent")
       const logs = parentLog.data.logs
 
-      const newTable = FillTableFromLog(table, logs)
+      const newTable = FillTableFromLog(table, logs, this.weighted)
       if (!newTable) return console.log("FillTableFromLog failed while NewFillLogTable.refresh")
       this.table = newTable
     },
-    getLoadable: () => ({})
+    getLoadable: function () {
+      return {
+        weighted: this.weighted
+      }
+    }
   }
 }
 
-function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) {
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  updateNode: state.updateNode
+});
+function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableData>) {
   const [expanded, setExpanded] = useState<boolean>(false)
+  const { nodes, updateNode } = useFlow(selector, shallow);
 
   const table = useMemo(() => {
     const { table } = data
@@ -44,6 +55,21 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
     if (!recordCountTable) return console.log("FillLogTableNode failed to duplicatTable")
     return recordCountTable
   }, [data])
+
+
+  const node: FillLogTableNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == FillLogTableType) {
+        return n
+      }
+    }
+  }, [id, nodes])
+
+  const onWeightedChanged = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    // setFuncVal(event.target.value)
+    updateNode({ ...node, data: { ...node.data, weighted: event.target.checked } })
+  }, [node, updateNode])
 
   // if (!table) return <div>Loading Table</div>
   return (
@@ -62,6 +88,21 @@ function FillLogTableNode({ data, isConnectable }: NodeProps<FillLogTableData>) 
           {expanded ? "_" : "^"}
         </button>
 
+      </div>
+
+      <div>
+        <div className="max-w-sm">
+          Weighted
+          <input
+            type='checkbox'
+            className='m-2'
+            // className={`focus:bg-transparent bg-inherit h-4 m-1`}
+            checked={data.weighted}
+            onChange={onWeightedChanged}
+          // onBlur={onFuncChange}
+
+          />
+        </div>
       </div>
       {!!table
         && <div>

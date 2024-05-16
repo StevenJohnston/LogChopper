@@ -145,7 +145,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const fillTable: FillLogTableNodeType = {
               ...node,
               type: FillLogTableType,
-              data: newFillLogTable(),
+              data: newFillLogTable({ weighted: true }),
               dragHandle: '.drag-handle'
             }
             await updateNode(fillTable)

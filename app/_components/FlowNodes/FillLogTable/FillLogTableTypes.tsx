@@ -1,12 +1,13 @@
 'use client'
-import { Node } from 'reactflow';
 
 import { NodeWithType, RefreshableNode, SaveableNode, TableData } from '@/app/_components/FlowNodes';
 import { LogTable } from '@/app/_lib/rom-metadata';
 import { LogRecord } from '@/app/_lib/log';
 
-
-export interface FillLogTableData extends TableData<LogRecord[]>, RefreshableNode, SaveableNode {
+export interface InitFillLogTableData {
+  weighted: boolean
+}
+export interface FillLogTableData extends InitFillLogTableData, TableData<LogRecord[]>, RefreshableNode, SaveableNode {
   table: LogTable | null
 }
 
