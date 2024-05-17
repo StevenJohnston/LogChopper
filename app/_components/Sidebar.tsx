@@ -236,6 +236,7 @@ export default function Sidebar({
                     handle={logDirectoryHandle}
                     selectedHandle={selectedLogs}
                     setSelectedHandle={onSelectLog}
+                    showDates={true}
                   />
                 </div>
                 <button

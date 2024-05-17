@@ -22,3 +22,13 @@ export async function findFileByName(
   }
   return null;
 }
+
+export const formatter = new Intl.DateTimeFormat("en-US", {
+  // year: 'numeric',
+  year: "2-digit",
+  month: "2-digit",
+  day: "2-digit", // '2-digit' for leading zero (e.g., 01)
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
