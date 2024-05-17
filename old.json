@@ -1,0 +1,34 @@
+{
+  "globals": {
+    "FileSystemDirectoryHandle": "readonly",
+    "FileSystemFileHandle": "readonly",
+    "React": true
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "node": true
+  },
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": "tsconfig.json",
+    "sourceType": "module",
+    "ecmaVersion": 2020
+  },
+  "plugins": ["@typescript-eslint"],
+  "extends": ["next/core-web-vitals", "plugin:@stylistic", "prettier"],
+  "rules": {
+    "@stylistic/no-var": 0,
+    "@stylistic/no-case-declarations": 0,
+    "@stylistic/no-unused-vars": 0,
+    "@stylistic/no-empty-function": 0,
+    "@stylistic/no-inferrable-types": 0,
+    "@stylistic/no-explicit-any": 0,
+    "@stylistic/prefer-const": 0,
+    "@stylistic/no-async-promise-executor": 0,
+    "@stylistic/no-fallthrough": 0,
+    "@stylistic/no-debugger": 0,
+    "@stylistic/ban-ts-ignore": "off",
+    "@stylistic/ban-ts-comment": "off"
+  }
+}

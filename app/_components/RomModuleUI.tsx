@@ -1,33 +1,42 @@
-import { useEffect, useState } from "react";
-import { Scaling, Table } from "../_lib/rom-metadata";
+'use client'
+import { Table } from "../_lib/rom-metadata";
 import TableUI from "./TableUI";
-import { getFilledTable } from "../_lib/rom";
 import Surface from "./Surface";
+import { forwardRef, useState } from "react";
 
 interface RomModuleUIProps {
-  table: Table
-  selectedRom?: FileSystemFileHandle
-  scalingMap?: Record<string, Scaling>
-
+  table: Table<string | number>
 }
 
-const RomModuleUI: React.FC<RomModuleUIProps> = ({ selectedRom, table, scalingMap }) => {
-  const [filledTable, setFilledTable] = useState<Table>()
-  useEffect(() => {
-    if (!selectedRom || !table || !scalingMap) return
-    (async () => {
-      setFilledTable(await getFilledTable(selectedRom, scalingMap, table))
-    })()
-  }, [selectedRom, table, scalingMap])
-  if (!filledTable) return <div>loading table ui</div>
+const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table }, ref) => {
+  const [showSurface, setShowSurface] = useState<boolean>(false)
+
   return (
-    <div>
-      <TableUI
-        table={filledTable}
-      />
-      <Surface table={filledTable} />
+    <div className="flex flex-col items-end">
+      <div className="flex flex-row">
+        <TableUI
+          table={table}
+          ref={ref}
+        />
+        {
+          showSurface && table.type == "3D" &&
+          <div className="my-auto w-[500px]">
+            <Surface table={table} />
+          </div>
+        }
+      </div>
+      {
+        table.type == "3D" &&
+        <button className='border-2 border-black w-8 h-8 mt-1'
+          onClick={() => setShowSurface(!showSurface)}
+        >
+          {showSurface ? "<" : ">"}
+        </button>
+      }
     </div>
   );
-}
+})
+
+RomModuleUI.displayName = "RomModuleUI"
 
 export default RomModuleUI;

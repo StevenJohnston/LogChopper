@@ -1,82 +1,217 @@
-import { Scaling, Table } from "../_lib/rom-metadata";
+'use client'
+import { Axis, BasicTable, Scaling, isTable2DX } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
+
 
 interface TableUIProps {
-  table: Table
+  table: BasicTable
 }
-
-// function getColorBetween(
-//   color1: string,
-//   color2: string,
-//   min: number,
-//   max: number,
-//   value: number
-// ): string {
-//   // Ensure value is within the min-max range
-//   if (value < min || value > max) {
-//     throw new Error("Value must be between min and max");
-//   }
-
-//   // Convert colors to RGB objects
-//   const rgb1 = hexToRgb(color1);
-//   const rgb2 = hexToRgb(color2);
-
-//   // Calculate the normalized value (between 0 and 1)
-//   const normalizedValue = (value - min) / (max - min);
-
-//   // Interpolate each color channel
-//   const red = Math.round(rgb1.r + (rgb2.r - rgb1.r) * normalizedValue);
-//   const green = Math.round(rgb1.g + (rgb2.g - rgb1.g) * normalizedValue);
-//   const blue = Math.round(rgb1.b + (rgb2.b - rgb1.b) * normalizedValue);
-
-//   // Convert back to hex string
-//   const hexColor = rgbToHex({ r: red, g: green, b: blue });
-
-//   return hexColor;
-// }
+type CellPos = [number, number]
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
-  if (!scaling || !value) return
+  if (!scaling || value == undefined) return
   const xAxisMin = parseFloat(scaling.min || '')
   const xAxisMax = parseFloat(scaling.max || '')
-  var colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
-  let color = colorScale.getColor(value)
-  return color.toHexString()
+  const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
+  try {
+    const color = colorScale.getColor(value)
+    return color.toHexString()
+  } catch (e) {
+    return "#FFF"
+  }
 }
 
-const TableUI: React.FC<TableUIProps> = ({ table }) => {
+const selectText = (textArea: HTMLTextAreaElement, text: string) => {
+  textArea.value = text;
+  textArea.focus();
+  textArea.select();
+}
+
+const eventToCellpos = (event: MouseEvent<HTMLTableCellElement>): CellPos | void => {
+  const { cellpos } = event.currentTarget.dataset
+  if (!cellpos) return
+  const [x, y] = cellpos.split(',')
+  return [Number(x), Number(y)]
+}
+
+const sortCellPos = (cell1: CellPos, cell2: CellPos): [CellPos, CellPos] => {
+  const startCell: CellPos = [
+    cell1[0] < cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] < cell2[1] ? cell1[1] : cell2[1],
+  ]
+  const endCell: CellPos = [
+    cell1[0] > cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] > cell2[1] ? cell1[1] : cell2[1],
+  ]
+  return [startCell, endCell]
+
+}
+
+const isCellWithinSelection = (cell: CellPos, minCell: CellPos, maxCell: CellPos): boolean => {
+  if (cell[0] >= minCell[0] && cell[0] <= maxCell[0]) {
+    if (cell[1] >= minCell[1] && cell[1] <= maxCell[1]) {
+      return true
+    }
+  }
+  return false
+}
+
+const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAreaRef) => {
+
+  const [selectStartCell, setSelectStartCell] = useState<CellPos>()
+  const [selectEndCell, setSelectEndCell] = useState<CellPos>()
+
+  const [mouseDown, setMouseDown] = useState<boolean>(false)
+
+  const cellOnMouseDown = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    setMouseDown(true)
+    setSelectEndCell(undefined)
+    const cellpos = eventToCellpos(event)
+    if (!cellpos) return console.log("Failed to get start cellpos from event")
+
+    setSelectStartCell(cellpos)
+  }, [])
+
+  const highlightCells = useCallback(() => {
+    if (!selectStartCell) return console.log("No selectStartCell")
+    // const cellpos = eventToCellpos(event)
+    const endCell = selectEndCell
+    if (!endCell) return console.log("Failed to get end cellpos from event")
+    setSelectEndCell(endCell)
+
+    const [[minRow, minCol], [maxRow, maxCol]] = sortCellPos(selectStartCell, endCell)
+    console.log(`start: [${minRow}, ${minCol}] end: [${maxRow}, ${maxCol}]`)
+
+    let csvText = ""
+    for (let y = minRow; y <= maxRow; y++) {
+      for (let x = minCol; x <= maxCol; x++) {
+        if (table.type != '3D') {
+          console.log("Attempted to highlight cells from non 3d table")
+          continue
+        }
+        csvText += `${table.values[y][x]}`
+        if (x != maxCol) {
+          csvText += `,`
+        }
+      }
+
+      if (y != maxRow) {
+        csvText += '\n'
+      }
+    }
+
+    if (textAreaRef == null) return console.log("TextAreadRef missing")
+    if (typeof textAreaRef === 'function') {
+      return console.log("passed ref to TableUI is a function expect ref with .current")
+    }
+    if (textAreaRef.current == null) return console.log()
+    selectText(textAreaRef.current as HTMLTextAreaElement, csvText)
+  }, [textAreaRef, selectEndCell, selectStartCell, table])
+
+  const cellOnMouseEnter = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    if (mouseDown) {
+      const endCell = eventToCellpos(event)
+      if (!endCell) return console.log("Failed to get end cellpos from event")
+      setSelectEndCell(endCell)
+    }
+  }, [mouseDown])
+
+  const cellOnMouseUp = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
+    console.log("up")
+    setMouseDown(false)
+    const endCell = eventToCellpos(event)
+    if (!endCell) return console.log("Failed to get end cellpos from event")
+    setSelectEndCell(endCell)
+    highlightCells()
+  }, [highlightCells, setSelectEndCell])
+
+  const formatCell = useCallback((row: number, col: number, cell: string | number): CSSProperties => {
+    if (selectStartCell && selectEndCell) {
+      const [minCell, maxCell] = sortCellPos(selectStartCell, selectEndCell)
+      if (isCellWithinSelection([row, col], minCell, maxCell)) {
+        return {
+          backgroundColor: "#333399",
+          color: "#fff"
+        }
+      }
+    }
+
+    return {
+      backgroundColor: getColor(table.scalingValue, parseFloat(cell?.toString() || ""))
+    }
+  }, [table, selectStartCell, selectEndCell])
 
   const maxWidth = useMemo(() => {
     if (!table) return 0
     let maxWidth = 0
+
+    let xAxis: Axis | null = null;
     // Get the max width of colomn names
-    if (table.xAxis) {
-      table.xAxis.values?.forEach((value) => {
-        let width = sprintf(table?.xAxis?.scalingValue?.format || '', value).length
+    switch (table.type) {
+      case "3D":
+        xAxis = table.xAxis;
+        break;
+      case "2D":
+        if (isTable2DX(table)) {
+          xAxis = table.xAxis;
+        }
+        break;
+      case "1D":
+        break;
+      case "Other":
+        return console.log(`fillTable unhandled table type ${table.type}`);
+    }
+
+    if (xAxis) {
+      xAxis.values?.forEach((value) => {
+        const width = sprintf(xAxis?.scalingValue?.format || '', value).length
         if (width > maxWidth) maxWidth = width
       })
     }
-    table.values?.forEach?.((row) => {
-      if (Array.isArray(table.values)) {
-        if (Array.isArray(row)) {
-          row.forEach((cell) => {
-            let width = sprintf(table?.scalingValue?.format || '', cell).length
-            if (width > maxWidth) maxWidth = width
-          })
+
+    if (!Array.isArray(table.values)) {
+      const width = sprintf(table?.scalingValue?.format || '', table.values).length
+      if (width > maxWidth) maxWidth = width
+    } else {
+      table.values.forEach?.((row) => {
+        if (Array.isArray(table.values)) {
+          if (Array.isArray(row)) {
+            row.forEach((cell) => {
+              try {
+                const width = sprintf(table?.scalingValue?.format || '', cell).length
+                if (width > maxWidth) maxWidth = width
+              } catch (e) {
+                console.log("TableUI maxWidth failed to get", e)
+              }
+            })
+          }
+        } else {
+          const width = sprintf(table?.scalingValue?.format || '', row).length
+          if (width > maxWidth) maxWidth = width
         }
-      } else {
-        let width = sprintf(table?.scalingValue?.format || '', row).length
-        if (width > maxWidth) maxWidth = width
-      }
-    })
+      })
+    }
+
     return maxWidth
   }, [table])
 
+  const getTableValue = useCallback((fmt: string, cell: string | number) => {
+    try {
+      return sprintf(fmt, cell)
+    } catch (error) {
+      return ""
+    }
+
+  }, [])
+
   if (!table) return <div>Loading Table</div>
 
+  if (table.type == "Other") return <div>Other table tyoe not supported</div>
+  if (table.type != "3D") return <div>2D 1D not supported</div>
   return (
-    <div className="flex flex-col items-center text-[12px]">
+    <div className="flex flex-col items-center text-[12px] pr-2">
+      <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
       <div className="flex text-center flex-grow">{table?.xAxis?.name}</div>
       <div className="flex max-w-full">
         <div className="inline text-center rotate-180" style={{ writingMode: "vertical-rl" }}>
@@ -90,7 +225,8 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                 table?.xAxis?.values?.map((value) => {
                   return (
                     <th
-                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth * 10}px` }}
+                      key={value}
+                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth || 1 * 10}px` }}
                       className="border border-gray-300"
                     >
                       {sprintf(table?.xAxis?.scalingValue?.format || '', value)}
@@ -102,10 +238,11 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
           </thead>
           <tbody>
             {
-              table?.values?.map((row: (string | number | (string | number)[]), i) => {
-                let yAxisValue = table?.yAxis?.values?.[i]
+              // table?.values?.map((row: (string | number | (string | number)[]), rowI: number) => {
+              table?.values?.map((row, rowI) => {
+                const yAxisValue = table?.yAxis?.values?.[rowI]
                 return (
-                  <tr>
+                  <tr key={rowI}>
                     {yAxisValue &&
                       <th
                         className="px-2 border border-gray-300 sticky"
@@ -116,24 +253,27 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
                       <th>{table.scalingValue?.name}</th>
                     }
                     {
+
                       Array.isArray(row) &&
-                      row.map((cell) => {
+                      row.map((cell, colI) => {
                         return (
                           <td
+                            data-cellpos={[rowI, colI]}
+                            key={`${rowI}-${colI}`}
                             className="text-center border border-gray-300"
-                            style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
+                            // style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
+                            style={formatCell(rowI, colI, cell)}
+                            onMouseDown={cellOnMouseDown}
+                            onMouseUp={cellOnMouseUp}
+                            onMouseEnter={cellOnMouseEnter}
                           >
-                            {sprintf(table?.scalingValue?.format || '', cell)}
+                            {getTableValue(table?.scalingValue?.format || '', cell)}
                           </td>
                         )
                       })
                     }
                   </tr>
                 )
-                // }
-                // return (
-                //   <div>{table.scalingValue.name}</div>
-                // )
               })
             }
           </tbody>
@@ -141,6 +281,8 @@ const TableUI: React.FC<TableUIProps> = ({ table }) => {
       </div>
     </div>
   );
-}
+})
+
+TableUI.displayName = "TableUI"
 
 export default TableUI;
