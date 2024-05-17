@@ -1,14 +1,13 @@
 "use client";
 import "tailwindcss/tailwind.css";
 import "../styles/globals.css";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { shallow } from "zustand/shallow";
 
 import Sidebar from "./_components/Sidebar";
 import ModuleDisplay from "./_components/ModuleDisplay";
 import { LoadRomMetadata } from "./_lib/rom-metadata";
 import TableSelector from "./_components/TableSelector";
-import { Module } from "./_components/Module";
 import useRom, { useRomSelector } from "@/app/store/useRom";
 
 async function findFileByName(
@@ -62,10 +61,12 @@ export default function RootLayout() {
       );
       if (!defaultRomMetadata) return;
 
-      const { scalingMap, tableMap } = await LoadRomMetadata(
+      const loadedRomMetaData = await LoadRomMetadata(
         directoryHandle,
         defaultRomMetadata
       );
+      if (loadedRomMetaData == undefined) return console.log("RootLayout Failed to load RomMetaData")
+      const { scalingMap, tableMap } = loadedRomMetaData
 
       setScalingMap(scalingMap);
       setTableMap(tableMap);
@@ -88,10 +89,13 @@ export default function RootLayout() {
       // Convert selected handler to RomMetadata
       // Load the file and get the rom id, use that id to build the table
 
-      const { scalingMap, tableMap } = await LoadRomMetadata(
+      const loadedRomMetaData = await LoadRomMetadata(
         directoryHandle,
         selectedRomMetadataHandle
       );
+      if (loadedRomMetaData == undefined) return console.log("RootLayout Failed to load RomMetaData")
+      const { scalingMap, tableMap } = loadedRomMetaData
+
       setScalingMap(scalingMap);
       setTableMap(tableMap);
     })();

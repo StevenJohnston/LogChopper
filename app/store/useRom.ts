@@ -8,7 +8,7 @@ export type RomState = {
   selectedRomMetadataHandle: FileSystemFileHandle | null;
   selectedRom: FileSystemFileHandle | null;
   scalingMap: Record<string, Scaling>;
-  tableMap: Record<string, Table>;
+  tableMap: Record<string, Table<unknown>>;
 
   selectedLogs: FileSystemFileHandle[];
 
@@ -20,7 +20,7 @@ export type RomState = {
   ) => void;
   setSelectedRom: (selectedRom: FileSystemFileHandle | null) => void;
   setScalingMap: (scalingMap: Record<string, Scaling>) => void;
-  setTableMap: (tableMap: Record<string, Table>) => void;
+  setTableMap: (tableMap: Record<string, Table<unknown>>) => void;
   setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void;
 };
 
@@ -64,7 +64,7 @@ const useRom = createWithEqualityFn<RomState>((set) => ({
   setScalingMap: (scalingMap: Record<string, Scaling>) => {
     set({ scalingMap });
   },
-  setTableMap: (tableMap: Record<string, Table>) => {
+  setTableMap: (tableMap: Record<string, Table<unknown>>) => {
     set({ tableMap });
   },
   setSelectedLogs: async (selectedLogs: FileSystemFileHandle[]) => {

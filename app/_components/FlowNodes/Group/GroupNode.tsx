@@ -4,7 +4,7 @@ import { GroupData, GroupNodeType, GroupType, InitGroupData } from "@/app/_compo
 import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
 import useNodeStorage, { NodeStorageState } from "@/app/store/useNodeStorage";
 import { ChangeEvent, useCallback, useEffect, useMemo } from "react";
-import { NodeProps, NodeResizer, Node, Edge } from "reactflow";
+import { NodeProps, NodeResizer, Edge, Node } from "reactflow";
 import { shallow } from "zustand/shallow";
 
 
@@ -12,9 +12,6 @@ export function newGroup({ name, locked }: InitGroupData): GroupData<InitGroupDa
   return {
     name,
     locked,
-    refresh: async function (node: Node): Promise<void> {
-      console.log("Refresh newgroup")
-    },
     getLoadable: function (): InitGroupData {
       return {
         name: this.name,
@@ -56,9 +53,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
     if (!flowInstance) return console.log("Error saving due to missing flowInstance")
     if (!node) return console.log(`Error saving group node: could not find node in store ${id}`)
     if (!node.data) return console.log("Error saving group node: Missing data")
-    // node.data
-    // const savedNode = node.data.getLoadable(node, nodes, edges)
-    const saveNodes: MyNode[] = []
+    const saveNodes: Node[] = []
     const saveEdges: Edge[] = []
     saveNodes.push({
       ...node,
@@ -84,9 +79,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
         saveEdges.push(edge)
       }
     }
-    // saveGroup(savedNode)
-    // data.save(node, nodes, edges)
-    saveGroup({ groupName: data.name, nodes: saveNodes, edges: saveEdges })
+    saveGroup({ groupName: data.name, nodes: saveNodes as MyNode[], edges: saveEdges })
   }, [flowInstance, node, edges, id, data, saveGroup])
 
 

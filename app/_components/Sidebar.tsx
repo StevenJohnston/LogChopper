@@ -5,7 +5,7 @@ import DirectoryFile from "./DirectoryFile"
 import useFlow, { RFState } from "@/app/store/useFlow"
 import { shallow } from "zustand/shallow"
 import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes"
-import { BASE_LOG_NODE_ID, BaseLogNodeType, BaseLogType, INIT_BASE_LOG_NODE } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
+import { BaseLogNodeType, BaseLogType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
 import { v4 as uuid } from 'uuid'
 import { newBaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogNode"
 export interface SidebarProps {
@@ -73,7 +73,6 @@ export default function Sidebar({
       newSelectedLogs = [...selectedLogs, selectedLog]
     }
     setSelectedLogs(newSelectedLogs)
-    // const existingNode = nodes.find(n => n.id == BASE_LOG_NODE_ID) as BaseLogNodeType || INIT_BASE_LOG_NODE
     const existingNode = nodes.find(n => n.type == BaseLogType) as BaseLogNodeType
     if (!existingNode) {
       updateNode({

@@ -1,10 +1,10 @@
 'use client'
 import { forwardRef } from "react";
-import { Table } from "../_lib/rom-metadata";
+import { BasicTable } from "../_lib/rom-metadata";
 import RomModuleUI from "./RomModuleUI";
 
 export interface Module {
-  table: Table<unknown>
+  table: BasicTable
   type: 'base' | 'fill' | 'combine'
 }
 

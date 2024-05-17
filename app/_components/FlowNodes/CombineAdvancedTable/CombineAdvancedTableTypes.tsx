@@ -5,7 +5,6 @@ import { MatchCriteria } from '@/app/_lib/rom';
 import { BasicTable, Scaling } from '@/app/_lib/rom-metadata';
 
 export interface InitCombineAdvancedTableData {
-  // func?: string
   matchCriteria: MatchCriteria[]
 }
 

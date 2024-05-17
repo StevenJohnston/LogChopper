@@ -4,7 +4,6 @@ import {
   Connection,
   Edge,
   EdgeChange,
-  Node,
   NodeChange,
   addEdge,
   OnNodesChange,
@@ -53,7 +52,7 @@ export type RFState = {
   reactFlowInstance?: ReactFlowInstance;
   nodes: MyNode[];
   edges: Edge[];
-  onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: Node[]) => void;
+  onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: MyNode[]) => void;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
@@ -72,7 +71,7 @@ const useFlow = createWithEqualityFn<RFState>(
   (set, get) => ({
     nodes: initialNodes,
     edges: initialEdges,
-    onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: Node[]) => {
+    onNodeDragStop: (event: MouseEvent, node: MyNode, nodes: MyNode[]) => {
       const reactFlowInstance = get().reactFlowInstance;
       if (reactFlowInstance) {
         nodes = get().nodes;

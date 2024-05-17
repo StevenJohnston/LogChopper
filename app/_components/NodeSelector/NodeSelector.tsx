@@ -4,7 +4,7 @@ import { newGroup } from "@/app/_components/FlowNodes/Group/GroupNode"
 import { GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes"
 import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode"
 import { LogFilterType, LogFilterNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
-import useFlow, { RFState } from "@/app/store/useFlow"
+import useFlow, { MyNode, RFState } from "@/app/store/useFlow"
 import useNodeStorage, { NodeStorageState, SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage"
 import { useCallback, useState } from "react"
 import { v4 as uuid } from "uuid";
@@ -51,7 +51,7 @@ const NodeSelector = () => {
     const newGroup = cloneSavedGroup(savedGroup)
 
     for (const node of newGroup.nodes) {
-      addNode(node)
+      addNode(node as MyNode)
     }
     for (const edge of newGroup.edges) {
       addEdge(edge)

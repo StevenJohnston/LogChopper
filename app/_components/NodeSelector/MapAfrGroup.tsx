@@ -1,5 +1,5 @@
 import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
-import useFlow, { RFState } from "@/app/store/useFlow";
+import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
 import { useCallback } from "react";
 import { shallow } from "zustand/shallow";
 import { SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage";
@@ -11,9 +11,6 @@ const selector = (state: RFState) => ({
   addEdge: state.addEdge
 });
 
-
-
-
 const MapAfrGroup = () => {
   const { addNode, addEdge } = useFlow(selector, shallow);
 
@@ -23,7 +20,7 @@ const MapAfrGroup = () => {
     const newGroup = cloneSavedGroup(savedGroup)
 
     for (const node of newGroup.nodes) {
-      addNode(node)
+      addNode(node as MyNode)
     }
     for (const edge of newGroup.edges) {
       addEdge(edge)
@@ -35,13 +32,6 @@ const MapAfrGroup = () => {
     <NodeSelectorButton
       onClick={() => {
         onLoadSavedGroup(savedGroup)
-        // const logFilter: LogFilterNodeType = {
-        //   position: getViewportPosition(100, 100),
-        //   id: uuid(),
-        //   type: LogFilterType,
-        //   data: newLogFilter({ func: "MapAfrGroup > 0" })
-        // }
-        // updateNode(logFilter)
       }}
     >
       {`MAP AFR Group`}

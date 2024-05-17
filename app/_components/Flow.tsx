@@ -49,8 +49,6 @@ const Flow: React.FC = () => {
     return { BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode }
   }, [])
 
-
-
   const connectingNodeId = useRef<string | null>(null);
   const connectingHandleId = useRef<string | null>(null);
 
@@ -114,7 +112,7 @@ const Flow: React.FC = () => {
     if (reactFlowInstance != realReactFlowInstance) {
       setReactFlowInstance(realReactFlowInstance)
     }
-  }, [reactFlowInstance, realReactFlowInstance])
+  }, [reactFlowInstance, realReactFlowInstance, setReactFlowInstance])
 
   const isValidConnection = useCallback((c: Connection): boolean => {
     if (c.sourceHandle?.split("#")[0] != c.targetHandle?.split("#")[0]) {
@@ -133,7 +131,7 @@ const Flow: React.FC = () => {
     if (reactFlowInstance != realReactFlowInstance) {
       setReactFlowInstance(realReactFlowInstance)
     }
-  }, [reactFlowInstance, realReactFlowInstance])
+  }, [reactFlowInstance, realReactFlowInstance, setReactFlowInstance])
 
   useEffect(() => { console.log("Flow Full rerendered") }, [])
 
@@ -145,6 +143,7 @@ const Flow: React.FC = () => {
         nodeTypes={nodeTypes}
         nodes={nodes}
         edges={edges}
+        // @ts-ignore
         onNodeDragStop={onNodeDragStop}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}

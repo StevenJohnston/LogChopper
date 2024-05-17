@@ -1,5 +1,5 @@
 "use client";
-import { LogFields, LogRecord } from "@/app/_lib/log";
+import { LogRecord } from "@/app/_lib/log";
 import { Aggregator, scalingAliases, typeToReader } from "./consts";
 import {
   Axis,
@@ -84,7 +84,12 @@ function fillAxis(
     const value = romBuffer[reader](offset);
     let displayValue = value;
     if (toExpr) {
-      displayValue = parser.evaluate(toExpr, { x: value });
+      const axisScalingValue = parser.evaluate(toExpr, { x: value });
+      if (typeof axisScalingValue != "number")
+        return console.log(
+          "fillAxis axis scaling expr eval returned non number"
+        );
+      displayValue = axisScalingValue;
       if (format) {
         displayValue = Number(sprintf(format, displayValue));
       }
@@ -168,7 +173,12 @@ function fillTable(
     }
     let displayValue = value;
     if (toExpr && value !== undefined) {
-      displayValue = parser.evaluate(toExpr, { x: value });
+      const scalingVal = parser.evaluate(toExpr, { x: value });
+      if (typeof scalingVal != "number")
+        return console.log(
+          "fillTable table scaling expr eval returned non number"
+        );
+      displayValue = scalingVal;
       if (format) {
         console.log("Why am in not using format");
         // displayValue = sprintf(format, displayValue)
@@ -525,6 +535,8 @@ export function MapCombine(
             y,
             x,
           });
+          if (typeof newValue != "number")
+            return console.log("MapCombine eval returned non number");
           newTable.values[y][x] = newValue;
         } catch (error) {
           return console.log("MapCombine func failed to evaluate");

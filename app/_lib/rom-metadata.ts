@@ -3,11 +3,11 @@ import { LogRecord } from "@/app/_lib/log";
 import xml2js from "xml2js";
 import { scalingAliases, typeToReader } from "@/app/_lib/consts";
 
-export interface RomMetadata<T> {
+export interface RomMetadata {
   romid: Romid[];
   include: string[];
   scaling: Scaling[];
-  table: Table<T>[];
+  table: BasicTable[];
 }
 
 export interface Romid {
@@ -230,10 +230,10 @@ const axisMap = {
 
 async function getAllRomMetadata(
   selectedDirectoryHandle: FileSystemDirectoryHandle
-): Promise<Promise<RomMetadata>[]> {
+): Promise<Promise<RomMetadata | null>[]> {
   // add all xml files
   try {
-    const allRomMetaData: Promise<RomMetadata>[] = [];
+    const allRomMetaData: Promise<RomMetadata | null>[] = [];
 
     for await (const entry of selectedDirectoryHandle.values()) {
       if (entry.kind === "file") {
@@ -292,7 +292,7 @@ export async function getAllRomMetadataMap(
 
 async function fetchRomMetadata(
   fileHandle: FileSystemFileHandle
-): Promise<RomMetadata<unknown> | null> {
+): Promise<RomMetadata | null> {
   const file = await fileHandle.getFile();
   const text = await file.text();
   try {
@@ -305,11 +305,11 @@ async function fetchRomMetadata(
 }
 
 async function buildRomTables(
-  romMetadataMap: Record<string, RomMetadata<unknown>>,
+  romMetadataMap: Record<string, RomMetadata>,
   romId: string
-): Promise<[Scaling[], Record<string, Table<unknown>>]> {
+): Promise<[Scaling[], Record<string, BasicTable>]> {
   let scalings: Scaling[] = [];
-  let tableMap: Record<string, Table<unknown>> = {};
+  let tableMap: Record<string, BasicTable> = {};
 
   const rom = romMetadataMap[romId];
   const parentRomId = rom?.include?.[0];
@@ -337,11 +337,14 @@ async function buildRomTables(
   return [scalings, tableMap];
 }
 
-function mapTable(tableMap: Record<string, Table>, table: Table) {
+function mapTable(
+  tableMap: Record<string, BasicTable>,
+  table: BasicTable
+): BasicTable | null {
   let dropTable = false;
   const attrs = table["$"];
 
-  let mappedTable: Table = {};
+  let mappedTable: BasicTable = {} as BasicTable;
   if (table?.$?.name && tableMap[table.$.name]) {
     mappedTable = { ...tableMap[table.$.name] };
   }
@@ -356,7 +359,9 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
       finalAttrKey = finalAttrKey["key"];
     }
     if (finalAttrKey !== undefined) {
-      mappedTable[finalAttrKey as keyof Table] = finalAttrValue;
+      const key = finalAttrKey as keyof Partial<BasicTable>;
+      // @ts-expect-error
+      mappedTable[key] = finalAttrValue;
     }
   });
 
@@ -378,16 +383,15 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
       switch (axisType) {
         case undefined:
           // No axis type indicates I need to guess the axis?
-
-          // check if tableMap alread had axis with this name
-          // check x
-          if (mappedTable.xAxis) {
+          if (mappedTable.type != "2D")
+            return console.log("mapTable failed to match axis on 2D table");
+          if (isTable2DX(mappedTable)) {
             if (mappedTable.xAxis.name == axisAttrs.name) {
               mappedTable.xAxis = { ...mappedTable.xAxis, ...mapAxis(axis) };
               break;
             }
           }
-          if (mappedTable.yAxis) {
+          if (isTable2DY(mappedTable)) {
             if (mappedTable.yAxis.name == axisAttrs.name) {
               mappedTable.yAxis = { ...mappedTable.yAxis, ...mapAxis(axis) };
               break;
@@ -397,9 +401,11 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
           console.log(`Dropping table due ??? tableName: ${table?.$?.name}`);
           break;
         case "X Axis":
+          mappedTable = mappedTable as Table2DX<number | string>;
           mappedTable.xAxis = mapAxis(axis);
           break;
         case "Y Axis":
+          mappedTable = mappedTable as Table2DY<number | string>;
           mappedTable.yAxis = mapAxis(axis);
           break;
         case "Static X Axis":
@@ -436,7 +442,7 @@ function mapTable(tableMap: Record<string, Table>, table: Table) {
 
 function mapAxis(axis: Table2): Axis {
   const attrs = axis["$"];
-  const mappedAxis: Axis = {};
+  const mappedAxis: Axis = {} as Axis;
   Object.keys(attrs).map((key) => {
     const finalAttrValue: string = attrs?.[key as keyof GeneratedType4] || "";
     const finalAttrKey = axisMap[key as keyof typeof axisMap];

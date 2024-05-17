@@ -1,6 +1,6 @@
 'use client'
 
-import { NodeWithType, RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes';
+import { NodeWithType, SaveableNode } from '@/app/_components/FlowNodes';
 
 export interface InitGroupData {
   name: string
@@ -8,7 +8,7 @@ export interface InitGroupData {
 }
 
 
-export interface GroupData<T> extends InitGroupData, RefreshableNode, SaveableNode<T> {
+export interface GroupData<T> extends InitGroupData, SaveableNode<T> {
   // table: Table;
   // selectedRom: FileSystemFileHandle | null;
   // scalingMap: Record<string, Scaling>;

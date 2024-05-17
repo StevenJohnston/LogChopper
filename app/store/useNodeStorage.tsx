@@ -2,7 +2,7 @@
 
 import {
   Edge,
-  Node,
+  Node
 } from "reactflow";
 
 import { createWithEqualityFn } from "zustand/traditional";
@@ -10,11 +10,9 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { NodeFactoryLookup } from "@/app/_components/FlowNodes";
 import { v4 as uuid } from "uuid";
 
-import { MyNode } from "@/app/store/useFlow";
-
 export interface SavedGroup {
   groupName: string
-  nodes: MyNode[]
+  nodes: Node[]
   edges: Edge[]
 }
 
@@ -51,7 +49,7 @@ const useNodeStorage = createWithEqualityFn<NodeStorageState>()(
 
 export function cloneSavedGroup(savedGroup: SavedGroup): SavedGroup {
   const newIdMap: Record<string, string> = {}
-  const newNodes: MyNode[] = []
+  const newNodes: Node[] = []
   for (const node of savedGroup.nodes) {
     if (!newIdMap[node.id]) {
       newIdMap[node.id] = uuid()
@@ -64,6 +62,8 @@ export function cloneSavedGroup(savedGroup: SavedGroup): SavedGroup {
       console.log("Failed to init node", node)
       continue
     }
+
+    //@ts-expect-error
     if (!NodeFactoryLookup[node.type]) {
       console.log(`NodeFactoryLookup missing node type ${node.type}`)
     }
@@ -72,6 +72,7 @@ export function cloneSavedGroup(savedGroup: SavedGroup): SavedGroup {
       ...node,
       id: newIdMap[node.id],
       parentNode: node.parentNode ? newIdMap[node.parentNode] : undefined,
+      //@ts-expect-error
       data: NodeFactoryLookup[node.type](node.data),
       selected: undefined
     })

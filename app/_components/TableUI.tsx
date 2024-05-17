@@ -1,12 +1,12 @@
 'use client'
-import { Axis, Scaling, Table, isTable2DX } from "../_lib/rom-metadata";
+import { Axis, BasicTable, Scaling, isTable2DX } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
 import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
 
 
 interface TableUIProps {
-  table: Table<unknown>
+  table: BasicTable
 }
 type CellPos = [number, number]
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
@@ -86,13 +86,13 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     let csvText = ""
     for (let y = minRow; y <= maxRow; y++) {
       for (let x = minCol; x <= maxCol; x++) {
-        if (Array.isArray(table.values)) {
-          csvText += `${table.values[y][x]}`
-          if (x != maxCol) {
-            csvText += `,`
-          }
-        } else {
-          console.log("Attempted to highlight cells of non 3d table")
+        if (table.type != '3D') {
+          console.log("Attempted to highlight cells from non 3d table")
+          continue
+        }
+        csvText += `${table.values[y][x]}`
+        if (x != maxCol) {
+          csvText += `,`
         }
       }
 
@@ -226,7 +226,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
                   return (
                     <th
                       key={value}
-                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth * 10}px` }}
+                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth || 1 * 10}px` }}
                       className="border border-gray-300"
                     >
                       {sprintf(table?.xAxis?.scalingValue?.format || '', value)}
@@ -238,7 +238,8 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
           </thead>
           <tbody>
             {
-              table?.values?.map((row: (string | number | (string | number)[]), rowI: number) => {
+              // table?.values?.map((row: (string | number | (string | number)[]), rowI: number) => {
+              table?.values?.map((row, rowI) => {
                 const yAxisValue = table?.yAxis?.values?.[rowI]
                 return (
                   <tr key={rowI}>
