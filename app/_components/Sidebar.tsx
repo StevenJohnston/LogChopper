@@ -1,18 +1,32 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import DirectoryFile from "./DirectoryFile"
-
+import useFlow, { RFState } from "@/app/store/useFlow"
+import { shallow } from "zustand/shallow"
+import { BaseTableNodeType, BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes"
+import { BaseLogNodeType, BaseLogType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
+import { v4 as uuid } from 'uuid'
+import { newBaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogNode"
 export interface SidebarProps {
-  directoryHandle?: FileSystemDirectoryHandle
+  directoryHandle?: FileSystemDirectoryHandle | null
   setDirectoryHandle: (directoryHandle: FileSystemDirectoryHandle) => void
   setSelectedRomMetadataHandle: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRomMetadataHandle?: FileSystemFileHandle
+  selectedRomMetadataHandle?: FileSystemFileHandle | null
   setSelectedRom: (FileSystemFileHandle: FileSystemFileHandle) => void
-  selectedRom?: FileSystemFileHandle
+  selectedRom?: FileSystemFileHandle | null
   className: string
+  selectedLogs: FileSystemFileHandle[]
+  setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void
 }
 
+
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  updateNode: state.updateNode
+});
+
+// TODO replace these props with useRom
 export default function Sidebar({
   directoryHandle,
   setDirectoryHandle,
@@ -20,10 +34,12 @@ export default function Sidebar({
   selectedRomMetadataHandle,
   setSelectedRom,
   selectedRom,
-
+  selectedLogs,
+  setSelectedLogs,
   className,
 }: SidebarProps) {
   const [step, setStep] = useState<'metadata' | 'rom' | 'logs' | undefined>()
+  const { nodes, updateNode } = useFlow(selector, shallow);
 
   useEffect(() => {
     if (!selectedRomMetadataHandle) return
@@ -33,13 +49,52 @@ export default function Sidebar({
     if (!selectedRom) return
     setStep('logs')
   }, [selectedRom])
+
+
+
+  const onSelectRom = useCallback((selectedRom: FileSystemFileHandle) => {
+    setSelectedRom(selectedRom)
+    const existingBaseTableNodes = nodes.filter(n => n.type == BaseTableType) as BaseTableNodeType[]
+    // TODO optimise this in a single call
+    for (const n of existingBaseTableNodes) {
+      n.data = {
+        ...n.data,
+        selectedRom: selectedRom
+      }
+      updateNode(n)
+    }
+  }, [nodes, setSelectedRom, updateNode])
+
+  const onSelectLog = useCallback((selectedLog: FileSystemFileHandle) => {
+    let newSelectedLogs = []
+    if (selectedLogs.includes(selectedLog)) {
+      newSelectedLogs = selectedLogs.filter(i => i !== selectedLog)
+    } else {
+      newSelectedLogs = [...selectedLogs, selectedLog]
+    }
+    setSelectedLogs(newSelectedLogs)
+    const existingNode = nodes.find(n => n.type == BaseLogType) as BaseLogNodeType
+    if (!existingNode) {
+      updateNode({
+        id: uuid(),
+        type: BaseLogType,
+        position: { x: 100, y: 100 },
+        data: newBaseLogData({ selectedLogs: newSelectedLogs })
+      })
+      return
+    }
+
+    existingNode.data.selectedLogs = newSelectedLogs
+    updateNode(existingNode)
+  }, [nodes, selectedLogs, setSelectedLogs, updateNode])
+
   return (
     <div className={`flex flex-col ${className}`}>
       <button
         className="flex-grow-0 flex bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         onClick={async () => {
           const directoryHandle: FileSystemDirectoryHandle = await window.showDirectoryPicker({
-            startIn: 'documents'
+            // startIn: 'documents'
           });
           setDirectoryHandle(directoryHandle)
           setStep('metadata')
@@ -61,8 +116,8 @@ export default function Sidebar({
           {
             // step == 'metadata'&& 
             <div className={`${step == 'metadata' ? '' : 'hidden'}`}>
-
               <DirectoryFile
+                multiSelect={false}
                 handle={directoryHandle}
                 selectedHandle={selectedRomMetadataHandle}
                 setSelectedHandle={setSelectedRomMetadataHandle}
@@ -85,9 +140,10 @@ export default function Sidebar({
           {
             // step == 'rom' &&
             <DirectoryFile
+              multiSelect={false}
               handle={directoryHandle}
               selectedHandle={selectedRom}
-              setSelectedHandle={setSelectedRom}
+              setSelectedHandle={onSelectRom}
             />
           }
         </div>
@@ -104,12 +160,13 @@ export default function Sidebar({
             3. Choose Log(s)
           </button>
           {
-            // step == 'logs'
-            // && <DirectoryFile
-            //   handle={directoryHandle}
-            // selectedHandle={ }
-            // setSelectedHandle={ }
-            // />
+            step == 'logs'
+            && <DirectoryFile
+              multiSelect
+              handle={directoryHandle}
+              selectedHandle={selectedLogs}
+              setSelectedHandle={onSelectLog}
+            />
           }
         </div>
       }

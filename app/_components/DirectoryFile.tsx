@@ -1,17 +1,35 @@
+'use client'
 import { useEffect, useState } from "react"
 
-export interface DirectoryFileProps {
-  handle?: FileSystemDirectoryHandle | FileSystemFileHandle
-  selectedHandle?: FileSystemFileHandle
+export interface BaseDirectoryFileProps {
+  multiSelect?: boolean
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle | null
+  selectedHandle?: FileSystemFileHandle | FileSystemFileHandle[] | null
   setSelectedHandle: (handle: FileSystemFileHandle) => void
 }
 
-function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryFileProps) {
+interface SingleSelectDirectoryFileProps extends BaseDirectoryFileProps {
+  multiSelect: false
+  selectedHandle?: FileSystemFileHandle | null
+}
+
+function isSingleSelectDirectoryFile(o: FileSystemFileHandle | FileSystemFileHandle[] | null | undefined): o is FileSystemFileHandle {
+  return !Array.isArray(o)
+}
+
+interface MultiSelectDirectoryFileProps extends BaseDirectoryFileProps {
+  multiSelect: true
+  selectedHandle?: FileSystemFileHandle[] | null
+}
+
+type DirectoryFileProps = SingleSelectDirectoryFileProps | MultiSelectDirectoryFileProps
+
+function DirectoryFile({ multiSelect, handle, selectedHandle, setSelectedHandle }: DirectoryFileProps) {
   const [directoryFileList, setDiretoryFileList] = useState<(FileSystemFileHandle | FileSystemDirectoryHandle)[]>([])
   const [expanded, setExpanded] = useState<boolean>(false)
   useEffect(() => {
     (async () => {
-      let directoryList = []
+      const directoryList = []
       if (handle?.kind == 'directory') {
         for await (const entry of handle.values()) {
           directoryList.push(entry)
@@ -38,18 +56,21 @@ function DirectoryFile({ handle, selectedHandle, setSelectedHandle }: DirectoryF
         <div>
           {
             expanded && directoryFileList.map((directoryFile) => {
-              return (
-                <DirectoryFile handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
-              )
+              if (isSingleSelectDirectoryFile(selectedHandle)) {
+                return <DirectoryFile key={directoryFile.name} multiSelect={false} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+              } else {
+                return <DirectoryFile key={directoryFile.name} multiSelect={true} handle={directoryFile} selectedHandle={selectedHandle} setSelectedHandle={setSelectedHandle} />
+              }
             })
           }
         </div>
       </div>
     )
   }
+  const selected = multiSelect ? selectedHandle?.includes(handle) : selectedHandle == handle;
   return (
     <button
-      className={`whitespace-nowrap pl-2 ${selectedHandle == handle ? 'selected' : ''} `}
+      className={`whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} `}
       onClick={() => {
         setSelectedHandle(handle)
       }}
