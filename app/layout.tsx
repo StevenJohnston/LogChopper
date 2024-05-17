@@ -14,7 +14,7 @@ export default function RootLayout() {
             className="bg-slate-300 max-h-full"
           />
           <ModuleDisplay
-            className="w-4/6"
+            className="grow"
           />
         </div>
       </body>
