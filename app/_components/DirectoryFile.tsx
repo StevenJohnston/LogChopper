@@ -1,4 +1,5 @@
 'use client'
+import { formatter } from "@/app/_lib/utils"
 import { useEffect, useState } from "react"
 
 export interface BaseDirectoryFileProps {
@@ -7,6 +8,7 @@ export interface BaseDirectoryFileProps {
   selectedHandle?: FileSystemFileHandle | FileSystemFileHandle[] | null
   setSelectedHandle: (handle: FileSystemFileHandle) => void
   fileTypes: string[]
+  showDates?: boolean
   openRoot?: boolean
 }
 
@@ -32,9 +34,11 @@ interface HandleWithFile {
 }
 
 
-function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoot = true, setSelectedHandle }: DirectoryFileProps) {
+function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDates, openRoot = true, setSelectedHandle }: DirectoryFileProps) {
   const [sortedDirectoryFileList, setSortedDirectoryFileList] = useState<HandleWithFile[]>([])
   const [expanded, setExpanded] = useState<boolean>(openRoot)
+  const [selectedFileDate, setSelectededFileDate] = useState<Date>()
+
   useEffect(() => {
     (async () => {
       const directoryList: HandleWithFile[] = []
@@ -48,6 +52,11 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoo
         directoryList.sort((a, b) => ((b.file?.lastModified || 0) - (a.file?.lastModified || 0)))
 
         setSortedDirectoryFileList(directoryList)
+      } else {
+        const file = await handle?.getFile()
+        if (file?.lastModified) {
+          setSelectededFileDate(new Date(file.lastModified))
+        }
       }
     })()
   }, [handle])
@@ -70,9 +79,9 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoo
           {
             expanded && sortedDirectoryFileList.map(({ handle }) => {
               if (isSingleSelectDirectoryFile(selectedHandle)) {
-                return <DirectoryFile key={handle.name} multiSelect={false} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
+                return <DirectoryFile key={handle.name} multiSelect={false} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} />
               } else {
-                return <DirectoryFile key={handle.name} multiSelect={true} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
+                return <DirectoryFile key={handle.name} multiSelect={true} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} />
               }
             })
           }
@@ -87,12 +96,12 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoo
   }
   return (
     <button
-      className={`block whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} `}
+      className={`block whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} tabular-nums`}
       onClick={() => {
         setSelectedHandle(handle)
       }}
     >
-      📃 {handle.name}
+      📃 {showDates && `${formatter.format(selectedFileDate)} -`} {handle.name}
     </button>
   );
 }
