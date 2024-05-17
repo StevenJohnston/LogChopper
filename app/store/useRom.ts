@@ -1,10 +1,17 @@
 `use client`;
 
 import { createWithEqualityFn } from "zustand/traditional";
-import { Scaling, Table } from "@/app/_lib/rom-metadata";
+import { LoadRomMetadata, Scaling, Table } from "@/app/_lib/rom-metadata";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { findFileByName } from "@/app/_lib/utils";
 
 export type RomState = {
-  directoryHandle: FileSystemDirectoryHandle | null;
+  defaultXml: string | null;
+  defaultRom: string | null;
+
+  metadataDirectoryHandle: FileSystemDirectoryHandle | null;
+  romDirectoryHandle: FileSystemDirectoryHandle | null;
+  logDirectoryHandle: FileSystemDirectoryHandle | null;
   selectedRomMetadataHandle: FileSystemFileHandle | null;
   selectedRom: FileSystemFileHandle | null;
   scalingMap: Record<string, Scaling>;
@@ -12,13 +19,19 @@ export type RomState = {
 
   selectedLogs: FileSystemFileHandle[];
 
-  setDirectoryHandle: (
-    directoryHandle: FileSystemDirectoryHandle | null
+  setMetadataDirectoryHandle: (
+    metadataDirectoryHandle: FileSystemDirectoryHandle
+  ) => Promise<void>;
+  setRomDirectoryHandle: (
+    romDirectoryHandle: FileSystemDirectoryHandle
+  ) => Promise<void>;
+  setLogDirectoryHandle: (
+    logDirectoryHandle: FileSystemDirectoryHandle | null
   ) => void;
   setSelectedRomMetadataHandle: (
-    selectedRomMetadataHandle: FileSystemFileHandle | null
+    selectedRomMetadataHandle: FileSystemFileHandle
   ) => void;
-  setSelectedRom: (selectedRom: FileSystemFileHandle | null) => void;
+  setSelectedRom: (selectedRom: FileSystemFileHandle) => void;
   setScalingMap: (scalingMap: Record<string, Scaling>) => void;
   setTableMap: (tableMap: Record<string, Table<unknown>>) => void;
   setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void;
@@ -26,13 +39,20 @@ export type RomState = {
 
 export function useRomSelector(state: RomState) {
   return {
-    directoryHandle: state.directoryHandle,
+    metadataDirectoryHandle: state.metadataDirectoryHandle,
+    romDirectoryHandle: state.romDirectoryHandle,
+    logDirectoryHandle: state.logDirectoryHandle,
+
     selectedRomMetadataHandle: state.selectedRomMetadataHandle,
     selectedRom: state.selectedRom,
     scalingMap: state.scalingMap,
     tableMap: state.tableMap,
     selectedLogs: state.selectedLogs,
-    setDirectoryHandle: state.setDirectoryHandle,
+
+    setMetadataDirectoryHandle: state.setMetadataDirectoryHandle,
+    setRomDirectoryHandle: state.setRomDirectoryHandle,
+    setLogDirectoryHandle: state.setLogDirectoryHandle,
+
     setSelectedRomMetadataHandle: state.setSelectedRomMetadataHandle,
     setSelectedRom: state.setSelectedRom,
     setScalingMap: state.setScalingMap,
@@ -41,35 +61,111 @@ export function useRomSelector(state: RomState) {
   };
 }
 
-const useRom = createWithEqualityFn<RomState>((set) => ({
-  directoryHandle: null,
-  selectedRomMetadataHandle: null,
-  selectedRom: null,
-  scalingMap: {},
-  tableMap: {},
+const useRom = createWithEqualityFn<RomState>()(
+  persist(
+    (set, get) => ({
+      defaultXml: null,
+      defaultRom: null,
 
-  selectedLogs: [],
+      metadataDirectoryHandle: null,
+      romDirectoryHandle: null,
+      logDirectoryHandle: null,
+      selectedRomMetadataHandle: null,
+      selectedRom: null,
+      scalingMap: {},
+      tableMap: {},
 
-  setDirectoryHandle: (directoryHandle: FileSystemDirectoryHandle | null) => {
-    set({ directoryHandle });
-  },
-  setSelectedRomMetadataHandle: (
-    selectedRomMetadataHandle: FileSystemFileHandle | null
-  ) => {
-    set({ selectedRomMetadataHandle });
-  },
-  setSelectedRom: (selectedRom: FileSystemFileHandle | null) => {
-    set({ selectedRom });
-  },
-  setScalingMap: (scalingMap: Record<string, Scaling>) => {
-    set({ scalingMap });
-  },
-  setTableMap: (tableMap: Record<string, Table<unknown>>) => {
-    set({ tableMap });
-  },
-  setSelectedLogs: async (selectedLogs: FileSystemFileHandle[]) => {
-    set({ selectedLogs });
-  },
-}));
+      selectedLogs: [],
+
+      setMetadataDirectoryHandle: async (
+        metadataDirectoryHandle: FileSystemDirectoryHandle
+      ) => {
+        set({ metadataDirectoryHandle });
+
+        // Select default xml
+        const defaultXml = get().defaultXml;
+        if (defaultXml == null) return;
+
+        const defaultRomMetadata = await findFileByName(
+          metadataDirectoryHandle,
+          // "TephraMOD-59580304.xml"
+          defaultXml
+        );
+        if (!defaultRomMetadata) return;
+
+        const loadedRomMetaData = await LoadRomMetadata(
+          metadataDirectoryHandle,
+          defaultRomMetadata
+        );
+
+        if (loadedRomMetaData == undefined)
+          return console.log(
+            "useRom setMetadataDirectoryHandle failed to load RomMetaData"
+          );
+        const { scalingMap, tableMap } = loadedRomMetaData;
+
+        get().setScalingMap(scalingMap);
+        get().setTableMap(tableMap);
+
+        get().setSelectedRomMetadataHandle(defaultRomMetadata);
+      },
+      setRomDirectoryHandle: async (
+        romDirectoryHandle: FileSystemDirectoryHandle
+      ) => {
+        set({ romDirectoryHandle });
+
+        // Select default xml
+        const defaultRom = get().defaultRom;
+        if (defaultRom == null) return;
+
+        const rom = await findFileByName(
+          romDirectoryHandle,
+          defaultRom
+          // "Steven Johnston 2.0L 8474 ID1300 GSC S2 FR3.5 Intake 94 oct V3.17.00.6-openloop-enrichedidle.srf"
+        );
+        if (rom) {
+          get().setSelectedRom(rom);
+        }
+      },
+      setLogDirectoryHandle: (
+        logDirectoryHandle: FileSystemDirectoryHandle | null
+      ) => {
+        set({ logDirectoryHandle });
+      },
+
+      setSelectedRomMetadataHandle: async (
+        selectedRomMetadataHandle: FileSystemFileHandle
+      ) => {
+        set({
+          defaultXml: selectedRomMetadataHandle.name,
+          selectedRomMetadataHandle,
+        });
+      },
+      setSelectedRom: (selectedRom: FileSystemFileHandle) => {
+        set({
+          defaultRom: selectedRom.name,
+          selectedRom,
+        });
+      },
+      setScalingMap: (scalingMap: Record<string, Scaling>) => {
+        set({ scalingMap });
+      },
+      setTableMap: (tableMap: Record<string, Table<unknown>>) => {
+        set({ tableMap });
+      },
+      setSelectedLogs: async (selectedLogs: FileSystemFileHandle[]) => {
+        set({ selectedLogs });
+      },
+    }),
+    {
+      name: "rom-data", // name of the item in the storage (must be unique)
+      storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
+      partialize: (state) => ({
+        defaultXml: state.defaultXml,
+        defaultRom: state.defaultRom,
+      }),
+    }
+  )
+);
 
 export default useRom;

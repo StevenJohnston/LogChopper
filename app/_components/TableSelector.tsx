@@ -14,7 +14,6 @@ import { BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTy
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
   tableMap?: Record<string, Table<unknown>>
-  className: string
 }
 function demensionToIcon(table: Table<unknown>) {
   switch (table.type) {
@@ -60,35 +59,38 @@ const selector = (state: RFState) => ({
   updateNode: state.updateNode
 });
 
-const TableSelector: React.FC<TableSelectorProps> = ({ tableMap, className }) => {
+const TableSelector: React.FC<TableSelectorProps> = ({ tableMap }) => {
   const { updateNode } = useFlow(selector, shallow);
 
   return (
-    <div className={`flex flex-col bg-slate-200 max-h-full overflow-auto ${className}`}>
-      Table Selector
-      {
-        tableMap && Object.keys(tableMap).map((key) => {
-          return (
-            <button
-              key={key}
-              className="whitespace-nowrap text-left"
-              onClick={() => {
-                updateNode({
-                  id: uuid(),
-                  type: BaseTableType,
-                  data: newBaseTableData({ tableKey: key }),
-                  position: { x: 300, y: 25 },
-                  dragHandle: '.drag-handle',
-                  // extent: 'parent',
-                })
-              }}
-            >
-              {demensionToIcon(tableMap[key])}
-              {`${tableMap[key].name}`}
-            </button>
-          )
-        })
-      }
+    <div className="flex flex-col max-h-full bg-slate-200 ">
+      <p className="text-lg text-center border-b-2 border-slate-500 mx-2">Table Selector</p>
+      <div className="flex flex-col max-h-full overflow-auto">
+
+        {
+          tableMap && Object.keys(tableMap).map((key) => {
+            return (
+              <button
+                key={key}
+                className="whitespace-nowrap text-left"
+                onClick={() => {
+                  updateNode({
+                    id: uuid(),
+                    type: BaseTableType,
+                    data: newBaseTableData({ tableKey: key }),
+                    position: { x: 300, y: 25 },
+                    dragHandle: '.drag-handle',
+                    // extent: 'parent',
+                  })
+                }}
+              >
+                {demensionToIcon(tableMap[key])}
+                {`${tableMap[key].name}`}
+              </button>
+            )
+          })
+        }
+      </div>
     </div>
   );
 }

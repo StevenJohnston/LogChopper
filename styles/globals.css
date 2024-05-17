@@ -4,8 +4,8 @@
 
 /* width */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 5px;
+  height: 5px;
 }
 
 /* Track */
@@ -17,12 +17,17 @@
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
-  background-color: #d55959;
+  background-color: #5999d5;
   border-radius: 8px;
 }
 
+::-webkit-scrollbar-corner {
+  background-color: transparent; /* Choose your desired color */
+}
+
+
 .our-selected {
-  background-color: #d55959;
+  background-color: #5999d5;
   opacity: 50%;
 }
 
@@ -30,8 +35,7 @@
   background-color: rebeccapurple !important;
 }
 
-.react-flow__edge{
+.react-flow__edge >
   path {
     stroke: black;
   }
-}
