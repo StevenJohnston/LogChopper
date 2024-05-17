@@ -26,17 +26,28 @@ interface MultiSelectDirectoryFileProps extends BaseDirectoryFileProps {
 
 type DirectoryFileProps = SingleSelectDirectoryFileProps | MultiSelectDirectoryFileProps
 
+interface HandleWithFile {
+  handle: FileSystemFileHandle | FileSystemDirectoryHandle
+  file?: File
+}
+
+
 function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoot = true, setSelectedHandle }: DirectoryFileProps) {
-  const [directoryFileList, setDiretoryFileList] = useState<(FileSystemFileHandle | FileSystemDirectoryHandle)[]>([])
+  const [sortedDirectoryFileList, setSortedDirectoryFileList] = useState<HandleWithFile[]>([])
   const [expanded, setExpanded] = useState<boolean>(openRoot)
   useEffect(() => {
     (async () => {
-      const directoryList = []
+      const directoryList: HandleWithFile[] = []
       if (handle?.kind == 'directory') {
         for await (const entry of handle.values()) {
-          directoryList.push(entry)
+          directoryList.push({
+            handle: entry,
+            file: entry.kind == "file" && await entry.getFile() || undefined
+          })
         }
-        setDiretoryFileList(directoryList)
+        directoryList.sort((a, b) => ((b.file?.lastModified || 0) - (a.file?.lastModified || 0)))
+
+        setSortedDirectoryFileList(directoryList)
       }
     })()
   }, [handle])
@@ -57,11 +68,11 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, openRoo
         </button>
         <div>
           {
-            expanded && directoryFileList.map((directoryFile) => {
+            expanded && sortedDirectoryFileList.map(({ handle }) => {
               if (isSingleSelectDirectoryFile(selectedHandle)) {
-                return <DirectoryFile key={directoryFile.name} multiSelect={false} handle={directoryFile} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
+                return <DirectoryFile key={handle.name} multiSelect={false} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
               } else {
-                return <DirectoryFile key={directoryFile.name} multiSelect={true} handle={directoryFile} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
+                return <DirectoryFile key={handle.name} multiSelect={true} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} />
               }
             })
           }
