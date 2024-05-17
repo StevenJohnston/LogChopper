@@ -382,16 +382,16 @@ function mapTable(
       const axisType = axisAttrs.type;
       switch (axisType) {
         case undefined:
-          // No axis type indicates I need to guess the axis?
-          if (mappedTable.type != "2D")
+          // An Axis type is unknown when a child table defines alterations to parent axis'
+          if (mappedTable.type != "2D" && mappedTable.type != "3D")
             return console.log("mapTable failed to match axis on 2D table");
-          if (isTable2DX(mappedTable)) {
+          if (mappedTable.type == "3D" || isTable2DX(mappedTable)) {
             if (mappedTable.xAxis.name == axisAttrs.name) {
               mappedTable.xAxis = { ...mappedTable.xAxis, ...mapAxis(axis) };
               break;
             }
           }
-          if (isTable2DY(mappedTable)) {
+          if (mappedTable.type == "3D" || isTable2DY(mappedTable)) {
             if (mappedTable.yAxis.name == axisAttrs.name) {
               mappedTable.yAxis = { ...mappedTable.yAxis, ...mapAxis(axis) };
               break;
