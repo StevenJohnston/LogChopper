@@ -1,35 +1,31 @@
-"use client";
 import "tailwindcss/tailwind.css";
 import "../styles/globals.css";
 
 import Sidebar from "./_components/Sidebar";
 import ModuleDisplay from "./_components/ModuleDisplay";
 import Head from "next/head";
-// import type { Metadata } from "next";
+import type { Metadata } from "next";
 
 
-// export const metadata: Metadata = {
-//   title: "LogChopper",
-//   description: "LogChopper",
-//   generator: "Next.js",
-//   manifest: "/manifest.json",
-//   keywords: ["LogChopper"],
-//   themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#fff" }],
-//   authors: [
-//     { name: "Steven Johnston" },
-//   ],
-//   viewport:
-//     "minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, viewport-fit=cover",
-//   icons: [
-//     { rel: "icon", url: "icon.png" },
-//   ],
-// };
+export const metadata: Metadata = {
+  title: "LogChopper",
+  description: "LogChopper",
+  generator: "Next.js",
+  manifest: "/LogChopper/manifest.json",
+  keywords: ["LogChopper"],
+  authors: [
+    { name: "Steven Johnston" },
+  ],
+  icons: [
+    { rel: "icon", url: "icon.png" },
+  ],
+};
 
 export default function RootLayout() {
   return (
     <html lang="en" className="h-full">
       <Head>
-        <link rel="manifest" href="/manifest.json" />
+        <title>Log Chopper</title>
       </Head>
       <body className="h-full">
         <div className="flex flex-row h-full">
