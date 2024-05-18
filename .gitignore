@@ -7,3 +7,5 @@ build/*
 
 .next
 out
+
+.DS_Store
