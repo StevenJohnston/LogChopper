@@ -6,7 +6,7 @@ export default function Document() {
   return (
     <Html lang="en" className="h-full">
       <Head >
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="./manifest.json" />
 
         <title>Log Chopper</title>
       </Head>
