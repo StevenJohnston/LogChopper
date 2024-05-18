@@ -4,6 +4,7 @@ import "../styles/globals.css";
 
 import Sidebar from "./_components/Sidebar";
 import ModuleDisplay from "./_components/ModuleDisplay";
+import Head from "next/head";
 // import type { Metadata } from "next";
 
 
@@ -27,6 +28,9 @@ import ModuleDisplay from "./_components/ModuleDisplay";
 export default function RootLayout() {
   return (
     <html lang="en" className="h-full">
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+      </Head>
       <body className="h-full">
         <div className="flex flex-row h-full">
           <Sidebar
