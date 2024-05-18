@@ -1,4 +1,5 @@
 const nextConfig = {
+  basePath: "/LogChopper",
   output: 'export',
   webpack(config) {
     // Grab the existing rule that handles SVG imports
