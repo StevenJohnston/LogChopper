@@ -92,7 +92,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
         }
         csvText += `${table.values[y][x]}`
         if (x != maxCol) {
-          csvText += `,`
+          csvText += `\t`
         }
       }
 

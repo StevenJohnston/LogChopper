@@ -51,5 +51,4 @@ Rolling log filter - Allow logs to be filtered based on surrounding logs. eg. Fi
 ### TABLE
 
 Cell smoothing - Allow table cells to be smoothed based on surrounding cells
-Bug - Copied csv does not paste correctly into google sheets
 Custom table values
