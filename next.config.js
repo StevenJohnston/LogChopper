@@ -1,5 +1,5 @@
 const nextConfig = {
-  basePath: "/LogChopper",
+  basePath: process.env.NODE_ENV === "development" ? "" : "/LogChopper",
   output: 'export',
   webpack(config) {
     // Grab the existing rule that handles SVG imports

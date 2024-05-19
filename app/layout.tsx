@@ -3,7 +3,6 @@ import "../styles/globals.css";
 
 import Sidebar from "./_components/Sidebar";
 import ModuleDisplay from "./_components/ModuleDisplay";
-import Head from "next/head";
 import type { Metadata } from "next";
 
 
