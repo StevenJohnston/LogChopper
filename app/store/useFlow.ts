@@ -191,7 +191,7 @@ const useFlow = createWithEqualityFn<RFState>(
       const updateOrder = topologicalSort(node, nodes, edges);
       for (const updateNode of updateOrder) {
         // Updates Node in place
-        await updateNode.data.refresh(updateNode, get().nodes, get().edges);
+        await updateNode.data.refresh?.(updateNode, get().nodes, get().edges);
         // Force inplaced update
         updateNode.data = { ...updateNode.data };
         await set({
