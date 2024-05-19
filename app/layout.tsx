@@ -23,9 +23,6 @@ export const metadata: Metadata = {
 export default function RootLayout() {
   return (
     <html lang="en" className="h-full">
-      <Head>
-        <title>Log Chopper</title>
-      </Head>
       <body className="h-full">
         <div className="flex flex-row h-full">
           <Sidebar
