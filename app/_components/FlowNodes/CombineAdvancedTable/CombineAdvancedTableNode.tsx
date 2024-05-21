@@ -1,5 +1,5 @@
 'use client'
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
 
 import { TableData } from '@/app/_components/FlowNodes';
@@ -49,6 +49,8 @@ const selector = (state: RFState) => ({
 });
 
 function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvancedTableData>) {
+  const childRef = useRef<HTMLTextAreaElement>(null)
+
   const { nodes, updateNode } = useFlow(selector, shallow);
 
   // const [funcVal, setFuncVal] = useState(data.func)
@@ -173,6 +175,7 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
                 value={data.matchCriteria.find(m => m.sourceSourceField == "XAxis")?.destSourceField}
 
               >
+                <option>Select scaling</option>
                 {
                   destOptionsMap.map((d) => {
                     return (
@@ -191,6 +194,7 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
                 onChange={onYMatch}
                 value={data.matchCriteria.find(m => m.sourceSourceField == "YAxis")?.destSourceField}
               >
+                <option>Select scaling</option>
                 {
                   destOptionsMap.map((d) => {
                     return (
@@ -211,6 +215,7 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
               expanded
               && <RomModuleUI
                 table={data.table}
+                ref={childRef}
               />
             }
           </div>

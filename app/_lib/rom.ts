@@ -532,6 +532,8 @@ export function MapCombine(
           const newValue = parser.evaluate(func, {
             sourceTable: sourceTable.values,
             joinTable: joinTable.values,
+            sourceAxis: sourceTable.xAxis.values,
+            joinAxis: joinTable.xAxis.values,
             y,
             x,
           });
@@ -554,12 +556,11 @@ export interface MatchCriteria {
   sourceSourceField: SourceField;
   destSourceField: SourceField;
 }
+
 // dest table will be dupicalted
 export function MapCombineAdv(
   sourceTable: BasicTable,
   destTable: BasicTable,
-  // axisMap: (x: number, y: number, cell: number | string) => [number, number] // (toTable x, y, value): {xValue: , yValue: }
-  // matchCriteria: [Axis, Axis][]
   matchCriteria: MatchCriteria[]
 ): BasicTable | void {
   const newTable = duplicateTable(destTable, () => 0 as number | string);
@@ -576,9 +577,6 @@ export function MapCombineAdv(
       const destYValue = destTable.yAxis.values[y];
       row.forEach((destCell, x) => {
         const destXValue = destTable.xAxis.values[x];
-        // const newAxisValues = axisMap(destXValue, destYValue, destCell);
-        // TODO get the x and y. To do this we need to get the values from the dest table using (dest[X,Y,Cell]) and map to the source table using the 2 matching criteria
-
         let sourceXLookup: number | undefined;
         let sourceYLookup: number | undefined;
         matchCriteria.forEach((m) => {
@@ -605,9 +603,14 @@ export function MapCombineAdv(
         if (sourceYLookup == undefined)
           return console.log("sourceYLookup missing");
 
-        const axes = getAxes(sourceTable, sourceXLookup, sourceYLookup);
-        if (!axes) return console.log("MapCombineAdv failed to get axes");
-        newTable.values[y][x] = sourceTable.values[axes.y][axes.x];
+        const sourceY = getIndexFloat(sourceTable.yAxis.values, sourceYLookup);
+        const sourceX = getIndexFloat(sourceTable.xAxis.values, sourceXLookup);
+
+        const newValue = getInterpolatedValue(sourceTable, sourceY, sourceX);
+        if (newValue == null) {
+          return NaN;
+        }
+        newTable.values[y][x] = newValue;
       });
     });
   } else {
@@ -616,11 +619,27 @@ export function MapCombineAdv(
   return newTable;
 }
 
-// Get the value closest to x, y axis
-// TODO make a version of this that uses nearby values / smoothed
-function getAxes(table: BasicTable, xAxis: number, yAxis: number) {
-  if (table.type != "3D") return console.log("getAxis only works on 3D table");
-  const x = nearestIndex(table.xAxis.values, xAxis);
-  const y = nearestIndex(table.yAxis.values, yAxis);
-  return { x, y };
+function getInterpolatedValue(
+  table: BasicTable,
+  y: number,
+  x: number
+): number | null {
+  if (table.type != "3D") {
+    console.log("getInterpolatedValue only supports 3d tables");
+    return null;
+  }
+  const lowXIndex = Math.floor(x);
+  const highXIndex = Math.ceil(x);
+  const lowYIndex = Math.floor(y);
+  const highYIndex = Math.ceil(y);
+
+  const q11 = Number(table.values[lowYIndex][lowXIndex]);
+  const q12 = Number(table.values[lowYIndex][highXIndex]);
+  const q21 = Number(table.values[highYIndex][lowXIndex]);
+  const q22 = Number(table.values[highYIndex][highXIndex]);
+
+  const R1 = (1 - (x % 1)) * q11 + (x % 1) * q12;
+  const R2 = (1 - (x % 1)) * q21 + (x % 1) * q22;
+
+  return (1 - (y % 1)) * R1 + (y % 1) * R2;
 }
