@@ -1,9 +1,8 @@
 'use client'
-import { Axis, BasicTable, Scaling, isTable2DX } from "../_lib/rom-metadata";
+import { Axis, BasicTable, Scaling, isTable2DX, isTable2DY } from "../_lib/rom-metadata";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
 import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
-
 
 interface TableUIProps {
   table: BasicTable
@@ -11,8 +10,8 @@ interface TableUIProps {
 type CellPos = [number, number]
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   if (!scaling || value == undefined) return
-  const xAxisMin = parseFloat(scaling.min || '')
-  const xAxisMax = parseFloat(scaling.max || '')
+  const xAxisMin = Number(scaling.min)
+  const xAxisMax = Number(scaling.max)
   const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
   try {
     const color = colorScale.getColor(value)
@@ -126,6 +125,35 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     highlightCells()
   }, [highlightCells, setSelectEndCell])
 
+  const tableScaling: Scaling | undefined = useMemo(() => {
+    if (table?.scalingValue?.min != undefined && table?.scalingValue?.max != undefined) return table.scalingValue
+    if (table.type == "Other") return undefined
+    if (table.type == "1D") return { min: table.values, max: table.values }
+    let min = Infinity
+    let max = -Infinity
+    if (table.type == "2D") {
+      if (isTable2DY(table)) {
+        table.values.forEach(cell => {
+          const cellN = Number(cell)
+          min = min < cellN ? min : cellN
+          max = max > cellN ? max : cellN
+        })
+        return { min, max }
+      }
+    }
+
+    if ((table.type == "2D" && isTable2DX(table)) || table.type == "3D") {
+      table.values.forEach(row => {
+        row.forEach(cell => {
+          const cellN = Number(cell)
+          min = min < cellN ? min : cellN
+          max = max > cellN ? max : cellN
+        })
+      })
+    }
+    return { min, max }
+  }, [table])
+
   const formatCell = useCallback((row: number, col: number, cell: string | number): CSSProperties => {
     if (selectStartCell && selectEndCell) {
       const [minCell, maxCell] = sortCellPos(selectStartCell, selectEndCell)
@@ -138,9 +166,9 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     }
 
     return {
-      backgroundColor: getColor(table.scalingValue, parseFloat(cell?.toString() || ""))
+      backgroundColor: getColor(tableScaling, parseFloat(cell?.toString() || ""))
     }
-  }, [table, selectStartCell, selectEndCell])
+  }, [tableScaling, selectStartCell, selectEndCell])
 
   const maxWidth = useMemo(() => {
     if (!table) return 0
