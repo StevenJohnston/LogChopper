@@ -32,6 +32,7 @@ import type { MouseEvent } from "react";
 import { CombineNodeType } from "@/app/_components/FlowNodes/Combine/CombineTypes";
 import { CombineAdvancedTableNodeType } from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes";
 import { LogAlterNodeType } from "@/app/_components/FlowNodes/LogAlter/LogAlterTypes";
+import { RunningLogAlterNodeType } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes";
 
 export type MyNode =
   | BaseTableNodeType
@@ -43,7 +44,8 @@ export type MyNode =
   | FillLogTableNodeType
   | GroupNodeType
   | CombineNodeType
-  | CombineAdvancedTableNodeType;
+  | CombineAdvancedTableNodeType
+  | RunningLogAlterNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];

@@ -110,7 +110,7 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
       <div>
         <div className="max-w-sm">
           <textarea
-            className='w-full'
+            className='w-full auto-expand-textarea'
             // className={`focus:bg-transparent bg-inherit h-4 m-1`}
             value={funcVal}
             onChange={onFuncChange}

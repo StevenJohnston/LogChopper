@@ -27,6 +27,8 @@ import { CombineAdvancedTableNodeType, CombineAdvancedTableType, destHandleId as
 import { newCombineAdvanced } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode';
 import { newLogAlter } from '@/app/_components/FlowNodes/LogAlter/LogAlterNode';
 import { LogAlterNodeType, LogAlterTargetLogHandleId, LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
+import { RunningLogAlterNodeType, RunningLogAlterTargetLogHandleId, RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
+import { newRunningLogAlter } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterNode';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -75,7 +77,6 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
       </div>
 
       {
-        // parentNode.type == "BaseLogNode"
         parentNode?.type && LogNodeTypes.includes(parentNode.type)
         && <ForkButton
           onClick={async () => {
@@ -97,16 +98,12 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             }
 
             updateEdge(edge, newConenction)
-            // let i = getIncomers(node, nodes, edges)
-            // let o = getOutgoers(node, nodes, edges)
-            // let c = getConnectedEdges()
           }}
         >
           Log Filter
         </ForkButton>
       }
       {
-        // parentNode.type == "BaseLogNode"
         parentNode?.type && LogNodeTypes.includes(parentNode.type)
         && <ForkButton
           onClick={async () => {
@@ -128,12 +125,36 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             }
 
             updateEdge(edge, newConenction)
-            // let i = getIncomers(node, nodes, edges)
-            // let o = getOutgoers(node, nodes, edges)
-            // let c = getConnectedEdges()
           }}
         >
           Log Alter
+        </ForkButton>
+      }
+      {
+        parentNode?.type && LogNodeTypes.includes(parentNode.type)
+        && <ForkButton
+          onClick={async () => {
+            const runningLogAlter: RunningLogAlterNodeType = {
+              ...node,
+              type: RunningLogAlterType,
+              data: newRunningLogAlter({})
+            }
+            await updateNode(runningLogAlter)
+
+            const edge = edges.find(e => e.target == node.id)
+            if (!edge) return
+            const targetType = edge?.sourceHandle?.split("#")[0]
+            const newConenction: Connection = {
+              source: edge?.source,
+              target: edge?.target,
+              sourceHandle: edge.sourceHandle || null,
+              targetHandle: `${targetType}#${RunningLogAlterTargetLogHandleId}`
+            }
+
+            updateEdge(edge, newConenction)
+          }}
+        >
+          Running Log Alter
         </ForkButton>
       }
       {

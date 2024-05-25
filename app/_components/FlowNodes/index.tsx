@@ -23,8 +23,10 @@ import { newCombine } from '@/app/_components/FlowNodes/Combine/CombineNode';
 import { CombineType } from '@/app/_components/FlowNodes/Combine/CombineTypes';
 import { LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
 import { newLogAlter } from '@/app/_components/FlowNodes/LogAlter/LogAlterNode';
+import { RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
+import { newRunningLogAlter } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterNode';
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 export interface RefreshableNode {
@@ -58,4 +60,5 @@ export const NodeFactoryLookup = {
   [LogAlterType]: newLogAlter,
   [CombineAdvancedTableType]: newCombineAdvanced,
   [CombineType]: newCombine,
+  [RunningLogAlterType]: newRunningLogAlter,
 } as const

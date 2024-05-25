@@ -1,6 +1,6 @@
 "use client";
 import csv from "csvtojson";
-import { Parser as exprParser } from "expr-eval";
+import { Value, Parser as exprParser } from "expr-eval";
 
 export const LogFields = [
   "LogID",
@@ -137,4 +137,80 @@ export function alterLogs(
     console.log("Error filterLogs", e);
     return [];
   }
+}
+
+export function runningAlter(
+  logRecords: LogRecord[],
+  newFieldName: string,
+  untilFunc: string,
+  alterFunc: string
+) {
+  const parser = new exprParser();
+
+  const alteredLogRecords: LogRecord[] = [];
+
+  for (let li = 0; li < logRecords.length; li++) {
+    const logRecord = logRecords[li];
+    const newLogIndex = findNextIndex(logRecords, logRecord, li + 1, untilFunc);
+    if (newLogIndex == null) {
+      alteredLogRecords.push({
+        ...logRecord,
+        [newFieldName]: null,
+        delete: true,
+      });
+      continue;
+    }
+    const futureLogRecord = logRecords[newLogIndex];
+    try {
+      alteredLogRecords.push({
+        ...logRecord,
+        [newFieldName]: parser.evaluate(alterFunc, {
+          logRecord,
+          futureLogRecord: futureLogRecord,
+        }),
+      });
+    } catch (e) {
+      alteredLogRecords.push({
+        ...logRecord,
+        [newFieldName]: null,
+        delete: true,
+      });
+    }
+  }
+
+  return alteredLogRecords;
+}
+
+function findNextIndex(
+  logRecords: LogRecord[],
+  logRecord: LogRecord,
+  startIndex: number,
+  untilFunc: string
+): number | null {
+  // TODO test how slow this is, and move it out if significant
+  const parser = new exprParser();
+  let prevVal: Value = 0;
+  for (
+    let li = startIndex;
+    li < logRecords.length && li < startIndex + 100;
+    li++
+  ) {
+    const futureLogRecord = logRecords[li];
+    if (Number(futureLogRecord.LogID) < Number(logRecord.LogID)) {
+      return null;
+    }
+    try {
+      prevVal = parser.evaluate(untilFunc, {
+        logRecord,
+        futureLogRecord,
+        prevVal,
+      });
+      if (prevVal === true) {
+        return li;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
 }
