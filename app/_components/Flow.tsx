@@ -29,6 +29,7 @@ import { ForkNodeType, ForkType } from "@/app/_components/FlowNodes/ForkNode/For
 import CombineNode from "@/app/_components/FlowNodes/Combine/CombineNode";
 import CombineAdvancedTableNode from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode";
 import LogAlterNode from "@/app/_components/FlowNodes/LogAlter/LogAlterNode";
+import RunningLogAlterNode from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterNode";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -46,7 +47,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    return { BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode }
+    return { BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode }
   }, [])
 
   const connectingNodeId = useRef<string | null>(null);

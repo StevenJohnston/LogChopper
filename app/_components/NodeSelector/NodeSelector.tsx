@@ -16,6 +16,7 @@ import { shallow } from "zustand/shallow"
 import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
 import IPW from "@/app/_components/NodeSelector/IPW"
 import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
+import AFRLatency from "@/app/_components/NodeSelector/AFRLatency"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -73,9 +74,9 @@ const NodeSelector = () => {
       </div>
       {expanded
         && <div
-          className="max-h-[10%] flex-wrap content-start w-full mt-2"
+          className="flex max-h-[10%] flex-wrap content-start w-full mt-2"
         >
-          <div>Log Filters</div>
+          <div className="w-full">Log Filters</div>
           <NodeSelectorButton
             onClick={() => {
               const logFilter: LogFilterNodeType = {
@@ -90,7 +91,8 @@ const NodeSelector = () => {
             Base Log Filter
           </NodeSelectorButton>
           <IPW />
-          <div>Group Node</div>
+          <AFRLatency />
+          <div className="w-full">Group Node</div>
           <NodeSelectorButton
             onClick={() => {
               const group: GroupNodeType = {

@@ -39,3 +39,7 @@
   path {
     stroke: black;
   }
+
+.auto-expand-textarea {
+  field-sizing: content;
+}
