@@ -47,8 +47,8 @@ export interface Scaling {
   units?: string;
   frExpr?: string;
   toExpr?: string;
-  min?: string;
-  max?: string;
+  min?: string | number;
+  max?: string | number;
   inc?: number;
   format?: string;
   endian?: string;
