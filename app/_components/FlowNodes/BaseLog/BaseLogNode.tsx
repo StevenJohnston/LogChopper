@@ -1,10 +1,13 @@
 'use client'
 
-import { BaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
+import { BaseLogData, BaseLogNodeType, BaseLogType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes";
 import { CustomHandle } from "@/app/_components/FlowNodes/CustomHandle/CustomHandle";
 import { loadLogs } from "@/app/_lib/log";
-import { useState } from "react";
+import useFlow, { RFState } from "@/app/store/useFlow";
+import useRom from "@/app/store/useRom";
+import { useEffect, useMemo, useState } from "react";
 import { NodeProps, Node, Position } from "reactflow";
+import { shallow } from "zustand/shallow";
 
 interface InitBaseLogData {
   selectedLogs?: FileSystemFileHandle[]
@@ -22,9 +25,43 @@ export function newBaseLogData({ selectedLogs }: InitBaseLogData): BaseLogData {
 }
 
 
-function BaseLogNode({ data, isConnectable }: NodeProps<BaseLogData>) {
-  const { selectedLogs } = data
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  edges: state.edges,
+  updateEdge: state.updateEdge,
+  updateNode: state.updateNode,
+  flowInstance: state.reactFlowInstance
+});
+
+function BaseLogNode({ id, data, isConnectable }: NodeProps<BaseLogData>) {
   const [expanded, setExpanded] = useState<boolean>(true)
+
+  const { nodes, updateNode } = useFlow(selector, shallow);
+  const { selectedLogs } = useRom()
+
+  const node: BaseLogNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == BaseLogType) {
+        return n
+      }
+    }
+  }, [id, nodes])
+
+
+  useEffect(() => {
+    if (!node) return console.log("BaseLogNode node missing")
+    if (!selectedLogs) return console.log("BaseLogNode selectedLogs missing")
+
+    if (selectedLogs == data.selectedLogs) return console.log("BaseLogNode No update required")
+
+    updateNode({
+      ...node,
+      data: {
+        ...node.data,
+        selectedLogs
+      }
+    } as BaseLogNodeType)
+  }, [node, selectedLogs, updateNode, data])
 
   return (
     <div

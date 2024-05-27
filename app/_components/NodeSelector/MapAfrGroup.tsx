@@ -165,7 +165,7 @@ const savedGroup: SavedGroup = {
       "id": "5085f918-8e62-4d32-bfd9-02406759d63e",
       "type": "RunningLogAlterNode",
       "data": {
-        "alterFunc": "futureLogRecord.LogID - logRecord.LogID",
+        "alterFunc": "futureLogRecord.AFR",
         "untilFunc": "reduced = prevVal + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);\n          reduced > 2500000 ? true : reduced;",
         "newFieldName": "AFR"
       },
@@ -187,7 +187,7 @@ const savedGroup: SavedGroup = {
         "y": 35.085119914488814
       },
       "data": {
-        "func": "IPW>0 and AFR>0"
+        "func": "IPW>0 and AFR>0 and ECT>75"
       },
       "width": 203,
       "height": 102,

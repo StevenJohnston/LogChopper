@@ -47,8 +47,8 @@ export default function Sidebar({
 
   const onSelectLog = useCallback((selectedLog: FileSystemFileHandle) => {
     let newSelectedLogs = []
-    if (selectedLogs.includes(selectedLog)) {
-      newSelectedLogs = selectedLogs.filter(i => i !== selectedLog)
+    if (selectedLogs.find(s => s.name == selectedLog.name)) {
+      newSelectedLogs = selectedLogs.filter(s => s.name !== selectedLog.name)
     } else {
       newSelectedLogs = [...selectedLogs, selectedLog]
     }
@@ -63,9 +63,6 @@ export default function Sidebar({
       })
       return
     }
-
-    existingNode.data.selectedLogs = newSelectedLogs
-    updateNode(existingNode)
   }, [nodes, selectedLogs, setSelectedLogs, updateNode])
 
   const openRomMetaDataSelect = useCallback(async () => {

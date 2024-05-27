@@ -89,7 +89,7 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDat
       </div>
     )
   }
-  const selected = multiSelect ? selectedHandle?.includes(handle) : selectedHandle?.name == handle.name;
+  const selected = multiSelect ? selectedHandle?.find(s => s.name == handle.name) : selectedHandle?.name == handle.name;
 
   if (!fileTypes.find(t => handle.name.endsWith(t))) {
     return
