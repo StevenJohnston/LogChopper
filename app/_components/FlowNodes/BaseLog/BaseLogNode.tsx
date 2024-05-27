@@ -9,13 +9,8 @@ import { useEffect, useMemo, useState } from "react";
 import { NodeProps, Node, Position } from "reactflow";
 import { shallow } from "zustand/shallow";
 
-interface InitBaseLogData {
-  selectedLogs?: FileSystemFileHandle[]
-}
-
-export function newBaseLogData({ selectedLogs }: InitBaseLogData): BaseLogData {
+export function newBaseLogData(): BaseLogData {
   return {
-    selectedLogs: selectedLogs || [],
     logs: [],
     refresh: async function (node: Node): Promise<void> {
       this.logs = await loadLogs(node.data.selectedLogs);
@@ -23,7 +18,6 @@ export function newBaseLogData({ selectedLogs }: InitBaseLogData): BaseLogData {
     getLoadable: () => ({})
   }
 }
-
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -52,8 +46,6 @@ function BaseLogNode({ id, data, isConnectable }: NodeProps<BaseLogData>) {
     if (!node) return console.log("BaseLogNode node missing")
     if (!selectedLogs) return console.log("BaseLogNode selectedLogs missing")
 
-    if (selectedLogs == data.selectedLogs) return console.log("BaseLogNode No update required")
-
     updateNode({
       ...node,
       data: {
@@ -61,11 +53,11 @@ function BaseLogNode({ id, data, isConnectable }: NodeProps<BaseLogData>) {
         selectedLogs
       }
     } as BaseLogNodeType)
-  }, [node, selectedLogs, updateNode, data])
+  }, [selectedLogs, updateNode])
 
   return (
     <div
-      className={`flex flex-col p-2 border border-black rounded bg-white`}
+      className={`flex flex-col p-2 border border-black rounded bg-blue-400/50 ${data.loading && 'animate-pulse'}`}
       onDoubleClick={() => setExpanded(!expanded)}
     >
       <div className='flex justify-between drag-handle'>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import DirectoryFile from "./DirectoryFile"
 import useFlow, { RFState } from "@/app/store/useFlow"
 import { shallow } from "zustand/shallow"
@@ -59,7 +59,7 @@ export default function Sidebar({
         id: uuid(),
         type: BaseLogType,
         position: { x: 100, y: 100 },
-        data: newBaseLogData({ selectedLogs: newSelectedLogs })
+        data: newBaseLogData()
       })
       return
     }
@@ -130,6 +130,16 @@ export default function Sidebar({
     }
     setStep("tables")
   }, [step])
+
+  const [selectedRomDate, setSelectedRomDate] = useState<Date>()
+  useEffect(() => {
+    (async () => {
+      const romFile = await selectedRom?.getFile()
+      if (romFile) {
+        setSelectedRomDate(new Date(romFile.lastModified))
+      }
+    })()
+  }, [selectedRom])
 
   return (
     <div className={`flex flex-row ${className}`}>
@@ -234,6 +244,7 @@ export default function Sidebar({
                     selectedHandle={selectedLogs}
                     setSelectedHandle={onSelectLog}
                     showDates={true}
+                    showDatesAfter={selectedRomDate}
                   />
                 </div>
                 <button

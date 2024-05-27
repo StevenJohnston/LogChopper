@@ -61,7 +61,6 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData<Init
   const { nodes, updateNode } = useFlow(selector, shallow);
   const { tableMap, selectedRom, scalingMap } = useRom()
 
-
   const node: BaseTableNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
       if (n.id == id && n.type == BaseTableType) {
@@ -87,7 +86,7 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData<Init
         tableMap
       }
     } as BaseTableNodeType)
-  }, [node, selectedRom, scalingMap, tableMap, updateNode, data])
+  }, [selectedRom, scalingMap, tableMap, updateNode])
 
   const onFocus = useCallback(() => {
     childRef.current?.focus()
@@ -105,7 +104,7 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData<Init
     )
   }
   return (
-    <div className="flex flex-col p-2 border border-black rounded bg-white" onClick={onFocus}>
+    <div className={`flex flex-col p-2 border border-black rounded bg-red-400/75 ${data.loading && 'animate-pulse'}`} onClick={onFocus}>
       <div
         className='flex justify-between drag-handle'
         onDoubleClick={() => setExpanded(!expanded)}

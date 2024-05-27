@@ -109,7 +109,7 @@ function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
   }, [node, updateNode])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded nowheel bg-blue-500 bg-opacity-50">
+    <div className={`flex flex-col p-2 border border-black rounded nowheel bg-sky-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType="Log" type="target" position={Position.Left} id={LogAlterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
       <CustomHandle dataType="Log" type="source" position={Position.Right} id={LogAlterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
@@ -131,6 +131,7 @@ function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
             <div className='mr-2'>
               <label className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
               <input
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
                 type="text"
                 value={newLogFieldVal}
                 onChange={onNewLogFieldChange}
@@ -141,6 +142,7 @@ function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
             <div className='mr-2'>
               <label className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
               <input
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
                 type="text"
                 value={funcVal}
                 onChange={onFuncChange}

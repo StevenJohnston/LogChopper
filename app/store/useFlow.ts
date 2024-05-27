@@ -13,7 +13,9 @@ import {
   applyEdgeChanges,
   updateEdge,
   ReactFlowInstance,
+  Node,
 } from "reactflow";
+import { v4 as uuid } from "uuid";
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
@@ -65,6 +67,11 @@ export type RFState = {
   softUpdateNode: (node: MyNode) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
+  orderedRefreshNodes: (
+    nodesIds: string[],
+    updateUUID: string,
+    i?: number
+  ) => Promise<void>;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
 };
 
@@ -188,22 +195,25 @@ const useFlow = createWithEqualityFn<RFState>(
       });
     },
     updateNode: async (node: MyNode) => {
+      const updateUUID = uuid();
       const nodes = get().nodes;
       const edges = get().edges;
       const updateOrder = topologicalSort(node, nodes, edges);
       for (const updateNode of updateOrder) {
         // Updates Node in place
-        await updateNode.data.refresh?.(updateNode, get().nodes, get().edges);
-        // Force inplaced update
-        updateNode.data = { ...updateNode.data };
-        await set({
+        updateNode.data = { ...updateNode.data, loading: true };
+        await set((state) => ({
           nodes: [
             //TODO maybe use nodes instead of ...get().nodes
-            ...get().nodes.filter((n) => n.id != updateNode.id),
+            ...state.nodes.filter((n) => n.id != updateNode.id),
             updateNode,
           ] as MyNode[],
-        });
+        }));
       }
+      get().orderedRefreshNodes(
+        updateOrder.map((u) => u.id),
+        updateUUID
+      );
     },
     updateEdge: async (edge: Edge, connection: Connection) => {
       set({
@@ -214,6 +224,37 @@ const useFlow = createWithEqualityFn<RFState>(
       set({
         reactFlowInstance,
       });
+    },
+    orderedRefreshNodes: async (
+      nodeIds: string[],
+      updateUUID: string,
+      i: number = 0
+    ) => {
+      if (nodeIds.length == 0 || i == nodeIds.length) return;
+
+      // TODO these nodes are out of date, thus we need to use setTimeout
+      const updateNode: Node | undefined = get().nodes.find(
+        (n) => n.id == nodeIds[i]
+      );
+      if (!updateNode) return;
+
+      await updateNode.data.refresh?.(updateNode, get().nodes, get().edges);
+      // Force inplaced update
+      updateNode.data = { ...updateNode.data, loading: false };
+
+      await set((state) => {
+        return {
+          ...state,
+          nodes: [
+            //TODO maybe use nodes instead of ...get().nodes
+            ...state.nodes.filter((n) => n.id != updateNode.id),
+            updateNode,
+          ] as MyNode[],
+        };
+      });
+      setTimeout(() => {
+        get().orderedRefreshNodes(nodeIds, updateUUID, i + 1);
+      }, 0);
     },
   })
   // )

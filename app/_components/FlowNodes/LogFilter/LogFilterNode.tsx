@@ -27,10 +27,6 @@ export function newLogFilter({ func }: InitLogFilterData): LogFilterData {
       if (!this.func) return console.log("newLogFilter func missing")
       if (sourceLogNode.data.logs == null) return console.log("newLogFilter sourceLogNode missing logs")
 
-
-      // const newTable = MapCombine(sourceLogNode.data.table, joinTable.data.table, this.func)
-      // if (!newTable) return console.log("Failed to create new table for combine")
-      // this.table = newTable
       this.logs = filterLogs(sourceLogNode.data.logs, this.func)
     },
 
@@ -97,7 +93,7 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
   }, [node, updateNode])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded nowheel bg-blue-500 bg-opacity-50">
+    <div className={`flex flex-col p-2 border border-black rounded nowheel bg-emerald-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType="Log" type="target" position={Position.Left} id={LogFilterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
       <CustomHandle dataType="Log" type="source" position={Position.Right} id={LogFilterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
@@ -119,6 +115,7 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
               <input
+                className='w-full auto-expand-textarea p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
                 type="text"
                 value={funcVal}
                 onChange={onFuncChange}

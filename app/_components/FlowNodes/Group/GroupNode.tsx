@@ -95,7 +95,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
     <>
       <NodeResizer color="red" minWidth={100} minHeight={100} handleStyle={{ width: 8, height: 8, borderRadius: 3, backgroundColor: "blue" }} />
       <div
-        className={`drag-handle bg-red-500 bg-opacity-50 w-full h-full`}
+        className={`drag-handle bg-gray-500/25 w-full h-full`}
       >
 
         <div
