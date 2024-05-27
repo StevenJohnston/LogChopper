@@ -30,6 +30,8 @@ export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType,
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 export interface RefreshableNode {
+  loading?: boolean
+  updateUUID?: string,
   refresh?: (node: MyNode, nodes: Node[], edges: Edge[]) => Promise<void>
 }
 

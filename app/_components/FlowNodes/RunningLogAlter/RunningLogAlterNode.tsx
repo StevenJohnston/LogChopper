@@ -113,7 +113,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   }, [node, updateNode])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded nowheel bg-blue-500 bg-opacity-50">
+    <div className={`flex flex-col p-2 border border-black rounded nowheel bg-teal-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType="Log" type="target" position={Position.Left} id={RunningLogAlterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
       <CustomHandle dataType="Log" type="source" position={Position.Right} id={RunningLogAlterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
@@ -121,7 +121,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
         onDoubleClick={() => setExpanded(!expanded)}
         className='flex justify-between drag-handle'
       >
-        <div className='pr-2'>Log Filter</div>
+        <div className='pr-2'>Running Log Alter</div>
         <button className='border-2 border-black w-8 h-8'
           onClick={() => setExpanded(!expanded)}
         >
@@ -135,6 +135,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
               <input
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
                 type="text"
                 value={newFieldNameVal}
                 onChange={onNewFieldNameChange}
@@ -149,7 +150,8 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
               <textarea
                 value={untilFuncVal}
                 onChange={onUntilFuncChange}
-                className="auto-expand-textarea w-full"
+                className='w-full auto-expand-textarea p-1 pb-4 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+
               />
             </div>
           </div>
@@ -159,6 +161,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Alter Func</label>
               <input
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
                 type="text"
                 value={alterFuncVal}
                 onChange={onAlterFuncChange}

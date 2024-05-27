@@ -1,6 +1,6 @@
 'use client'
 import { formatter } from "@/app/_lib/utils"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 export interface BaseDirectoryFileProps {
   multiSelect?: boolean
@@ -10,6 +10,7 @@ export interface BaseDirectoryFileProps {
   fileTypes: string[]
   showDates?: boolean
   openRoot?: boolean
+  showDatesAfter?: Date
 }
 
 interface SingleSelectDirectoryFileProps extends BaseDirectoryFileProps {
@@ -34,7 +35,7 @@ interface HandleWithFile {
 }
 
 
-function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDates, openRoot = true, setSelectedHandle }: DirectoryFileProps) {
+function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDates, showDatesAfter, openRoot = true, setSelectedHandle }: DirectoryFileProps) {
   const [sortedDirectoryFileList, setSortedDirectoryFileList] = useState<HandleWithFile[]>([])
   const [expanded, setExpanded] = useState<boolean>(openRoot)
   const [selectedFileDate, setSelectededFileDate] = useState<Date>()
@@ -61,6 +62,11 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDat
     })()
   }, [handle])
 
+  const dateIsAfter = useMemo(() => {
+    if (!showDatesAfter || !selectedFileDate) return true
+    return showDatesAfter < selectedFileDate
+  }, [showDatesAfter, selectedFileDate])
+
   if (!handle) {
     return <div>Select File</div>
   }
@@ -79,9 +85,9 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDat
           {
             expanded && sortedDirectoryFileList.map(({ handle }) => {
               if (isSingleSelectDirectoryFile(selectedHandle)) {
-                return <DirectoryFile key={handle.name} multiSelect={false} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} />
+                return <DirectoryFile key={handle.name} multiSelect={false} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} showDatesAfter={showDatesAfter} />
               } else {
-                return <DirectoryFile key={handle.name} multiSelect={true} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} />
+                return <DirectoryFile key={handle.name} multiSelect={true} handle={handle} selectedHandle={selectedHandle} fileTypes={fileTypes} setSelectedHandle={setSelectedHandle} openRoot={false} showDates={showDates} showDatesAfter={showDatesAfter} />
               }
             })
           }
@@ -96,7 +102,7 @@ function DirectoryFile({ multiSelect, handle, selectedHandle, fileTypes, showDat
   }
   return (
     <button
-      className={`block whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} tabular-nums`}
+      className={`block whitespace-nowrap pl-2 ${selected ? 'our-selected' : ''} tabular-nums ${!dateIsAfter && "text-black/25"}`}
       onClick={() => {
         setSelectedHandle(handle)
       }}

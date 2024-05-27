@@ -103,7 +103,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
         scalingMap,
       }
     } as FillTableNodeType)
-  }, [node, scalingMap, updateNode, data])
+  }, [scalingMap, updateNode])
 
 
   const onFilterSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
@@ -147,7 +147,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   }, [node?.data.parentTable])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded bg-green-400">
+    <div className={`flex flex-col p-2 border border-black rounded bg-cyan-400/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceTableHandleId} top="20px" isConnectable={isConnectable} />
 
       <div

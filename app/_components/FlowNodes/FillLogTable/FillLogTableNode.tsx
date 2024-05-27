@@ -73,7 +73,7 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
 
   // if (!table) return <div>Loading Table</div>
   return (
-    <div className="flex flex-col p-2 border border-black rounded bg-orange-300">
+    <div className={`flex flex-col p-2 border border-black rounded bg-violet-300/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceTableHandleId} top="60px" isConnectable={isConnectable} />
 
@@ -96,11 +96,8 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
           <input
             type='checkbox'
             className='m-2'
-            // className={`focus:bg-transparent bg-inherit h-4 m-1`}
             checked={data.weighted}
             onChange={onWeightedChanged}
-          // onBlur={onFuncChange}
-
           />
         </div>
       </div>

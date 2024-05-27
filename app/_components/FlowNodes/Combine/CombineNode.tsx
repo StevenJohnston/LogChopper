@@ -81,7 +81,7 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
         scalingMap,
       }
     } as CombineNodeType)
-  }, [node, scalingMap, updateNode, data])
+  }, [scalingMap, updateNode])
 
 
   const onFuncChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -91,7 +91,7 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
   }, [node, updateNode])
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded bg-blue-500 bg-opacity-50">
+    <div className={`flex flex-col p-2 border border-black rounded bg-amber-400/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={targetTableOneHandleID} top="20px" isConnectable={isConnectable} />
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={targetTableTwoHandleID} top="60px" isConnectable={isConnectable} />
 
@@ -108,14 +108,11 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
 
       </div>
       <div>
-        <div className="max-w-sm">
+        <div className="w-full">
           <textarea
-            className='w-full auto-expand-textarea'
-            // className={`focus:bg-transparent bg-inherit h-4 m-1`}
+            className='w-full auto-expand-textarea p-1 pb-4 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
             value={funcVal}
             onChange={onFuncChange}
-          // onBlur={onFuncChange}
-
           />
         </div>
       </div>

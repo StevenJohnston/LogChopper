@@ -79,7 +79,7 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
         scalingMap,
       }
     } as CombineAdvancedTableNodeType)
-  }, [node, scalingMap, updateNode, data])
+  }, [scalingMap, updateNode])
 
   const destOptionsMap = useMemo(() => {
     if (data.destTable?.type != "3D") return null
@@ -142,7 +142,7 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
   }
 
   return (
-    <div className="flex flex-col p-2 border border-black rounded bg-blue-500 bg-opacity-50">
+    <div className={`flex flex-col p-2 border border-black rounded bg-rose-400/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={destHandleId} top="20px" isConnectable={isConnectable} />
       <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceHandleId} top="60px" isConnectable={isConnectable} />
 

@@ -105,7 +105,7 @@ export function filterLogs(logRecords: LogRecord[], func: string): LogRecord[] {
   if (func == "") return logRecords;
   const parser = new exprParser();
   try {
-    return logRecords.map((logRecord) => {
+    return logRecords?.map((logRecord) => {
       // TODO I dont think this returning a true or false
       return {
         ...logRecord,
@@ -192,7 +192,7 @@ function findNextIndex(
   let prevVal: Value = 0;
   for (
     let li = startIndex;
-    li < logRecords.length && li < startIndex + 100;
+    li < logRecords.length && li < startIndex + 15;
     li++
   ) {
     const futureLogRecord = logRecords[li];
