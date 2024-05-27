@@ -135,7 +135,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
                 type="text"
                 value={newFieldNameVal}
                 onChange={onNewFieldNameChange}
@@ -150,7 +150,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
               <textarea
                 value={untilFuncVal}
                 onChange={onUntilFuncChange}
-                className='w-full auto-expand-textarea p-1 pb-4 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+                className='w-full auto-expand-textarea p-1 pb-4 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
 
               />
             </div>
@@ -161,7 +161,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
             <div className='mr-2'>
               <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Alter Func</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
                 type="text"
                 value={alterFuncVal}
                 onChange={onAlterFuncChange}
