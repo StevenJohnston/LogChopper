@@ -131,7 +131,7 @@ function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
             <div className='mr-2'>
               <label className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
                 type="text"
                 value={newLogFieldVal}
                 onChange={onNewLogFieldChange}
@@ -142,7 +142,7 @@ function LogAlterNode({ id, data, isConnectable }: NodeProps<LogAlterData>) {
             <div className='mr-2'>
               <label className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 focus:ring-0 rounded-lg'
+                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
                 type="text"
                 value={funcVal}
                 onChange={onFuncChange}
