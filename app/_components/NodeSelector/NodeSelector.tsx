@@ -17,6 +17,7 @@ import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButto
 import IPW from "@/app/_components/NodeSelector/IPW"
 import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
 import AFRLatency from "@/app/_components/NodeSelector/AFRLatency"
+import AccelFilter from "@/app/_components/NodeSelector/AccelFilter"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -83,7 +84,8 @@ const NodeSelector = () => {
                 position: getViewportPosition(100, 100),
                 id: uuid(),
                 type: LogFilterType,
-                data: newLogFilter({})
+                data: newLogFilter({}),
+                dragHandle: '.drag-handle',
               }
               updateNode(logFilter)
             }}
@@ -92,6 +94,7 @@ const NodeSelector = () => {
           </NodeSelectorButton>
           <IPW />
           <AFRLatency />
+          <AccelFilter />
           <div className="w-full">Group Node</div>
           <NodeSelectorButton
             onClick={() => {
@@ -100,7 +103,8 @@ const NodeSelector = () => {
                 id: uuid(),
                 type: GroupType,
                 data: newGroup({ name: "New Group", locked: false }),
-                style: { width: 400, height: 400, zIndex: -1 }
+                style: { width: 400, height: 400, zIndex: -1 },
+                dragHandle: '.drag-handle',
               }
               updateNode(group)
             }}

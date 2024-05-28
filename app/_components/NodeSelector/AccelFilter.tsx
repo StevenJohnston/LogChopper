@@ -13,7 +13,7 @@ const selector = (state: RFState) => ({
   addEdge: state.addEdge
 });
 
-const AFRLatency = () => {
+const AccelFilter = () => {
   const { reactFlowInstance, updateNode } = useFlow(selector, shallow);
 
   const getViewportPosition = useCallback((x: number = 0, y: number = 0) => {
@@ -32,19 +32,20 @@ const AFRLatency = () => {
           id: uuid(),
           type: RunningLogAlterType,
           data: newRunningLogAlter({
-            alterFunc: `futureLogRecord.AFR`,
-            untilFunc: `reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);
-[reduced > 2500000, reduced];`,
-            newFieldName: `AFR`
+            alterFunc: `logRecord.delete or logRecord.RPM + 50 < accumulator`,
+            untilFunc: `accumulator = accumulator + futureLogRecord.RPM / 3;
+[logRecord.LogID + 3 <= futureLogRecord.LogID, accumulator]`,
+            newFieldName: `delete`
           }),
           dragHandle: '.drag-handle',
+
         }
         updateNode(runningLogAlter)
       }}
     >
-      {`AFR Latency Fix`}
+      {`Accel Filter`}
     </NodeSelectorButton>
   )
 }
 
-export default AFRLatency
+export default AccelFilter

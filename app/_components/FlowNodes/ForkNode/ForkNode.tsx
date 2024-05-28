@@ -83,7 +83,8 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const logFilter: LogFilterNodeType = {
               ...node,
               type: LogFilterType,
-              data: newLogFilter({})
+              data: newLogFilter({}),
+              dragHandle: '.drag-handle',
             }
             await updateNode(logFilter)
 
@@ -110,7 +111,8 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const logAlter: LogAlterNodeType = {
               ...node,
               type: LogAlterType,
-              data: newLogAlter({})
+              data: newLogAlter({}),
+              dragHandle: '.drag-handle',
             }
             await updateNode(logAlter)
 
@@ -137,7 +139,8 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const runningLogAlter: RunningLogAlterNodeType = {
               ...node,
               type: RunningLogAlterType,
-              data: newRunningLogAlter({})
+              data: newRunningLogAlter({}),
+              dragHandle: '.drag-handle',
             }
             await updateNode(runningLogAlter)
 

@@ -185,7 +185,7 @@ export function runningAlter(
   return alteredLogRecords;
 }
 
-type ReduceIndex = [index: number, value: number];
+type ReduceIndex = [index: number, value: Value];
 type UntilRet = [stop: boolean, value: number];
 
 function findNextIndex(
@@ -214,7 +214,7 @@ function findNextIndex(
         accumulator,
       }) as UntilRet;
       if (stop === true) {
-        return [li, Number(accumulator)];
+        return [li, accumulator];
       }
     } catch (e) {
       return null;
