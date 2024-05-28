@@ -31,7 +31,8 @@ const IPW = () => {
           position: getViewportPosition(100, 100),
           id: uuid(),
           type: LogFilterType,
-          data: newLogFilter({ func: "IPW > 0" })
+          data: newLogFilter({ func: "IPW > 0" }),
+          dragHandle: '.drag-handle',
         }
         updateNode(logFilter)
       }}

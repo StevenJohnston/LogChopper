@@ -15,10 +15,9 @@ import { LogData } from '@/app/_components/FlowNodes';
 import Code from '@/app/_components/Code';
 
 export function newRunningLogAlter({
-  alterFunc = "futureLogRecord.LogID",
-  untilFunc = `reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);
-  reduced > 2500000 ? true : reduced;`,
-  newFieldName = '1'
+  alterFunc,
+  untilFunc,
+  newFieldName
 
 }: InitRunningLogAlterData): RunningLogAlterData {
   return {
@@ -150,7 +149,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
                 <p className='pl-2'><Code>futureLogRecord</Code> The value of the future log record being looped</p>
                 <p className='pl-2 mb-2'><Code>accumulator</Code> The last return value from Alter Func</p>
                 <p className='text-lg'>Return value</p>
-                <p className='pl-2'><Code>[stop: boolean, nextAccumulator: number]</Code> Tuple</p>
+                <p className='pl-2'><Code>[stop: boolean, nextAccumulator: Value]</Code> Tuple</p>
                 <p className='pl-2'><Code>stop</Code> Whether or not to continue looping to future records</p>
                 <p className='pl-2 mb-2'><Code>nextAccumulator</Code> The value of accumulator for the next loop</p>
                 <p className='text-2xl'>Alter Func</p>

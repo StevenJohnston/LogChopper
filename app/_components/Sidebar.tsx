@@ -59,7 +59,8 @@ export default function Sidebar({
         id: uuid(),
         type: BaseLogType,
         position: { x: 100, y: 100 },
-        data: newBaseLogData()
+        data: newBaseLogData(),
+        dragHandle: '.drag-handle',
       })
       return
     }
