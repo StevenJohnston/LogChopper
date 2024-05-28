@@ -1,6 +1,7 @@
 'use client'
 import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps, Node, Edge } from 'reactflow';
+import InfoSVG from "../../../icons/info.svg"
 
 import { LogRecord, runningAlter } from '@/app/_lib/log';
 import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
@@ -11,8 +12,15 @@ import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import { LogData } from '@/app/_components/FlowNodes';
+import Code from '@/app/_components/Code';
 
-export function newRunningLogAlter({ alterFunc, untilFunc, newFieldName }: InitRunningLogAlterData): RunningLogAlterData {
+export function newRunningLogAlter({
+  alterFunc = "futureLogRecord.LogID",
+  untilFunc = `reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);
+  reduced > 2500000 ? true : reduced;`,
+  newFieldName = '1'
+
+}: InitRunningLogAlterData): RunningLogAlterData {
   return {
     alterFunc,
     untilFunc,
@@ -122,11 +130,46 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
         className='flex justify-between drag-handle'
       >
         <div className='pr-2'>Running Log Alter</div>
-        <button className='border-2 border-black w-8 h-8'
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "_" : "^"}
-        </button>
+
+        <div className='flex'>
+          <div className=''>
+
+            <InfoSVG
+              className='mx-2 anchor'
+              width={24}
+              height={24}
+            />
+            <div className='tooltip'>
+              <div className='bg-white rounded-lg p-4 min-w-[600px] border-black border-2'>
+                <p className='text-2xl'>New Field Name</p>
+                <p className='pl-2 mb-2'>The new filed that will be added to output log records</p>
+                <p className='text-2xl'>Until Func</p>
+                <p className='pl-2'>Loops through <Code>futureLogRecord</Code>&apos;s until <Code>stop</Code> is true returning <Code>accumulator</Code></p>
+                <p className='text-lg'>Parameters</p>
+                <p className='pl-2'><Code>logRecord</Code> The current log record</p>
+                <p className='pl-2'><Code>futureLogRecord</Code> The value of the future log record being looped</p>
+                <p className='pl-2 mb-2'><Code>accumulator</Code> The last return value from Alter Func</p>
+                <p className='text-lg'>Return value</p>
+                <p className='pl-2'><Code>[stop: boolean, nextAccumulator: number]</Code> Tuple</p>
+                <p className='pl-2'><Code>stop</Code> Whether or not to continue looping to future records</p>
+                <p className='pl-2 mb-2'><Code>nextAccumulator</Code> The value of accumulator for the next loop</p>
+                <p className='text-2xl'>Alter Func</p>
+                <p className='pl-2'>The value to set the new field to</p>
+                <p className='text-lg'>Parameters</p>
+                <p className='pl-2'><Code>logRecord</Code> The current log record</p>
+                <p className='pl-2'><Code>futureLogRecord</Code> The last log record from Alter Func</p>
+                <p className='pl-2'><Code>accumulator</Code> The last return value from Alter Func</p>
+                <p className='text-lg'>Return value</p>
+                <p className='pl-2 mb-2'><Code>filedValue</Code> value for the new field</p>
+              </div>
+            </div>
+          </div>
+          <button className='border-2 border-black w-8 h-8'
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "_" : "^"}
+          </button>
+        </div>
 
       </div>
       <div>
@@ -272,7 +315,7 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
           </table>
         </div>
       }
-    </div>
+    </div >
   );
 }
 
