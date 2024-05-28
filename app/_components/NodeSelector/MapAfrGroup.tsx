@@ -166,7 +166,7 @@ const savedGroup: SavedGroup = {
       "type": "RunningLogAlterNode",
       "data": {
         "alterFunc": "futureLogRecord.AFR",
-        "untilFunc": "reduced = prevVal + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);\n          reduced > 2500000 ? true : reduced;",
+        "untilFunc": "reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);\n[reduced > 2500000, reduced];",
         "newFieldName": "AFR"
       },
       "width": 402,

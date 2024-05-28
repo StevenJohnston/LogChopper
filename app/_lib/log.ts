@@ -151,8 +151,9 @@ export function runningAlter(
 
   for (let li = 0; li < logRecords.length; li++) {
     const logRecord = logRecords[li];
-    const newLogIndex = findNextIndex(logRecords, logRecord, li + 1, untilFunc);
-    if (newLogIndex == null) {
+    const untilRet = findNextIndex(logRecords, logRecord, li + 1, untilFunc);
+
+    if (untilRet == null) {
       alteredLogRecords.push({
         ...logRecord,
         [newFieldName]: null,
@@ -160,6 +161,8 @@ export function runningAlter(
       });
       continue;
     }
+
+    const [newLogIndex, accumulator] = untilRet;
     const futureLogRecord = logRecords[newLogIndex];
     try {
       alteredLogRecords.push({
@@ -167,6 +170,7 @@ export function runningAlter(
         [newFieldName]: parser.evaluate(alterFunc, {
           logRecord,
           futureLogRecord: futureLogRecord,
+          accumulator,
         }),
       });
     } catch (e) {
@@ -181,15 +185,19 @@ export function runningAlter(
   return alteredLogRecords;
 }
 
+type ReduceIndex = [index: number, value: number];
+type UntilRet = [stop: boolean, value: number];
+
 function findNextIndex(
   logRecords: LogRecord[],
   logRecord: LogRecord,
   startIndex: number,
   untilFunc: string
-): number | null {
+): ReduceIndex | null {
   // TODO test how slow this is, and move it out if significant
   const parser = new exprParser();
-  let prevVal: Value = 0;
+  let accumulator: Value = 0;
+  let stop: Value = false;
   for (
     let li = startIndex;
     li < logRecords.length && li < startIndex + 15;
@@ -200,13 +208,13 @@ function findNextIndex(
       return null;
     }
     try {
-      prevVal = parser.evaluate(untilFunc, {
+      [stop, accumulator] = parser.evaluate(untilFunc, {
         logRecord,
         futureLogRecord,
-        prevVal,
-      });
-      if (prevVal === true) {
-        return li;
+        accumulator,
+      }) as UntilRet;
+      if (stop === true) {
+        return [li, Number(accumulator)];
       }
     } catch (e) {
       return null;
