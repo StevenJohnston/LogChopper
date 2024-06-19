@@ -1,7 +1,7 @@
 `use client`;
 
 import { createWithEqualityFn } from "zustand/traditional";
-import { LoadRomMetadata, Scaling, Table } from "@/app/_lib/rom-metadata";
+import { BasicTable, LoadRomMetadata, Scaling } from "@/app/_lib/rom-metadata";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { findFileByName } from "@/app/_lib/utils";
 
@@ -15,7 +15,8 @@ export type RomState = {
   selectedRomMetadataHandle: FileSystemFileHandle | null;
   selectedRom: FileSystemFileHandle | null;
   scalingMap: Record<string, Scaling>;
-  tableMap: Record<string, Table<unknown>>;
+  // tableMap: Record<string, Table<unknown>>;
+  tableMap: Record<string, BasicTable>;
 
   selectedLogs: FileSystemFileHandle[];
 
@@ -33,7 +34,7 @@ export type RomState = {
   ) => void;
   setSelectedRom: (selectedRom: FileSystemFileHandle) => void;
   setScalingMap: (scalingMap: Record<string, Scaling>) => void;
-  setTableMap: (tableMap: Record<string, Table<unknown>>) => void;
+  setTableMap: (tableMap: Record<string, BasicTable>) => void;
   setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void;
 };
 
@@ -150,7 +151,7 @@ const useRom = createWithEqualityFn<RomState>()(
       setScalingMap: (scalingMap: Record<string, Scaling>) => {
         set({ scalingMap });
       },
-      setTableMap: (tableMap: Record<string, Table<unknown>>) => {
+      setTableMap: (tableMap: Record<string, BasicTable>) => {
         set({ tableMap });
       },
       setSelectedLogs: async (selectedLogs: FileSystemFileHandle[]) => {

@@ -101,6 +101,7 @@ export async function loadLogs(
     return [...acc, ...cur.value];
   }, []); //as unknown as LogRecord[];
 }
+
 export function filterLogs(logRecords: LogRecord[], func: string): LogRecord[] {
   if (func == "") return logRecords;
   const parser = new exprParser();

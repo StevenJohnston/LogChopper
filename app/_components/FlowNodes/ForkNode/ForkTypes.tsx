@@ -1,7 +1,7 @@
 'use client'
 
-import { NodeWithType, RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes'
+import { NodeWithType, SaveableNode } from '@/app/_components/FlowNodes/FlowNodesTypes'
 
 export const ForkType = "ForkNode"
-export interface ForkData extends RefreshableNode, SaveableNode { }
+export interface ForkData extends SaveableNode { }
 export type ForkNodeType = NodeWithType<ForkData, typeof ForkType>;

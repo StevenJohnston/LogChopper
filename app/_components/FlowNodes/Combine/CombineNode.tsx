@@ -1,55 +1,17 @@
 'use client'
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Position, NodeProps, Node, Edge } from 'reactflow';
+import { Position, NodeProps, useUpdateNodeInternals } from 'reactflow';
 
-import { TableData } from '@/app/_components/FlowNodes';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
 import RomModuleUI from '@/app/_components/RomModuleUI';
-import { CombineData, CombineNodeType, CombineType, InitCombineData, targetTableOneHandleID, targetTableTwoHandleID } from '@/app/_components/FlowNodes/Combine/CombineTypes';
-import useFlow, { MyNode, RFState } from '@/app/store/useFlow';
+import { CombineData, CombineNodeType, CombineType, targetTableOneHandleID, targetTableTwoHandleID } from '@/app/_components/FlowNodes/Combine/CombineTypes';
+import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
-import useRom from '@/app/store/useRom';
-import { MapCombine } from '@/app/_lib/rom';
-
-export function newCombine({ func }: InitCombineData): CombineData {
-  return {
-    func: func || "sourceTable[y][x] > 0 ? 1 : 0",
-    table: null,
-    scalingMap: {},
-    refresh: async function (node: MyNode, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<TableData<string | number>>, Node<TableData<string | number>>]>(node, nodes, edges, [targetTableOneHandleID, targetTableTwoHandleID])
-      if (!parentNodes) {
-        this.table = null
-        return console.log("One or more parents are missing")
-      }
-      const [sourceTable, joinTable] = parentNodes
-
-      if (!this.func) return console.log("newCombine func missing")
-      if (sourceTable.data.table == null) return console.log("newCombine sourceTable missing table")
-      if (joinTable.data.table == null) return console.log("newCombine joinTable missing table")
-      if (sourceTable.data.table.type == "3D" && joinTable.data.table.type == "3D") {
-        const newTable = MapCombine(sourceTable.data.table, joinTable.data.table, this.func)
-        if (!newTable) return console.log("Failed to create new table for combine")
-        this.table = newTable
-      } else {
-        console.log("TODO newCombine only supports 3D")
-      }
-
-      // displayValue = parser.evaluate(this.func, { t1 });
-
-    },
-    getLoadable: function () {
-      return {
-        func: this.func
-      }
-    }
-  }
-}
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
-  updateNode: state.updateNode
+  updateNode: state.updateNode,
+  // softUpdateNode: state.softUpdateNode
 });
 function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
   const childRef = useRef<HTMLTextAreaElement>(null)
@@ -58,7 +20,7 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
   const [funcVal, setFuncVal] = useState(data.func)
 
   const [expanded, setExpanded] = useState<boolean>(false)
-  const { scalingMap } = useRom()
+  // const { scalingMap } = useRom()
 
   const node: CombineNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
@@ -68,26 +30,24 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
     }
   }, [id, nodes])
 
+
+  const updateNodeInternals = useUpdateNodeInternals()
+
   useEffect(() => {
-    if (!node) return console.log("CombineNode node missing")
-    if (!scalingMap) return console.log("CombineNode scalingMap missing")
-
-    if (scalingMap == data.scalingMap) return console.log("CombineNode No update required")
-
-    updateNode({
-      ...node,
-      data: {
-        ...node.data,
-        scalingMap,
-      }
-    } as CombineNodeType)
-  }, [scalingMap, updateNode])
-
+    if (data.tableType && data.tableType != "Other") {
+      updateNodeInternals(id)
+    }
+  }, [id, data.tableType, updateNodeInternals])
 
   const onFuncChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
     if (!node) return
     setFuncVal(event.target.value)
-    updateNode({ ...node, data: { ...node.data, func: event.target.value } })
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        func: event.target.value
+      })
+    })
   }, [node, updateNode])
 
   return (
@@ -130,8 +90,8 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
         }
       </div>
       {
-        data.table?.type == "3D" &&
-        <CustomHandle dataType={data.table.type} type="source" position={Position.Right} id="TableOut" isConnectable={isConnectable} />
+        data.tableType
+        && <CustomHandle dataType={data.tableType} type="source" position={Position.Right} id="TableOut" isConnectable={isConnectable} />
       }
     </div>
   );

@@ -9,26 +9,20 @@ import {
 } from 'reactflow';
 
 import useFlow, { RFState } from '@/app/store/useFlow';
-import { newLogFilter } from '@/app/_components/FlowNodes/LogFilter/LogFilterNode';
-import { LogFilterTargetLogHandleId, LogFilterType, LogFilterNodeType } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
-import { LogNodeTypes, TableNodeTypes } from '@/app/_components/FlowNodes'
+import { LogFilterTargetLogHandleId, LogFilterType, LogFilterNodeType, LogFilterData } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
+import { LogNodeTypes, TableNodeTypes } from '@/app/_components/FlowNodes/FlowNodesConsts'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { newFillLogTable } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableNode';
-import { FillLogTableNodeType, FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
+import { FillLogTableData, FillLogTableNodeType, FillLogTableType } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import { shallow } from 'zustand/shallow';
 import { ForkData } from '@/app/_components/FlowNodes/ForkNode/ForkTypes';
 import { BaseTableType } from '@/app/_components/FlowNodes/BaseTable/BaseTableTypes';
-import { FillTableNodeType, FillTableType } from '@/app/_components/FlowNodes/FillTable/FillTableTypes';
-import { newFillTable } from '@/app/_components/FlowNodes/FillTable/FillTableNode';
-import { CombineNodeType, CombineType, targetTableOneHandleID } from '@/app/_components/FlowNodes/Combine/CombineTypes';
-import { newCombine } from '@/app/_components/FlowNodes/Combine/CombineNode';
+import { FillTableData, FillTableNodeType, FillTableType } from '@/app/_components/FlowNodes/FillTable/FillTableTypes';
+import { CombineData, CombineNodeType, CombineType, targetTableOneHandleID } from '@/app/_components/FlowNodes/Combine/CombineTypes';
 import ForkButton from '@/app/_components/FlowNodes/ForkNode/ForkButton';
-import { CombineAdvancedTableNodeType, CombineAdvancedTableType, destHandleId as combineAdancedDestHandleId } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes';
-import { newCombineAdvanced } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode';
-import { newLogAlter } from '@/app/_components/FlowNodes/LogAlter/LogAlterNode';
-import { LogAlterNodeType, LogAlterTargetLogHandleId, LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
-import { RunningLogAlterNodeType, RunningLogAlterTargetLogHandleId, RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
-import { newRunningLogAlter } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterNode';
+import { CombineAdvancedTableData, CombineAdvancedTableNodeType, CombineAdvancedTableType, destHandleId as combineAdancedDestHandleId } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes';
+import { LogAlterData, LogAlterNodeType, LogAlterTargetLogHandleId, LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
+import { RunningLogAlterData, RunningLogAlterNodeType, RunningLogAlterTargetLogHandleId, RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
+import { HandleTypes } from '@/app/_components/FlowNodes/CustomHandle/CustomType';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -83,7 +77,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const logFilter: LogFilterNodeType = {
               ...node,
               type: LogFilterType,
-              data: newLogFilter({}),
+              data: new LogFilterData({}),
               dragHandle: '.drag-handle',
             }
             await updateNode(logFilter)
@@ -111,7 +105,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const logAlter: LogAlterNodeType = {
               ...node,
               type: LogAlterType,
-              data: newLogAlter({}),
+              data: new LogAlterData({}),
               dragHandle: '.drag-handle',
             }
             await updateNode(logAlter)
@@ -139,7 +133,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const runningLogAlter: RunningLogAlterNodeType = {
               ...node,
               type: RunningLogAlterType,
-              data: newRunningLogAlter({}),
+              data: new RunningLogAlterData({}),
               dragHandle: '.drag-handle',
             }
             await updateNode(runningLogAlter)
@@ -169,7 +163,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const fillTable: FillLogTableNodeType = {
               ...node,
               type: FillLogTableType,
-              data: newFillLogTable({ weighted: true }),
+              data: new FillLogTableData({ weighted: true, table: null }),
               dragHandle: '.drag-handle'
             }
             await updateNode(fillTable)
@@ -195,16 +189,19 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
           parentNode?.type == FillLogTableType)
         && <ForkButton
           onClick={async () => {
+
+            const edge = edges.find(e => e.target == node.id)
+            if (!edge) return
+            const targetType = edge?.sourceHandle?.split("#")[0] as HandleTypes
+
             const fillTable: FillTableNodeType = {
               ...node,
               type: FillTableType,
-              data: newFillTable({}),
+              data: new FillTableData({ tableType: targetType }),
               dragHandle: '.drag-handle'
             }
             await updateNode(fillTable)
-            const edge = edges.find(e => e.target == node.id)
-            if (!edge) return
-            const targetType = edge?.sourceHandle?.split("#")[0]
+
             const newConenction: Connection = {
               source: edge?.source,
               target: edge?.target,
@@ -226,7 +223,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const combineTable: CombineNodeType = {
               ...node,
               type: CombineType,
-              data: newCombine({}),
+              data: new CombineData({}),
               dragHandle: '.drag-handle'
             }
             await updateNode(combineTable)
@@ -253,7 +250,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
             const combineTable: CombineAdvancedTableNodeType = {
               ...node,
               type: CombineAdvancedTableType,
-              data: newCombineAdvanced({ matchCriteria: [] }),
+              data: new CombineAdvancedTableData({ matchCriteria: [] }),
               dragHandle: '.drag-handle'
             }
             await updateNode(combineTable)

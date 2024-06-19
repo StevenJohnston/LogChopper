@@ -1,55 +1,17 @@
 'use client'
 import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
-import { Position, NodeProps, Node, Edge } from 'reactflow';
+import { Position, NodeProps } from 'reactflow';
 import InfoSVG from "../../../icons/info.svg"
 
-import { LogRecord, runningAlter } from '@/app/_lib/log';
+import { LogRecord } from '@/app/_lib/log';
 import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { InitRunningLogAlterData, RunningLogAlterData, RunningLogAlterSourceLogHandleId, RunningLogAlterTargetLogHandleId, RunningLogAlterType, RunningLogAlterNodeType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
+import { RunningLogAlterData, RunningLogAlterSourceLogHandleId, RunningLogAlterTargetLogHandleId, RunningLogAlterType, RunningLogAlterNodeType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
-import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
-import { LogData } from '@/app/_components/FlowNodes';
 import Code from '@/app/_components/Code';
 
-export function newRunningLogAlter({
-  alterFunc,
-  untilFunc,
-  newFieldName
-
-}: InitRunningLogAlterData): RunningLogAlterData {
-  return {
-    alterFunc,
-    untilFunc,
-    newFieldName,
-    logs: [],
-    refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<LogData>]>(node, nodes, edges, [RunningLogAlterTargetLogHandleId])
-      if (!parentNodes) {
-        this.logs = []
-        return console.log("newRunningLogAlter One or more parents are missing")
-      }
-      const [sourceLogNode] = parentNodes
-
-      if (!this.newFieldName) return console.log("newFieldName func missing")
-      if (!this.untilFunc) return console.log("untilFunc func missing")
-      if (!this.alterFunc) return console.log("alterFunc func missing")
-      if (sourceLogNode.data.logs == null) return console.log("newRunningLogAlter sourceLogNode missing logs")
-
-      this.logs = runningAlter(sourceLogNode.data.logs, this.newFieldName, this.untilFunc, this.alterFunc)
-    },
-
-    getLoadable: function () {
-      return {
-        alterFunc: this.alterFunc,
-        untilFunc: this.untilFunc,
-        newFieldName: this.newFieldName,
-      }
-    }
-  }
-}
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -66,16 +28,22 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   const [expanded, setExpanded] = useState<boolean>(false)
 
   const columnHelper = createColumnHelper<LogRecord>()
-  const columns = (Object.keys(data.logs[0] || {})).map(c => {
-    return columnHelper.accessor(c, {
-      cell: info => info.getValue(),
-      footer: info => info.column.id,
+  const columns = useMemo(() => {
+    if (!data.logs) return []
+    return Object.keys(data.logs[0] || {}).map(c => {
+      return columnHelper.accessor(c, {
+        cell: info => info.getValue(),
+        footer: info => info.column.id,
+      })
     })
-  })
+  }, [data.logs, columnHelper])
+
 
   const filteredLogs = useMemo(() => {
+    if (!data.logs) return []
     return data.logs.filter(l => !l.delete)
   }, [data.logs])
+
   const table = useReactTable({ columns, data: filteredLogs, getCoreRowModel: getCoreRowModel(), })
   const { rows } = table.getRowModel()
   //The virtualizer needs to know the scrollable container element
@@ -106,17 +74,17 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   const onAlterFuncChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
     setAlterFuncVal(event.target.value)
-    updateNode({ ...node, data: { ...node.data, alterFunc: event.target.value } })
+    updateNode({ ...node, data: node.data.clone({ ...node.data, alterFunc: event.target.value }) })
   }, [node, updateNode])
   const onUntilFuncChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
     if (!node) return
     setUntilFuncVal(event.target.value)
-    updateNode({ ...node, data: { ...node.data, untilFunc: event.target.value } })
+    updateNode({ ...node, data: node.data.clone({ ...node.data, untilFunc: event.target.value }) })
   }, [node, updateNode])
   const onNewFieldNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
     setNewFieldNameVal(event.target.value)
-    updateNode({ ...node, data: { ...node.data, newFieldName: event.target.value } })
+    updateNode({ ...node, data: node.data.clone({ ...node.data, newFieldName: event.target.value }) })
   }, [node, updateNode])
 
   return (

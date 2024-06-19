@@ -15,12 +15,13 @@ import { sprintf } from "sprintf-js";
 
 // Returns table filled with data from rom, inclues axis
 export async function getFilledTable(
-  romFileHandle: FileSystemFileHandle,
+  // romFileHandle: FileSystemFileHandle,
+  romFile: File,
   scalingMap: Record<string, Scaling>,
   table: BasicTable
 ): Promise<BasicTable | void> {
   const newTable: BasicTable | void = { ...table };
-  const romFile = await romFileHandle.getFile();
+  // const romFile = await romFileHandle.getFile();
   const romBuffer = await romFile.arrayBuffer();
   const romDataArray = new DataView(
     romBuffer,
@@ -412,7 +413,7 @@ function calculateFloatBetween(
   value: number
 ): number {
   if (min > max) {
-    throw new Error("min cannot be lower than max");
+    throw new Error("min cannot be greater than max");
   }
 
   if (value < min) return 0;
@@ -475,7 +476,7 @@ export function FillLogTable(
           return logRecords.reduce((min, logRecord) => {
             const fieldValue = Number(logRecord[field]);
             return min < fieldValue ? min : fieldValue;
-          }, 0);
+          }, Infinity);
         }
       );
       break;
@@ -486,7 +487,7 @@ export function FillLogTable(
           return logRecords.reduce((max, logRecord) => {
             const fieldValue = Number(logRecord[field]);
             return max > fieldValue ? max : fieldValue;
-          }, 0);
+          }, -Infinity);
         }
       );
       break;

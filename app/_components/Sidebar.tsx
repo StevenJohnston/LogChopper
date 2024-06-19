@@ -4,11 +4,11 @@ import { useState, useCallback, useEffect } from "react"
 import DirectoryFile from "./DirectoryFile"
 import useFlow, { RFState } from "@/app/store/useFlow"
 import { shallow } from "zustand/shallow"
-import { BaseLogNodeType, BaseLogType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
+import { BaseLogData, BaseLogNodeType, BaseLogType } from "@/app/_components/FlowNodes/BaseLog/BaseLogTypes"
 import { v4 as uuid } from 'uuid'
-import { newBaseLogData } from "@/app/_components/FlowNodes/BaseLog/BaseLogNode"
 import useRom, { useRomSelector } from "@/app/store/useRom";
 import TableSelector from "@/app/_components/TableSelector"
+import { BaseRomData, BaseRomType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes"
 
 export interface SidebarProps {
   className: string
@@ -59,7 +59,7 @@ export default function Sidebar({
         id: uuid(),
         type: BaseLogType,
         position: { x: 100, y: 100 },
-        data: newBaseLogData(),
+        data: new BaseLogData({}),
         dragHandle: '.drag-handle',
       })
       return
@@ -142,6 +142,22 @@ export default function Sidebar({
     })()
   }, [selectedRom])
 
+  const addSelectedRom = useCallback((file: FileSystemFileHandle) => {
+    setSelectedRom(file)
+    const existingNode = nodes.find(n => n.type == BaseRomType) as BaseLogNodeType
+    if (!existingNode) {
+      updateNode({
+        id: uuid(),
+        type: BaseRomType,
+        data: new BaseRomData({}),
+        position: { x: 300, y: 25 },
+        dragHandle: '.drag-handle',
+        // extent: 'parent',
+      })
+      return
+    }
+  }, [nodes, setSelectedRom, updateNode])
+
   return (
     <div className={`flex flex-row ${className}`}>
       <div className="bg-slate-800 flex flex-col">
@@ -217,7 +233,7 @@ export default function Sidebar({
                     multiSelect={false}
                     handle={romDirectoryHandle}
                     selectedHandle={selectedRom}
-                    setSelectedHandle={setSelectedRom}
+                    setSelectedHandle={addSelectedRom}
                   />
                 </div>
 
