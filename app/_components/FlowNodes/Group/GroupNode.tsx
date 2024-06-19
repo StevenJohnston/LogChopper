@@ -1,25 +1,11 @@
 'use client'
 
-import { GroupData, GroupNodeType, GroupType, InitGroupData } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
+import { GroupData, GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes";
 import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
 import useNodeStorage, { NodeStorageState } from "@/app/store/useNodeStorage";
 import { ChangeEvent, useCallback, useEffect, useMemo } from "react";
 import { NodeProps, NodeResizer, Edge, Node } from "reactflow";
 import { shallow } from "zustand/shallow";
-
-
-export function newGroup({ name, locked }: InitGroupData): GroupData<InitGroupData> {
-  return {
-    name,
-    locked,
-    getLoadable: function (): InitGroupData {
-      return {
-        name: this.name,
-        locked: this.locked
-      }
-    },
-  }
-}
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -34,7 +20,7 @@ const nodeStorageSelector = (state: NodeStorageState) => ({
   saveGroup: state.saveGroup,
 });
 
-function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
+function GroupNode({ id, data }: NodeProps<GroupData>) {
   const { flowInstance, nodes, edges, updateNode } = useFlow(selector, shallow);
   const { savedGroups, saveGroup } = useNodeStorage(nodeStorageSelector, shallow)
   useEffect(() => {
@@ -85,7 +71,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
 
   const onGroupNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
-    updateNode({ ...node, data: { ...node.data, name: event.target.value } })
+    updateNode({ ...node, data: new GroupData({ ...node.data, name: event.target.value }) })
   }, [node, updateNode])
 
   if (!node) {
@@ -112,7 +98,7 @@ function GroupNode({ id, data }: NodeProps<GroupData<InitGroupData>>) {
 
             <button className='border rounded border-black p-1'
               onClick={() => {
-                updateNode({ ...node, data: { ...node.data, locked: !node.data.locked } })
+                updateNode({ ...node, data: new GroupData({ ...node.data, locked: !node.data.locked }) })
               }}
             >
               {data.locked ? "Locked" : "Unlocked"}

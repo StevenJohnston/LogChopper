@@ -13,9 +13,7 @@ import {
   applyEdgeChanges,
   updateEdge,
   ReactFlowInstance,
-  Node,
 } from "reactflow";
-import { v4 as uuid } from "uuid";
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { BaseTableNodeType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
@@ -35,19 +33,22 @@ import { CombineNodeType } from "@/app/_components/FlowNodes/Combine/CombineType
 import { CombineAdvancedTableNodeType } from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes";
 import { LogAlterNodeType } from "@/app/_components/FlowNodes/LogAlter/LogAlterTypes";
 import { RunningLogAlterNodeType } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes";
+import { isRefreshableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
+import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
 
 export type MyNode =
-  | BaseTableNodeType
   | BaseLogNodeType
-  | ForkNodeType
   | LogFilterNodeType
+  | BaseRomNodeType
+  | BaseTableNodeType
+  | ForkNodeType
   | LogAlterNodeType
   | FillTableNodeType
   | FillLogTableNodeType
-  | GroupNodeType
   | CombineNodeType
   | CombineAdvancedTableNodeType
-  | RunningLogAlterNodeType;
+  | RunningLogAlterNodeType
+  | GroupNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -67,11 +68,11 @@ export type RFState = {
   softUpdateNode: (node: MyNode) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
-  orderedRefreshNodes: (
-    nodesIds: string[],
-    updateUUID: string,
-    i?: number
-  ) => Promise<void>;
+  // orderedRefreshNodes: (
+  //   nodesIds: string[],
+  //   sourceUpdate: RefreshSource,
+  //   i?: number
+  // ) => Promise<void>;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
 };
 
@@ -156,8 +157,11 @@ const useFlow = createWithEqualityFn<RFState>(
     },
     onNodesChange: (changes: NodeChange[]) => {
       console.log("onNodesChange");
-      set({
-        nodes: applyNodeChanges(changes, get().nodes) as MyNode[],
+      set((state) => {
+        return {
+          // @ts-ignore
+          nodes: applyNodeChanges(changes, state.nodes) as MyNode[],
+        };
       });
     },
     onEdgesChange: (changes: EdgeChange[]) => {
@@ -190,71 +194,120 @@ const useFlow = createWithEqualityFn<RFState>(
       });
     },
     softUpdateNode: async (node: MyNode) => {
-      set({
-        nodes: [...get().nodes.filter((n) => n.id != node.id), node],
+      await set((state) => {
+        const updateNode: MyNode | undefined = state.nodes.find(
+          (n) => n.id == node.id
+        );
+        if (!updateNode) return state;
+
+        if (isRefreshableNode(node) && isRefreshableNode(updateNode)) {
+          node.data.loading = updateNode.data.loading;
+        }
+        return {
+          ...state,
+          nodes: [
+            ...state.nodes.filter((n) => n.id != node.id),
+            node,
+          ] as MyNode[],
+        };
       });
     },
     updateNode: async (node: MyNode) => {
-      const updateUUID = uuid();
-      const nodes = get().nodes;
-      const edges = get().edges;
-      const updateOrder = topologicalSort(node, nodes, edges);
-      for (const updateNode of updateOrder) {
-        // Updates Node in place
-        updateNode.data = { ...updateNode.data, loading: true };
-        await set((state) => ({
-          nodes: [
-            //TODO maybe use nodes instead of ...get().nodes
-            ...state.nodes.filter((n) => n.id != updateNode.id),
+      await set((state) => {
+        // Instantly add new update
+        const allNodesUpdated = state.nodes.filter((n) => n.id != node.id);
+        allNodesUpdated.push(node);
+
+        const updateOrder = topologicalSort(node, allNodesUpdated, state.edges);
+        for (const updateNode of updateOrder) {
+          if (!isRefreshableNode(updateNode)) {
+            continue;
+          }
+          updateNode.data.activeUpdate?.worker.postMessage({
+            type: "kill",
+          });
+
+          updateNode.data.addWorkerPromise(
             updateNode,
-          ] as MyNode[],
-        }));
-      }
-      get().orderedRefreshNodes(
-        updateOrder.map((u) => u.id),
-        updateUUID
-      );
+            allNodesUpdated,
+            state.edges
+          );
+
+          updateNode.data.activeUpdate?.promise
+            .then((refreshedData) => {
+              // TODO how can i tell typescript that this promise belongs to updateNode
+              set((state) => {
+                const thisNode = state.nodes.find(
+                  (n) => n.id == updateNode.id
+                ) as typeof updateNode;
+                if (!thisNode) return {};
+                if (!isRefreshableNode(thisNode)) return {};
+
+                refreshedData.loading = false;
+                if (!thisNode.data.isPartial(refreshedData)) {
+                  console.log(
+                    `addWorkerPromise has resolved with a non Partial data for node type ${thisNode.type}`
+                  );
+                  throw new Error(
+                    `addWorkerPromise has resolved with a non Partial data for node type ${thisNode.type}`
+                  );
+                }
+                // @ts-ignore Why typescript doesn't respect my .isPartial typeguard
+                thisNode.data = thisNode.data.clone(refreshedData);
+                return {
+                  nodes: [
+                    ...state.nodes.filter((n) => n.id != thisNode.id),
+                    thisNode,
+                  ],
+                };
+              });
+            })
+            .catch((e) => {
+              // Node may have updated internally
+              set((state) => {
+                const thisNode = state.nodes.find(
+                  (n) => n.id == updateNode.id
+                ) as typeof updateNode;
+                thisNode.data = thisNode.data.clone({});
+                return {
+                  nodes: [
+                    ...state.nodes.filter((n) => n.id != thisNode.id),
+                    thisNode,
+                  ],
+                };
+              });
+              console.log(
+                "Failed to getRefreshedData, skipping node update",
+                e
+              );
+            });
+          updateNode.data = updateNode.data.clone({
+            loading: true,
+          });
+        }
+
+        return {
+          nodes: allNodesUpdated,
+        };
+      });
     },
     updateEdge: async (edge: Edge, connection: Connection) => {
       set({
         edges: updateEdge(edge, connection, get().edges),
+      });
+
+      // Update target node, critical for childNode updates
+      set((state) => {
+        const targetNode = state.nodes.find((n) => n.id == connection.target);
+        if (!targetNode) return {};
+        state.updateNode(targetNode);
+        return {};
       });
     },
     setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => {
       set({
         reactFlowInstance,
       });
-    },
-    orderedRefreshNodes: async (
-      nodeIds: string[],
-      updateUUID: string,
-      i: number = 0
-    ) => {
-      if (nodeIds.length == 0 || i == nodeIds.length) return;
-
-      // TODO these nodes are out of date, thus we need to use setTimeout
-      const updateNode: Node | undefined = get().nodes.find(
-        (n) => n.id == nodeIds[i]
-      );
-      if (!updateNode) return;
-
-      await updateNode.data.refresh?.(updateNode, get().nodes, get().edges);
-      // Force inplaced update
-      updateNode.data = { ...updateNode.data, loading: false };
-
-      await set((state) => {
-        return {
-          ...state,
-          nodes: [
-            //TODO maybe use nodes instead of ...get().nodes
-            ...state.nodes.filter((n) => n.id != updateNode.id),
-            updateNode,
-          ] as MyNode[],
-        };
-      });
-      setTimeout(() => {
-        get().orderedRefreshNodes(nodeIds, updateUUID, i + 1);
-      }, 0);
     },
   })
   // )

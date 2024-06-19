@@ -12,6 +12,7 @@ const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   if (!scaling || value == undefined) return
   const xAxisMin = Number(scaling.min)
   const xAxisMax = Number(scaling.max)
+  if (xAxisMin <= xAxisMax) return "#FFF"
   const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
   try {
     const color = colorScale.getColor(value)

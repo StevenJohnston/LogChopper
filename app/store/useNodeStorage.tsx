@@ -7,7 +7,7 @@ import {
 
 import { createWithEqualityFn } from "zustand/traditional";
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { NodeFactoryLookup } from "@/app/_components/FlowNodes";
+import { NodeFactoryLookup } from "@/app/_components/FlowNodes/FlowNodesConsts";
 import { v4 as uuid } from "uuid";
 
 export interface SavedGroup {
@@ -72,8 +72,8 @@ export function cloneSavedGroup(savedGroup: SavedGroup): SavedGroup {
       ...node,
       id: newIdMap[node.id],
       parentNode: node.parentNode ? newIdMap[node.parentNode] : undefined,
-      //@ts-expect-error
-      data: NodeFactoryLookup[node.type](node.data),
+      // @ts-ignore
+      data: new (NodeFactoryLookup[node.type])(node.data),
       selected: undefined
     })
   }

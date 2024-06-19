@@ -1,43 +1,13 @@
 'use client'
 import { ChangeEvent, useCallback, useMemo, useState } from 'react';
-import { Position, NodeProps, Node, Edge } from 'reactflow';
+import { Position, NodeProps } from 'reactflow';
 
-import { LogData, TableData } from '@/app/_components/FlowNodes';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { getParentsByHandleIds } from '@/app/_lib/react-flow-utils';
-import { FillTableFromLog, duplicateTable } from '@/app/_lib/rom';
+import { duplicateTable } from '@/app/_lib/rom';
 import ModuleUI from '@/app/_components/Module';
-import { FillLogTableData, FillLogTableNodeType, FillLogTableType, InitFillLogTableData, sourceLogHandleId, sourceTableHandleId } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
+import { FillLogTableData, FillLogTableNodeType, FillLogTableType, sourceLogHandleId, sourceTableHandleId } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
-
-export function newFillLogTable({ weighted }: InitFillLogTableData): FillLogTableData {
-  return {
-    table: null,
-    weighted,
-    refresh: async function (node: Node, nodes: Node[], edges: Edge[]): Promise<void> {
-      const parentNodes = getParentsByHandleIds<[Node<TableData<string | number>>, Node<LogData>]>(node, nodes, edges, [sourceTableHandleId, sourceLogHandleId])
-      if (!parentNodes) {
-        this.table = null
-        return console.log("One or more parents are missing")
-      }
-      const [parentTable, parentLog] = parentNodes
-
-      const { table } = parentTable.data
-      if (!table) return console.log("table is missing from parent")
-      const logs = parentLog.data.logs
-
-      const newTable = FillTableFromLog(table, logs, this.weighted)
-      if (!newTable) return console.log("FillTableFromLog failed while NewFillLogTable.refresh")
-      this.table = newTable
-    },
-    getLoadable: function () {
-      return {
-        weighted: this.weighted
-      }
-    }
-  }
-}
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -67,11 +37,15 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
 
   const onWeightedChanged = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
-    // setFuncVal(event.target.value)
-    updateNode({ ...node, data: { ...node.data, weighted: event.target.checked } })
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        weighted: event.target.checked
+      })
+    })
   }, [node, updateNode])
 
-  // if (!table) return <div>Loading Table</div>
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-violet-300/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />

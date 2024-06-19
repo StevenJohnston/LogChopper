@@ -1,9 +1,7 @@
 'use client'
 
-import { newGroup } from "@/app/_components/FlowNodes/Group/GroupNode"
-import { GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes"
-import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode"
-import { LogFilterType, LogFilterNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
+import { GroupData, GroupNodeType, GroupType } from "@/app/_components/FlowNodes/Group/GroupNodeTypes"
+import { LogFilterType, LogFilterNodeType, LogFilterData } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
 import useFlow, { MyNode, RFState } from "@/app/store/useFlow"
 import useNodeStorage, { NodeStorageState, SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage"
 import { useCallback, useState } from "react"
@@ -18,6 +16,8 @@ import IPW from "@/app/_components/NodeSelector/IPW"
 import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
 import AFRLatency from "@/app/_components/NodeSelector/AFRLatency"
 import AccelFilter from "@/app/_components/NodeSelector/AccelFilter"
+import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
+import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -84,7 +84,7 @@ const NodeSelector = () => {
                 position: getViewportPosition(100, 100),
                 id: uuid(),
                 type: LogFilterType,
-                data: newLogFilter({}),
+                data: new LogFilterData({}),
                 dragHandle: '.drag-handle',
               }
               updateNode(logFilter)
@@ -95,6 +95,8 @@ const NodeSelector = () => {
           <IPW />
           <AFRLatency />
           <AccelFilter />
+          <div className="w-full">Rom</div>
+          <SelectedRom />
           <div className="w-full">Group Node</div>
           <NodeSelectorButton
             onClick={() => {
@@ -102,7 +104,7 @@ const NodeSelector = () => {
                 position: getViewportPosition(100, 100),
                 id: uuid(),
                 type: GroupType,
-                data: newGroup({ name: "New Group", locked: false }),
+                data: new GroupData({ name: "New Group", locked: false }),
                 style: { width: 400, height: 400, zIndex: -1 },
                 dragHandle: '.drag-handle',
               }
@@ -112,6 +114,7 @@ const NodeSelector = () => {
             Group
           </NodeSelectorButton>
           <MapAfrGroup />
+          <AfrMapGroup />
           {
             savedGroups.length > 0 &&
             <div

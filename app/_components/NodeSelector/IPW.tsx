@@ -1,10 +1,9 @@
-import { LogFilterType, LogFilterNodeType } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
+import { LogFilterType, LogFilterNodeType, LogFilterData } from "@/app/_components/FlowNodes/LogFilter/LogFilterTypes"
 import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
 import useFlow, { RFState } from "@/app/store/useFlow";
 import { useCallback } from "react";
 import { shallow } from "zustand/shallow";
 import { v4 as uuid } from "uuid";
-import { newLogFilter } from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -31,7 +30,7 @@ const IPW = () => {
           position: getViewportPosition(100, 100),
           id: uuid(),
           type: LogFilterType,
-          data: newLogFilter({ func: "IPW > 0" }),
+          data: new LogFilterData({ func: "IPW > 0" }),
           dragHandle: '.drag-handle',
         }
         updateNode(logFilter)

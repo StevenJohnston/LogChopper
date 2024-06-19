@@ -1,8 +1,11 @@
 'use client'
 import { Position, HandleProps } from 'reactflow';
+import { Table } from '@/app/_lib/rom-metadata';
+
+export type HandleTypes = Table<void>['type'] | "Log" | "Rom"
 
 export interface CustomHandleProps extends HandleProps {
-  dataType: "Log" | "1D" | "2D" | "3D"
+  dataType: HandleTypes
   label?: string
   top?: string
   right?: string

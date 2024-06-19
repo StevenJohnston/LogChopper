@@ -8,8 +8,7 @@ import SingleSvg from "../icons/single.svg"
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { v4 as uuid } from "uuid";
-import { newBaseTableData } from "@/app/_components/FlowNodes/BaseTable/BaseTableNode";
-import { BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
+import { BaseTableData, BaseTableType } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes";
 
 interface TableSelectorProps {
   scalingMap?: Record<string, Scaling>
@@ -77,7 +76,8 @@ const TableSelector: React.FC<TableSelectorProps> = ({ tableMap }) => {
                   updateNode({
                     id: uuid(),
                     type: BaseTableType,
-                    data: newBaseTableData({ tableKey: key }),
+                    // data: newBaseTableData({ tableKey: key }),
+                    data: new BaseTableData({ tableKey: key }),
                     position: { x: 300, y: 25 },
                     dragHandle: '.drag-handle',
                     // extent: 'parent',

@@ -38,6 +38,8 @@ Fork
 
 ### General
 
+Better Table<LogRecord[]> vs Table<string|number> typeguard's - isTableLogRecord, isTableBasic
+Webworkers - ArrayBuffers?
 Improve xlm, rom, log selection
 Improve eval variable naming
 Node naming - Allow nodes to have custom names

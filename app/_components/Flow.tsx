@@ -16,11 +16,11 @@ import ReactFlow, {
 import { v4 as uuid } from "uuid";
 
 import 'reactflow/dist/style.css';
+import useFlow, { RFState } from '@/app/store/useFlow';
 
 import BaseTableNode from '@/app/_components/FlowNodes/BaseTable/BaseTableNode'
 import BaseLogNode from "@/app/_components/FlowNodes/BaseLog/BaseLogNode";
 import ForkNode, { newForkData } from "@/app/_components/FlowNodes/ForkNode/ForkNode";
-import useFlow, { RFState } from '@/app/store/useFlow';
 import LogFilterNode from "@/app/_components/FlowNodes/LogFilter/LogFilterNode";
 import FillTableNode from "@/app/_components/FlowNodes/FillTable/FillTableNode";
 import FillLogTableNode from "@/app/_components/FlowNodes/FillLogTable/FillLogTableNode";
@@ -30,6 +30,7 @@ import CombineNode from "@/app/_components/FlowNodes/Combine/CombineNode";
 import CombineAdvancedTableNode from "@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableNode";
 import LogAlterNode from "@/app/_components/FlowNodes/LogAlter/LogAlterNode";
 import RunningLogAlterNode from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterNode";
+import BaseRomNode from "@/app/_components/FlowNodes/BaseRom/BaseRomNode";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -47,7 +48,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    return { BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode }
+    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode }
   }, [])
 
   const connectingNodeId = useRef<string | null>(null);
