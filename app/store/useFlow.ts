@@ -204,7 +204,6 @@ const useFlow = createWithEqualityFn<RFState>(
           node.data.loading = updateNode.data.loading;
         }
         return {
-          ...state,
           nodes: [
             ...state.nodes.filter((n) => n.id != node.id),
             node,

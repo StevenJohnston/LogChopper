@@ -1,14 +1,17 @@
 'use client'
-import { Table } from "../_lib/rom-metadata";
+import { Scaling, Table } from "../_lib/rom-metadata";
 import TableUI from "./TableUI";
 import Surface from "./Surface";
 import { forwardRef, useState } from "react";
 
 interface RomModuleUIProps {
   table: Table<string | number>
+  scalingMap?: Record<string, Scaling> | null
+  scalingValue?: Scaling | null
+  setScalingValue?: (scalingValue: Scaling | undefined | null) => void
 }
 
-const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table }, ref) => {
+const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table, scalingMap, scalingValue, setScalingValue }, ref) => {
   const [showSurface, setShowSurface] = useState<boolean>(false)
 
   return (
@@ -16,6 +19,9 @@ const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table }
       <div className="flex flex-row">
         <TableUI
           table={table}
+          scalingValue={scalingValue}
+          scalingMap={scalingMap}
+          setScalingValue={setScalingValue}
           ref={ref}
         />
         {

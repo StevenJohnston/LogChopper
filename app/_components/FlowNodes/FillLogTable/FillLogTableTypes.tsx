@@ -28,7 +28,9 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
   public scalingMap: Record<string, Scaling> | null;
   public selectedRomFile: File | null;
   public weighted: boolean = false
+  public scalingValue: Scaling | undefined | null
   public loading: boolean = false;
+
   constructor({
     table = null,
     weighted = false,
@@ -38,6 +40,7 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
     selectedRomFile = null,
     loading = false,
     activeUpdate = null,
+    scalingValue = null
   }: FillLogTableDataProps) {
     super()
     this.weighted = weighted
@@ -48,6 +51,7 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
     this.tableMap = tableMap
     this.scalingMap = scalingMap
     this.selectedRomFile = selectedRomFile
+    this.scalingValue = scalingValue
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -171,7 +175,8 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
   }
   public getLoadable() {
     return {
-      weighted: this.weighted
+      weighted: this.weighted,
+      scalingValue: this.scalingValue
     }
   }
   public clone(updates: Partial<FillLogTableData>): FillLogTableData {
@@ -184,6 +189,7 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
       tableMap: this.tableMap,
       scalingMap: this.scalingMap,
       selectedRomFile: this.selectedRomFile,
+      scalingValue: this.scalingValue,
       ...updates
     })
   }

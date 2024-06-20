@@ -1,15 +1,23 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps, useUpdateNodeInternals } from 'reactflow';
-
-import ModuleUI from '../../Module';
 
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 
-import { BaseTableData, targetRomHandleId } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes"
+import { BaseTableData, BaseTableNodeType, BaseTableType, targetRomHandleId } from "@/app/_components/FlowNodes/BaseTable/BaseTableTypes"
+import RomModuleUI from '@/app/_components/RomModuleUI';
+import { Scaling } from '@/app/_lib/rom-metadata';
+import useFlow, { RFState } from '@/app/store/useFlow';
+import { shallow } from 'zustand/shallow';
 
 
+const selector = (state: RFState) => ({
+  nodes: state.nodes,
+  updateNode: state.updateNode,
+  softUpdateNode: state.softUpdateNode
+});
 function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData>) {
+  const { nodes, softUpdateNode } = useFlow(selector, shallow);
 
   const [expanded, setExpanded] = useState<boolean>()
   const childRef = useRef<HTMLTextAreaElement>(null)
@@ -17,6 +25,15 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData>) {
   const onFocus = useCallback(() => {
     childRef.current?.focus()
   }, [])
+
+
+  const node: BaseTableNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == BaseTableType) {
+        return n
+      }
+    }
+  }, [id, nodes])
 
   const updateNodeInternals = useUpdateNodeInternals()
 
@@ -26,11 +43,23 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData>) {
     }
   }, [id, data.tableType, updateNodeInternals])
 
+
+  const setScalingValue = useCallback((scalingValue: Scaling | undefined | null) => {
+    if (!node) return
+    softUpdateNode({
+      ...node,
+      data: node.data.clone({
+        scalingValue: scalingValue
+      })
+    })
+  }, [node, softUpdateNode])
+
   if (data?.table?.type == "Other") {
     return (
       <div>Other type table unrenderable</div>
     )
   }
+
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-red-400/75 ${data.loading && 'animate-pulse'}`} onClick={onFocus}>
       <CustomHandle dataType={"Rom"} type="target" position={Position.Left} id={targetRomHandleId} isConnectable={isConnectable} />
@@ -49,9 +78,12 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData>) {
       {
         data.table
         && expanded
-        && <ModuleUI
+        && <RomModuleUI
           ref={childRef}
-          module={{ type: 'base', table: data.table }}
+          table={data.table}
+          scalingMap={data.scalingMap}
+          scalingValue={data.scalingValue}
+          setScalingValue={setScalingValue}
         />
       }
       {

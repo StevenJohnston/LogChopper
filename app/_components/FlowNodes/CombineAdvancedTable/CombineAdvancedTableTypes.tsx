@@ -33,6 +33,7 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
   public selectedRomFile: File | null;
   public sourceTable: BasicTable | null
   public destTable: BasicTable | null
+  public scalingValue: Scaling | undefined | null
 
   public loading: boolean = false;
   constructor({
@@ -46,6 +47,7 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
     activeUpdate = null,
     sourceTable = null,
     destTable = null,
+    scalingValue = undefined,
   }: CombineAdvancedTableDataProps) {
     super()
     this.tableType = tableType
@@ -58,6 +60,7 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
     this.selectedRomFile = selectedRomFile
     this.sourceTable = sourceTable
     this.destTable = destTable
+    this.scalingValue = scalingValue
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -176,6 +179,11 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
           if (updatedDestData.table && isTableBasic(updatedDestData.table)) {
             node.data.destTable = updatedDestData.table || null
           }
+
+          if (this.scalingValue === undefined) {
+            node.data.scalingValue = updatedSourceData.table?.scalingValue
+          }
+
           resolveRefresh(node.data)
           return
         }
@@ -204,7 +212,8 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
   public getLoadable() {
     return {
       matchCriteria: this.matchCriteria,
-      tableType: this.tableType
+      tableType: this.tableType,
+      scalingValue: this.scalingValue
     }
   }
   public clone(updates: Partial<CombineAdvancedTableData>): CombineAdvancedTableData {
@@ -219,6 +228,7 @@ export class CombineAdvancedTableData extends RefreshableNode<CombineAdvancedTab
       selectedRomFile: this.selectedRomFile,
       sourceTable: this.sourceTable,
       destTable: this.destTable,
+      scalingValue: this.scalingValue,
       ...updates
     })
   }

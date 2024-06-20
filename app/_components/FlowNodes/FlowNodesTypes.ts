@@ -82,6 +82,7 @@ export interface RomNode {
 export interface TableNode extends RomNode {
   table: BasicTable | LogTable | null;
   tableType: HandleTypes | undefined;
+  scalingValue: Scaling | undefined | null;
 }
 
 // TODO create better tpying around BasicTable and LogTable

@@ -4,21 +4,23 @@ import { Position, NodeProps, useUpdateNodeInternals } from 'reactflow';
 
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import RomModuleUI from '@/app/_components/RomModuleUI';
-import { CombineAdvancedTableData, sourceHandleId, destHandleId, CombineAdvancedTableNodeType } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes';
+import { CombineAdvancedTableData, sourceHandleId, destHandleId, CombineAdvancedTableNodeType, CombineAdvancedTableType } from '@/app/_components/FlowNodes/CombineAdvancedTable/CombineAdvancedTableTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { SourceField } from '@/app/_lib/rom';
+import { Scaling } from '@/app/_lib/rom-metadata';
 
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
   updateNode: state.updateNode,
+  softUpdateNode: state.softUpdateNode
 });
 
 function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvancedTableData>) {
   const childRef = useRef<HTMLTextAreaElement>(null)
 
-  const { nodes, updateNode } = useFlow(selector, shallow);
+  const { nodes, updateNode, softUpdateNode } = useFlow(selector, shallow);
 
   const [expanded, setExpanded] = useState<boolean>(false)
 
@@ -31,6 +33,15 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
       { 'name': data.destTable.scaling, 'source': 'Value' }
     ]
   }, [data.destTable])
+
+
+  const node: CombineAdvancedTableNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == CombineAdvancedTableType) {
+        return n
+      }
+    }
+  }, [id, nodes])
 
   const onXMatch = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     const source = event.target.value as SourceField
@@ -70,6 +81,17 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
       updateNodeInternals(id)
     }
   }, [id, data.tableType, updateNodeInternals])
+
+
+  const setScalingValue = useCallback((scalingValue: Scaling | undefined | null) => {
+    if (!node) return
+    softUpdateNode({
+      ...node,
+      data: node.data.clone({
+        scalingValue: scalingValue
+      })
+    })
+  }, [node, softUpdateNode])
 
   if (data.destTable?.type != "3D") {
     console.log(
@@ -161,8 +183,11 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
             {
               expanded
               && <RomModuleUI
-                table={data.table}
                 ref={childRef}
+                table={data.table}
+                scalingMap={data.scalingMap}
+                scalingValue={data.scalingValue}
+                setScalingValue={setScalingValue}
               />
             }
           </div>

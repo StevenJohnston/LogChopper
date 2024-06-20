@@ -29,6 +29,7 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
   public tableMap: Record<string, BasicTable> | null;
   public scalingMap: Record<string, Scaling> | null;
   public selectedRomFile: File | null;
+  public scalingValue: Scaling | undefined | null
   public loading: boolean = false;
 
   constructor({
@@ -40,6 +41,7 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
     selectedRomFile = null,
     loading = false,
     activeUpdate = null,
+    scalingValue = undefined
   }: BaseTableDataProps) {
     super()
     this.tableKey = tableKey
@@ -50,6 +52,7 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
     this.tableMap = tableMap
     this.scalingMap = scalingMap
     this.selectedRomFile = selectedRomFile
+    this.scalingValue = scalingValue
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -122,6 +125,8 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
           node.data.tableMap = romParentNode.data.tableMap
           node.data.selectedRomFile = romParentNode.data.selectedRomFile
 
+          node.data.scalingValue = data.data.table.scalingValue
+
           resolveRefresh(node.data)
           return
         }
@@ -151,7 +156,8 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
   public getLoadable() {
     return {
       tableKey: this.tableKey,
-      tableType: this.tableType
+      tableType: this.tableType,
+      scalingValue: this.scalingValue
     }
   }
   public clone(updates: Partial<BaseTableData>): BaseTableData {
@@ -164,6 +170,7 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
       tableMap: this.tableMap,
       scalingMap: this.scalingMap,
       selectedRomFile: this.selectedRomFile,
+      scalingValue: this.scalingValue,
       ...updates
     })
   }
