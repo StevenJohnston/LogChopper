@@ -33,8 +33,9 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
   public selectedRomFile: File | null;
   public logField: keyof LogRecord
   public aggregator: Aggregator
-  public loading: boolean = false;
   public sourceTable: LogTable | null
+  public scalingValue: Scaling | undefined | null
+  public loading: boolean = false;
 
   constructor({
     logField = "",
@@ -46,7 +47,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
     selectedRomFile = null,
     loading = false,
     activeUpdate = null,
-    sourceTable = null
+    sourceTable = null,
+    scalingValue = undefined
 
   }: FillTableDataProps) {
     super()
@@ -60,6 +62,7 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
     this.scalingMap = scalingMap
     this.selectedRomFile = selectedRomFile
     this.sourceTable = sourceTable
+    this.scalingValue = scalingValue
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -149,6 +152,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
             node.data.sourceTable = updatedSourceTable.table || null
           }
 
+          node.data.scalingValue = updatedSourceTable.scalingMap?.[this.logField]
+
           resolveRefresh(node.data)
           return
         }
@@ -179,7 +184,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
     return {
       logField: this.logField,
       aggregator: this.aggregator,
-      tableType: this.tableType
+      tableType: this.tableType,
+      scalingValue: this.scalingValue
     }
   }
   public clone(updates: Partial<FillTableData>): FillTableData {
@@ -196,6 +202,7 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
       tableMap: this.tableMap,
       scalingMap: this.scalingMap,
       selectedRomFile: this.selectedRomFile,
+      scalingValue: this.scalingValue,
       ...updates
     })
   }

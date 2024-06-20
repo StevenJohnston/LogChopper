@@ -7,20 +7,20 @@ import RomModuleUI from '@/app/_components/RomModuleUI';
 import { CombineData, CombineNodeType, CombineType, targetTableOneHandleID, targetTableTwoHandleID } from '@/app/_components/FlowNodes/Combine/CombineTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
+import { Scaling } from '@/app/_lib/rom-metadata';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
   updateNode: state.updateNode,
-  // softUpdateNode: state.softUpdateNode
+  softUpdateNode: state.softUpdateNode
 });
 function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
   const childRef = useRef<HTMLTextAreaElement>(null)
-  const { nodes, updateNode } = useFlow(selector, shallow);
+  const { nodes, updateNode, softUpdateNode } = useFlow(selector, shallow);
 
   const [funcVal, setFuncVal] = useState(data.func)
 
   const [expanded, setExpanded] = useState<boolean>(false)
-  // const { scalingMap } = useRom()
 
   const node: CombineNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
@@ -49,6 +49,16 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
       })
     })
   }, [node, updateNode])
+
+  const setScalingValue = useCallback((scalingValue: Scaling | undefined | null) => {
+    if (!node) return
+    softUpdateNode({
+      ...node,
+      data: node.data.clone({
+        scalingValue: scalingValue
+      })
+    })
+  }, [node, softUpdateNode])
 
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-amber-400/75 ${data.loading && 'animate-pulse'}`}>
@@ -84,6 +94,9 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
               && <RomModuleUI
                 ref={childRef}
                 table={data.table}
+                scalingMap={data.scalingMap}
+                scalingValue={data.scalingValue}
+                setScalingValue={setScalingValue}
               />
             }
           </div>

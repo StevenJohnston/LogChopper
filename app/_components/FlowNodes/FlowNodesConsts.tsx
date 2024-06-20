@@ -15,21 +15,10 @@ export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType,
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 
-// export interface RefreshableNode<T> extends Cloneable<T> {
-//   loading?: boolean
-//   updates?: RefreshSource[]
-//   activeUpdate: KillablePromise<T> | null
-//   refresh(node: MyNode, nodes: MyNode[], edges: Edge[]): KillablePromise<T>
-//   clone(): T
-//   createWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[], worker: Worker): Promise<T>
-// }
-
-
 export const NodeFactoryLookup = {
   [BaseRomType]: BaseRomData,
   [BaseLogType]: BaseLogData,
   [BaseTableType]: BaseTableData,
-  // [ForkType]: newForkData,
   [FillLogTableType]: FillLogTableData,
   [FillTableType]: FillTableData,
   [GroupType]: GroupData,

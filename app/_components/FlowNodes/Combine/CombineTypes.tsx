@@ -26,9 +26,9 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
   public tableMap: Record<string, BasicTable> | null;
   public scalingMap: Record<string, Scaling> | null;
   public selectedRomFile: File | null;
-
-
+  public scalingValue: Scaling | undefined | null
   public loading: boolean = false;
+
   constructor({
     tableType = undefined,
     func = "",
@@ -36,8 +36,9 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
     tableMap = null,
     scalingMap = null,
     selectedRomFile = null,
-    loading = false,
     activeUpdate = null,
+    scalingValue = undefined,
+    loading = false,
   }: CombineDataProps) {
     super()
     this.tableType = tableType
@@ -48,6 +49,7 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
     this.tableMap = tableMap
     this.scalingMap = scalingMap
     this.selectedRomFile = selectedRomFile
+    this.scalingValue = scalingValue
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -144,6 +146,10 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
           node.data.tableMap = updatedSourceData?.tableMap || null
           node.data.selectedRomFile = updatedSourceData?.selectedRomFile || null
 
+          if (this.scalingValue === undefined) {
+            node.data.scalingValue = updatedSourceData.table?.scalingValue
+          }
+
           resolveRefresh(node.data)
           return
         }
@@ -172,7 +178,8 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
   public getLoadable() {
     return {
       func: this.func,
-      tableType: this.tableType
+      tableType: this.tableType,
+      scalingValue: this.scalingValue
     }
   }
   public clone(updates: Partial<CombineData>): CombineData {
@@ -185,6 +192,7 @@ export class CombineData extends RefreshableNode<CombineData> implements TableNo
       tableMap: this.tableMap,
       scalingMap: this.scalingMap,
       selectedRomFile: this.selectedRomFile,
+      scalingValue: this.scalingValue,
       ...updates
     })
   }

@@ -3,16 +3,21 @@ import { Axis, BasicTable, Scaling, isTable2DX, isTable2DY } from "../_lib/rom-m
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
 import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
+import ScalingSelector from "@/app/_components/ScalingSelector";
 
 interface TableUIProps {
   table: BasicTable
+
+  scalingMap?: Record<string, Scaling> | null
+  scalingValue?: Scaling | null
+  setScalingValue?: (scalingValue: Scaling | undefined | null) => void
 }
 type CellPos = [number, number]
 const getColor = (scaling: Scaling | undefined, value: number | undefined) => {
   if (!scaling || value == undefined) return
   const xAxisMin = Number(scaling.min)
   const xAxisMax = Number(scaling.max)
-  if (xAxisMin <= xAxisMax) return "#FFF"
+  if (xAxisMin >= xAxisMax) return "#CCC"
   const colorScale = new ColorScale(xAxisMin, xAxisMax, ['#00ffff', '#ff8b25'])
   try {
     const color = colorScale.getColor(value)
@@ -57,7 +62,7 @@ const isCellWithinSelection = (cell: CellPos, minCell: CellPos, maxCell: CellPos
   return false
 }
 
-const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAreaRef) => {
+const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingMap, scalingValue, setScalingValue }, textAreaRef) => {
 
   const [selectStartCell, setSelectStartCell] = useState<CellPos>()
   const [selectEndCell, setSelectEndCell] = useState<CellPos>()
@@ -127,7 +132,8 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
   }, [highlightCells, setSelectEndCell])
 
   const tableScaling: Scaling | undefined = useMemo(() => {
-    if (table?.scalingValue?.min != undefined && table?.scalingValue?.max != undefined) return table.scalingValue
+    if (scalingValue) return scalingValue
+    // if (table?.scalingValue?.min != undefined && table?.scalingValue?.max != undefined) return table.scalingValue
     if (table.type == "Other") return undefined
     if (table.type == "1D") return { min: table.values, max: table.values }
     let min = Infinity
@@ -153,7 +159,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
       })
     }
     return { min, max }
-  }, [table])
+  }, [table, scalingValue])
 
   const formatCell = useCallback((row: number, col: number, cell: string | number): CSSProperties => {
     if (selectStartCell && selectEndCell) {
@@ -231,7 +237,6 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
     } catch (error) {
       return ""
     }
-
   }, [])
 
   if (!table) return <div>Loading Table</div>
@@ -241,6 +246,20 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
   return (
     <div className="flex flex-col items-center text-[12px] pr-2">
       <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
+      {
+        scalingMap
+        && <div className="w-full mt-2 flex-col justify-end items-center">
+          <p className="block mb-1 text-sm font-medium text-gray-900">Colour Scale</p>
+
+          <ScalingSelector
+            scalingMap={scalingMap}
+            scalingValue={scalingValue}
+            setScalingValue={setScalingValue}
+          />
+        </div>
+      }
+
+
       <div className="flex text-center flex-grow">{table?.xAxis?.name}</div>
       <div className="flex max-w-full">
         <div className="inline text-center rotate-180" style={{ writingMode: "vertical-rl" }}>
@@ -267,7 +286,6 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
           </thead>
           <tbody>
             {
-              // table?.values?.map((row: (string | number | (string | number)[]), rowI: number) => {
               table?.values?.map((row, rowI) => {
                 const yAxisValue = table?.yAxis?.values?.[rowI]
                 return (
@@ -290,13 +308,12 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table }, textAr
                             data-cellpos={[rowI, colI]}
                             key={`${rowI}-${colI}`}
                             className="text-center border border-gray-300"
-                            // style={{ backgroundColor: getColor(table.scalingValue, parseFloat(cell.toString())) }}
                             style={formatCell(rowI, colI, cell)}
                             onMouseDown={cellOnMouseDown}
                             onMouseUp={cellOnMouseUp}
                             onMouseEnter={cellOnMouseEnter}
                           >
-                            {getTableValue(table?.scalingValue?.format || '', cell)}
+                            {getTableValue(scalingValue?.format || '%.2f', cell)}
                           </td>
                         )
                       })
