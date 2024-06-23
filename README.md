@@ -8,9 +8,9 @@ React flow
 `app/store/useFlow.ts`
 `app/_components/Flow.tsx`
 Loadable node
-`app/_components/FlowNodes/index.tsx`
+`app/_components/FlowNodes/FlowNodesConsts.tsx`
 Fork
-`app/_components/FlowNodes/index.tsx`
+`app/_components/FlowNodes/FlowNodesConsts.tsx`
 
 ## Useful nodes not yet node selector'd
 

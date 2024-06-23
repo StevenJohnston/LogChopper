@@ -35,6 +35,7 @@ import { LogAlterNodeType } from "@/app/_components/FlowNodes/LogAlter/LogAlterT
 import { RunningLogAlterNodeType } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes";
 import { isRefreshableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
+import { AfrShiftNodeType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
 
 export type MyNode =
   | BaseLogNodeType
@@ -48,6 +49,7 @@ export type MyNode =
   | CombineNodeType
   | CombineAdvancedTableNodeType
   | RunningLogAlterNodeType
+  | AfrShiftNodeType
   | GroupNodeType;
 
 const initialNodes = [] as MyNode[];
