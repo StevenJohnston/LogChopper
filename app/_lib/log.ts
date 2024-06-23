@@ -223,3 +223,114 @@ function findNextIndex(
   }
   return null;
 }
+
+const FullLeanIPW: number = 0;
+const FullLeanAfr: number = 18.5;
+interface AfrShiftOptions {
+  maxDelaySeconds?: number;
+  minAfrDurationSeconds?: number;
+}
+
+// AFR values are inherently delayed in the log. This shifts the AFR values forward to match the IPW curve.
+export function fixAfrLag(
+  logRecords: Partial<LogRecord>[],
+  { maxDelaySeconds = 2, minAfrDurationSeconds = 5 }: AfrShiftOptions
+): void {
+  for (
+    let startIpwIndex = 0;
+    startIpwIndex < logRecords.length;
+    startIpwIndex++
+  ) {
+    const startIpwLogRecord = logRecords[startIpwIndex];
+    if (startIpwLogRecord.LogEntrySeconds == undefined) {
+      console.log("AfrShift - startIpwLogRecord.LogEntrySeconds is missing");
+      continue;
+    }
+    //Find first log that is not full-lean, set AFR full-lean if 0 IPW
+    if (startIpwLogRecord.IPW == FullLeanIPW) {
+      startIpwLogRecord.AFR = FullLeanAfr;
+      continue;
+    }
+
+    let endIpwIndex = startIpwIndex;
+    for (; endIpwIndex < logRecords.length - 1; endIpwIndex++) {
+      if (logRecords[endIpwIndex + 1].IPW == FullLeanIPW) {
+        break;
+      }
+    }
+
+    // Since AFR Follows IPW we can start from the IPW start index
+    let startAfrIndex = startIpwIndex;
+
+    let afrTooLaggy = false;
+    for (; startAfrIndex < logRecords.length; startAfrIndex++) {
+      const startAfrLogRecrod = logRecords[startAfrIndex];
+      if (startAfrLogRecrod.LogEntrySeconds == undefined) {
+        continue;
+      }
+      const afrLagSeconds =
+        startAfrLogRecrod.LogEntrySeconds - startIpwLogRecord.LogEntrySeconds;
+      if (afrLagSeconds > maxDelaySeconds) {
+        console.warn(
+          `AfrShift AFR Lagging to far behind IPW lagSeconds: ${afrLagSeconds}`
+        );
+        afrTooLaggy = true;
+      }
+      if (startAfrLogRecrod.AFR != FullLeanAfr) {
+        break;
+      }
+    }
+    if (afrTooLaggy) {
+      logRecords[startIpwIndex].AFR = 18.5;
+      logRecords[startIpwIndex].IPW = 0;
+      continue;
+    }
+    if (startAfrIndex == logRecords.length) {
+      // All end Logs are lean. No addition edits required
+      break;
+    }
+    const lastIpwRecord = logRecords[endIpwIndex];
+    let endAfrIndex = startAfrIndex;
+    for (; endAfrIndex < logRecords.length - 1; endAfrIndex++) {
+      if (
+        (logRecords[endAfrIndex].LogEntrySeconds || 0) - maxDelaySeconds >
+        (lastIpwRecord.LogEntrySeconds || 0)
+      ) {
+        console.log("AfrShift AFR rich reading too long");
+        break;
+      }
+      if (logRecords[endAfrIndex + 1].AFR == FullLeanAfr) {
+        break;
+      }
+    }
+    const endAfrSeconds = logRecords[endAfrIndex].LogEntrySeconds || 0;
+    const startAfrSeconds = logRecords[startAfrIndex].LogEntrySeconds || 0;
+    if (endAfrSeconds - startAfrSeconds < minAfrDurationSeconds) {
+      console.log("AfrShift AFR reading rich for too short");
+      // Simple solution, set current record to full rich
+      // and go to next record.
+      logRecords[startIpwIndex].AFR = 18.5;
+      logRecords[startIpwIndex].IPW = 0;
+      continue;
+    }
+
+    const ipwRecordCount = endIpwIndex - startIpwIndex + 1;
+    const afrRecordCount = endAfrIndex - startAfrIndex + 1;
+    // Update all records between startIpwIndex and endLeanIpwIndex
+    for (
+      let updateRecordIndex = startIpwIndex;
+      updateRecordIndex <= endIpwIndex;
+      updateRecordIndex++
+    ) {
+      const ipwProgression =
+        (updateRecordIndex - startIpwIndex) / (ipwRecordCount - 1) || 0;
+      const futureAfrRecord =
+        startAfrIndex + (afrRecordCount - 1) * ipwProgression;
+      const earilyAfr = logRecords[Math.floor(futureAfrRecord)].AFR || 0;
+      const lateAfr = logRecords[Math.ceil(futureAfrRecord)].AFR || 0;
+      const newAfr = (lateAfr - earilyAfr) * (ipwProgression % 1) + earilyAfr;
+      logRecords[updateRecordIndex].AFR = newAfr;
+    }
+    startIpwIndex = endIpwIndex;
+  }
+}

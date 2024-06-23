@@ -8,3 +8,4 @@ build/*
 .next
 out
 .DS_Store
+public/sw.js

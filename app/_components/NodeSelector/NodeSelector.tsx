@@ -14,10 +14,10 @@ import { shallow } from "zustand/shallow"
 import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
 import IPW from "@/app/_components/NodeSelector/IPW"
 import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
-import AFRLatency from "@/app/_components/NodeSelector/AFRLatency"
 import AccelFilter from "@/app/_components/NodeSelector/AccelFilter"
 import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
 import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
+import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -93,8 +93,9 @@ const NodeSelector = () => {
             Base Log Filter
           </NodeSelectorButton>
           <IPW />
-          <AFRLatency />
+          <AfrShifter />
           <AccelFilter />
+
           <div className="w-full">Rom</div>
           <SelectedRom />
           <div className="w-full">Group Node</div>

@@ -10,6 +10,7 @@ import { CombineData, CombineType } from '@/app/_components/FlowNodes/Combine/Co
 import { LogAlterData, LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
 import { RunningLogAlterData, RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
 import { BaseRomData, BaseRomType } from '@/app/_components/FlowNodes/BaseRom/BaseRomTypes';
+import { AfrShiftData, AfrShiftType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
 
 export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
@@ -27,4 +28,5 @@ export const NodeFactoryLookup = {
   [CombineAdvancedTableType]: CombineAdvancedTableData,
   [CombineType]: CombineData,
   [RunningLogAlterType]: RunningLogAlterData,
+  [AfrShiftType]: AfrShiftData
 } as const

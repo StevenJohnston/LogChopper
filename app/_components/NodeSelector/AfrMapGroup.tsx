@@ -143,12 +143,8 @@ const savedGroup: SavedGroup = {
         "y": 51.62075193554773
       },
       "id": "7b0a8470-9afb-484b-a5f4-b368328ef448",
-      "type": "RunningLogAlterNode",
-      "data": {
-        "newFieldName": "AFR",
-        "untilFunc": "reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);\n[reduced > 2500000, reduced];",
-        "alterFunc": "futureLogRecord.AFR"
-      },
+      "type": "AfrShiftNode",
+      "data": {},
       "width": 402,
       "height": 296,
       "positionAbsolute": {
