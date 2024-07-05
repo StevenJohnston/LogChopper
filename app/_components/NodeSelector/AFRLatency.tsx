@@ -33,7 +33,7 @@ const AFRLatency = () => {
           data: new RunningLogAlterData({
             alterFunc: `currentLogRecord.AFR`,
             untilFunc: `reduced = accumulator + currentLogRecord.RPM * pow(currentLogRecord.Load + 30, 1.4);
-[reduced > 2500000, reduced];`,
+[reduced > 2500000, currentIndex + 1, reduced];`,
             newFieldName: `AFR`
           }),
           dragHandle: '.drag-handle',

@@ -6,21 +6,29 @@
 
 This car tuning software leverages a variety of web technologies to provide in-depth analysis of vehicle data. Key features include:
 
-- Binary file (.bin, .srf) table extraction and visualization
+- ROM file (.bin, .srf) table extraction and visualization ([ECUFlash](https://www.tactrix.com/index.php?option=com_content&view=category&layout=blog&id=36) compatible)
 - Sensor data (.csv) overlay, filtering, and custom logic application
 - Efficient handling of large log files (10k+ entries)
+- Multiple log file selection (.csv)
+- Combine ROM table and sensor data
+- Combine and aggregate tables
+- Savable logic groupings
+- Downloadable Progressive Web APP (PWA) available for offline use
 
-Although developed for my personal use, the project may be of interest to car enthusiasts or developers working with similar data formats. Please note that it may require customization for different vehicle models.
+Although developed for my personal use, the project may be of interest to car enthusiasts or developers working with similar data formats. Please note while it should work with other ECUFlash compatible vehicles, I have only tested on an 2015 EVO X.
 
 ## Technologies
 
 This project is pretty much just a DAG in the browser.
 
 - [Next.js](https://nextjs.org/) - app router - All `use client` so it can be hosted on github pages
-- [React Flow](https://reactflow.dev/) - Handles the visuals for "A customizable React component for building node-based editors and interactive diagrams"
+- [React Flow](https://reactflow.dev/) - Handles visual representations of data and relationships
 - [expr-eval](https://www.npmjs.com/package/expr-eval) - "A safer and more math-oriented alternative to using JavaScript’s eval"
-- [Tailwind CSS](https://tailwindcss.com/) - Pretty
-- [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) - Nodes will often have 10k+ LogRecords some running O(n^2). These processes are off loaded to Web Workers.
+- [Apache ECharts](https://echarts.apache.org/en/index.html) - 3D Surface charts for table visualization.
+- [Zustand](https://zustand-demo.pmnd.rs/) - State management
+- [Tailwind CSS](https://tailwindcss.com/) - Simply Pretty
+- [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) - Offload heavy processes to Web Workers.
+- [Progressive web app](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) - Downloadable offline site
 
 ## Getting Started
 
@@ -71,7 +79,8 @@ Here explains how each of the Nodes can be used
 
 - Use at own risk. I take no responsibility for any damages to your vehicle
 - I am not a disassembled engineer. My underlying understanding of the ECU is very rudimentary.
-- Have not tested little endian
+- I have not tested little endian
+- Currently only 3D tables work
 - .srf files assume a header of 328 bytes
 
 ## Development
