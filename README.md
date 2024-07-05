@@ -9,6 +9,7 @@ This car tuning software leverages a variety of web technologies to provide in-d
 - ROM file (.bin, .srf) table extraction and visualization ([ECUFlash](https://www.tactrix.com/index.php?option=com_content&view=category&layout=blog&id=36) compatible)
 - Sensor data (.csv) overlay, filtering, and custom logic application
 - Efficient handling of large log files (10k+ entries)
+- Create intuitive data [Graphs](<https://en.wikipedia.org/wiki/Graph_(abstract_data_type)>) via `Flow` interface
 - Multiple log file selection (.csv)
 - Combine ROM table and sensor data
 - Combine and aggregate tables
