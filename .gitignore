@@ -9,3 +9,4 @@ build/*
 out
 .DS_Store
 public/sw.js
+tsconfig.tsbuildinfo
