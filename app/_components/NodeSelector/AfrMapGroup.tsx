@@ -163,7 +163,7 @@ const savedGroup: SavedGroup = {
       "type": "RunningLogAlterNode",
       "data": {
         "newFieldName": "delete",
-        "untilFunc": "[true, currentLogRecord.RPM]",
+        "untilFunc": "[true, currentIndex + 1, currentLogRecord.RPM]",
         "alterFunc": "logRecord.delete or logRecord.RPM + 0 > accumulator"
       },
       "dragHandle": ".drag-handle",
