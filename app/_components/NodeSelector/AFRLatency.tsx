@@ -31,8 +31,8 @@ const AFRLatency = () => {
           id: uuid(),
           type: RunningLogAlterType,
           data: new RunningLogAlterData({
-            alterFunc: `futureLogRecord.AFR`,
-            untilFunc: `reduced = accumulator + futureLogRecord.RPM * pow(futureLogRecord.Load + 30, 1.4);
+            alterFunc: `currentLogRecord.AFR`,
+            untilFunc: `reduced = accumulator + currentLogRecord.RPM * pow(currentLogRecord.Load + 30, 1.4);
 [reduced > 2500000, reduced];`,
             newFieldName: `AFR`
           }),

@@ -32,8 +32,8 @@ const AccelFilter = () => {
           type: RunningLogAlterType,
           data: new RunningLogAlterData({
             alterFunc: `logRecord.delete or logRecord.RPM + 50 < accumulator`,
-            untilFunc: `accumulator = accumulator + futureLogRecord.RPM / 3;
-[logRecord.LogID + 3 <= futureLogRecord.LogID, accumulator]`,
+            untilFunc: `accumulator = accumulator + currentLogRecord.RPM / 3;
+[logRecord.LogID + 3 <= currentLogRecord.LogID, accumulator]`,
             newFieldName: `delete`
           }),
           dragHandle: '.drag-handle',

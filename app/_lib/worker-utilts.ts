@@ -7,6 +7,7 @@ import { FillLogTableWorker } from "@/app/_components/FlowNodes/FillLogTable/Fil
 import { FillTableWorker } from "@/app/_components/FlowNodes/FillTable/FillTableWorkerTypes";
 import { LogAlterWorker } from "@/app/_components/FlowNodes/LogAlter/LogAlterWorkerTypes";
 import { LogFilterWorker } from "@/app/_components/FlowNodes/LogFilter/LogFilterWorkertypes";
+import { MovingAverageLogFilterWorker } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterWorkerTypes";
 import { RunningLogAlterWorker } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterWorkertypes";
 
 export interface RunMessage<T> {
@@ -40,7 +41,8 @@ export type MyWorker =
   | FillTableWorker
   | LogAlterWorker
   | LogFilterWorker
-  | RunningLogAlterWorker;
+  | RunningLogAlterWorker
+  | MovingAverageLogFilterWorker;
 
 type TransferOrOptions = Transferable[] | StructuredSerializeOptions;
 export interface ExternalWorker<MessageIn, MessageOut>
@@ -75,5 +77,22 @@ export class KilledError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "KilledError";
+  }
+}
+
+export class Killable {
+  public killed: boolean = false;
+  public lastKillCheck: number = performance.now();
+  kill() {
+    this.killed = true;
+  }
+  async allowAndCheckKilled(forceAllow?: boolean): Promise<boolean> {
+    const killCheck = performance.now();
+    if (forceAllow || killCheck - this.lastKillCheck > 200) {
+      this.lastKillCheck = killCheck;
+      // Free up blocking calls so that Killable.kill can be called
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    return this.killed;
   }
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Killable } from "@/app/_lib/worker-utilts";
 import csv from "csvtojson";
 import { Value, Parser as exprParser } from "expr-eval";
 
@@ -140,19 +141,23 @@ export function alterLogs(
   }
 }
 
-export function runningAlter(
+export async function runningAlter(
   logRecords: LogRecord[],
   newFieldName: string,
   untilFunc: string,
-  alterFunc: string
-) {
+  alterFunc: string,
+  killable: Killable
+): Promise<LogRecord[]> {
   const parser = new exprParser();
 
   const alteredLogRecords: LogRecord[] = [];
 
   for (let li = 0; li < logRecords.length; li++) {
+    if (await killable.allowAndCheckKilled()) {
+      return [];
+    }
     const logRecord = logRecords[li];
-    const untilRet = findNextIndex(logRecords, logRecord, li + 1, untilFunc);
+    const untilRet = findNextIndex(logRecords, logRecord, li, untilFunc);
 
     if (untilRet == null) {
       alteredLogRecords.push({
@@ -164,13 +169,13 @@ export function runningAlter(
     }
 
     const [newLogIndex, accumulator] = untilRet;
-    const futureLogRecord = logRecords[newLogIndex];
+    const currentLogRecord = logRecords[newLogIndex];
     try {
       alteredLogRecords.push({
         ...logRecord,
         [newFieldName]: parser.evaluate(alterFunc, {
           logRecord,
-          futureLogRecord: futureLogRecord,
+          currentLogRecord: currentLogRecord,
           accumulator,
         }),
       });
@@ -187,7 +192,8 @@ export function runningAlter(
 }
 
 type ReduceIndex = [index: number, value: Value];
-type UntilRet = [stop: boolean, value: number];
+type UntilRet = [stop: boolean, nextIndex: number, value: number];
+const MAX_LOOP = 50;
 
 function findNextIndex(
   logRecords: LogRecord[],
@@ -199,20 +205,28 @@ function findNextIndex(
   const parser = new exprParser();
   let accumulator: Value = 0;
   let stop: Value = false;
-  for (
-    let li = startIndex;
-    li < logRecords.length && li < startIndex + 15;
-    li++
-  ) {
-    const futureLogRecord = logRecords[li];
-    if (Number(futureLogRecord.LogID) < Number(logRecord.LogID)) {
+  let li = startIndex;
+  let loopCount = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    loopCount++;
+    if (loopCount > MAX_LOOP) return null;
+    const currentLogRecord = logRecords[li];
+    if (currentLogRecord?.LogID == undefined) {
+      return null;
+    }
+    if (
+      Math.abs(Number(currentLogRecord.LogID) - Number(logRecord.LogID)) >=
+      loopCount
+    ) {
       return null;
     }
     try {
-      [stop, accumulator] = parser.evaluate(untilFunc, {
+      [stop, li, accumulator] = parser.evaluate(untilFunc, {
         logRecord,
-        futureLogRecord,
+        currentLogRecord,
         accumulator,
+        currentIndex: li,
       }) as UntilRet;
       if (stop === true) {
         return [li, accumulator];
@@ -264,19 +278,19 @@ export function fixAfrLag(
 
     let afrTooLaggy = false;
     for (; startAfrIndex < logRecords.length; startAfrIndex++) {
-      const startAfrLogRecrod = logRecords[startAfrIndex];
-      if (startAfrLogRecrod.LogEntrySeconds == undefined) {
+      const startAfrLogRecord = logRecords[startAfrIndex];
+      if (startAfrLogRecord.LogEntrySeconds == undefined) {
         continue;
       }
       const afrLagSeconds =
-        startAfrLogRecrod.LogEntrySeconds - startIpwLogRecord.LogEntrySeconds;
+        startAfrLogRecord.LogEntrySeconds - startIpwLogRecord.LogEntrySeconds;
       if (afrLagSeconds > maxDelaySeconds) {
         console.warn(
           `AfrShift AFR Lagging to far behind IPW lagSeconds: ${afrLagSeconds}`
         );
         afrTooLaggy = true;
       }
-      if (startAfrLogRecrod.AFR != FullLeanAfr) {
+      if (startAfrLogRecord.AFR != FullLeanAfr) {
         break;
       }
     }
@@ -332,5 +346,70 @@ export function fixAfrLag(
       logRecords[updateRecordIndex].AFR = newAfr;
     }
     startIpwIndex = endIpwIndex;
+  }
+}
+
+export enum Direction {
+  DESC = "DESC",
+  ACC = "ACC",
+  BOTH = "BOTH",
+}
+
+export async function movingAverageFilter(
+  logRecords: LogRecord[],
+  field: keyof LogRecord,
+  durationSeconds: number,
+  maxDeviation: number, // 0.995
+  direction: Direction,
+  killable?: Killable
+) {
+  let runningSum = 0;
+  let endI = 1;
+  for (let i = 0; i < logRecords.length; i++) {
+    if (await killable?.allowAndCheckKilled()) {
+      return;
+    }
+    const logRecord = logRecords[i];
+    runningSum += logRecord[field];
+    if (endI === i) {
+      runningSum -= logRecord[field];
+      endI++;
+    }
+    for (; endI < logRecords.length; endI++) {
+      const endRecord = logRecords[endI];
+
+      if (
+        logRecord.LogEntrySeconds == undefined ||
+        endRecord.LogEntrySeconds == undefined
+      ) {
+        logRecord.delete = true;
+        endRecord.delete = true;
+        continue;
+      }
+
+      runningSum += endRecord[field];
+      if (
+        Math.abs(logRecord.LogEntrySeconds - endRecord.LogEntrySeconds) >=
+        durationSeconds
+      ) {
+        const diff = logRecord[field] / (runningSum / (endI - i + 1)); // 0.995
+        if (Math.abs(1 - diff) > maxDeviation) {
+          switch (direction) {
+            case Direction.DESC:
+              logRecord.delete = true;
+              break;
+            case Direction.ACC:
+              endRecord.delete = true;
+              break;
+            case Direction.BOTH:
+              endRecord.delete = true;
+              logRecord.delete = true;
+              break;
+          }
+          break;
+        }
+      }
+    }
+    runningSum -= logRecord[field];
   }
 }

@@ -23,6 +23,7 @@ import { CombineAdvancedTableData, CombineAdvancedTableNodeType, CombineAdvanced
 import { LogAlterData, LogAlterNodeType, LogAlterTargetLogHandleId, LogAlterType } from '@/app/_components/FlowNodes/LogAlter/LogAlterTypes';
 import { RunningLogAlterData, RunningLogAlterNodeType, RunningLogAlterTargetLogHandleId, RunningLogAlterType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
 import { HandleTypes } from '@/app/_components/FlowNodes/CustomHandle/CustomType';
+import { MovingAverageLogFilterData, MovingAverageLogFilterNodeType, MovingAverageLogFilterType } from '@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -152,6 +153,34 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
           }}
         >
           Running Log Alter
+        </ForkButton>
+      }
+      {
+        parentNode?.type && LogNodeTypes.includes(parentNode.type)
+        && <ForkButton
+          onClick={async () => {
+            const movingAverageLogFilter: MovingAverageLogFilterNodeType = {
+              ...node,
+              type: MovingAverageLogFilterType,
+              data: new MovingAverageLogFilterData({}),
+              dragHandle: '.drag-handle',
+            }
+            await updateNode(movingAverageLogFilter)
+
+            const edge = edges.find(e => e.target == node.id)
+            if (!edge) return
+            const targetType = edge?.sourceHandle?.split("#")[0]
+            const newConenction: Connection = {
+              source: edge?.source,
+              target: edge?.target,
+              sourceHandle: edge.sourceHandle || null,
+              targetHandle: `${targetType}#${RunningLogAlterTargetLogHandleId}`
+            }
+
+            updateEdge(edge, newConenction)
+          }}
+        >
+          Moving Avg Filter
         </ForkButton>
       }
       {
