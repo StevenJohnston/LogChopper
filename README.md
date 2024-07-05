@@ -27,6 +27,8 @@ This project is pretty much just a DAG in the browser.
 - [Apache ECharts](https://echarts.apache.org/en/index.html) - 3D Surface charts for table visualization.
 - [Zustand](https://zustand-demo.pmnd.rs/) - State management
 - [Tailwind CSS](https://tailwindcss.com/) - Simply Pretty
+- [GitHub Actions](https://github.com/features/actions) CI/CD
+- [GitHub Pages](https://pages.github.com/) Host this WebApp
 - [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) - Offload heavy processes to Web Workers.
 - [Progressive web app](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps) - Downloadable offline site
 
