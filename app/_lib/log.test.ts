@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { LogRecord, fixAfrLag } from "@/app/_lib/log";
+import {
+  Direction,
+  LogRecord,
+  fixAfrLag,
+  movingAverageFilter,
+} from "@/app/_lib/log";
 
 type GeneratorInput = [AFR: number, IPW: number, inc?: number];
 function* logGenerator(
@@ -382,6 +387,109 @@ test("fixAfrLag AFR far longer than IPW", () => {
     logGenExpected.next([14.7, 1, 1]).value,
   ];
   fixAfrLag(logRecords, { minAfrDurationSeconds: 0, maxDelaySeconds: 2 });
+
+  assert.deepEqual(logRecords, expected);
+});
+
+function addDelete(logRecord: LogRecord) {
+  return {
+    ...logRecord,
+    delete: true,
+  };
+}
+
+test("movingAverageFilter flat", async () => {
+  const logGen = logGenerator();
+  logGen.next();
+  const logRecords: Partial<LogRecord>[] = [
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+  ];
+
+  const logGenExpected = logGenerator();
+  logGenExpected.next();
+  const expected: Partial<LogRecord>[] = [
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+  ];
+  await movingAverageFilter(logRecords, "AFR", 0.1, 0.1, Direction.ACC);
+
+  assert.deepEqual(logRecords, expected);
+});
+
+test("movingAverageFilter DESC delete", async () => {
+  const logGen = logGenerator();
+  logGen.next();
+  const logRecords: Partial<LogRecord>[] = [
+    logGen.next([100, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+  ];
+
+  const logGenExpected = logGenerator();
+  logGenExpected.next();
+  const expected: Partial<LogRecord>[] = [
+    addDelete(logGenExpected.next([100, 0, 1]).value),
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+  ];
+  await movingAverageFilter(logRecords, "AFR", 0.1, 0.1, Direction.DESC);
+
+  assert.deepEqual(logRecords, expected);
+});
+
+test("movingAverageFilter ACC", async () => {
+  const logGen = logGenerator();
+  logGen.next();
+  const logRecords: Partial<LogRecord>[] = [
+    logGen.next([100, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+  ];
+
+  const logGenExpected = logGenerator();
+  logGenExpected.next();
+  const expected: Partial<LogRecord>[] = [
+    logGenExpected.next([100, 0, 1]).value,
+    addDelete(logGenExpected.next([10, 0, 1]).value),
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+  ];
+  await movingAverageFilter(logRecords, "AFR", 0.1, 0.1, Direction.ACC);
+
+  assert.deepEqual(logRecords, expected);
+});
+
+test("movingAverageFilter BOTH", async () => {
+  const logGen = logGenerator();
+  logGen.next();
+  const logRecords: Partial<LogRecord>[] = [
+    logGen.next([100, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+    logGen.next([10, 0, 1]).value,
+  ];
+
+  const logGenExpected = logGenerator();
+  logGenExpected.next();
+  const expected: Partial<LogRecord>[] = [
+    addDelete(logGenExpected.next([100, 0, 1]).value),
+    addDelete(logGenExpected.next([10, 0, 1]).value),
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+    logGenExpected.next([10, 0, 1]).value,
+  ];
+  await movingAverageFilter(logRecords, "AFR", 0.1, 0.1, Direction.BOTH);
 
   assert.deepEqual(logRecords, expected);
 });

@@ -3,11 +3,11 @@ import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps } from 'reactflow';
 import InfoSVG from "../../../icons/info.svg"
 
-import { LogRecord } from '@/app/_lib/log';
+import { Direction, LogRecord } from '@/app/_lib/log';
 import { HeaderGroup, Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { RunningLogAlterData, RunningLogAlterSourceLogHandleId, RunningLogAlterTargetLogHandleId, RunningLogAlterType, RunningLogAlterNodeType } from '@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterTypes';
+import { MovingAverageLogFilterData, MovingAverageLogFilterSourceLogHandleId, MovingAverageLogFilterTargetLogHandleId, MovingAverageLogFilterType, MovingAverageLogFilterNodeType } from '@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import Code from '@/app/_components/Code';
@@ -18,10 +18,10 @@ const selector = (state: RFState) => ({
   updateNode: state.updateNode
 });
 
-function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAlterData>) {
-  const [alterFuncVal, setAlterFuncVal] = useState(data.alterFunc || "")
-  const [untilFuncVal, setUntilFuncVal] = useState(data.untilFunc || "")
-  const [newFieldNameVal, setNewFieldNameVal] = useState(data.newFieldName || "")
+function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<MovingAverageLogFilterData>) {
+
+  const [durationSeconds, setDurationSeconds] = useState(data.durationSeconds || 1)
+  const [maxDeviation, setMaxDeviation] = useState(data.maxDeviation || "")
 
 
   const { nodes, updateNode } = useFlow(selector, shallow);
@@ -63,29 +63,61 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   })
 
 
-  const node: RunningLogAlterNodeType | undefined = useMemo(() => {
+  const node: MovingAverageLogFilterNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
-      if (n.id == id && n.type == RunningLogAlterType) {
+      if (n.id == id && n.type == MovingAverageLogFilterType) {
         return n
       }
     }
   }, [id, nodes])
 
-  const onAlterFuncChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    if (!node) return
-    setAlterFuncVal(event.target.value)
-    updateNode({ ...node, data: node.data.clone({ ...node.data, alterFunc: event.target.value }) })
+
+
+  const onFieldSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    const logField = event.target.value as keyof LogRecord
+    if (!node) return console.log('FillTableNode failed to find self node')
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        logField
+      })
+    })
   }, [node, updateNode])
-  const onUntilFuncChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
-    if (!node) return
-    setUntilFuncVal(event.target.value)
-    updateNode({ ...node, data: node.data.clone({ ...node.data, untilFunc: event.target.value }) })
+
+  const onDirectionSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    const direction = event.target.value as Direction
+    if (!node) return console.log('FillTableNode failed to find self node')
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        direction
+      })
+    })
   }, [node, updateNode])
-  const onNewFieldNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+
+
+  const onDurationSecondsChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
-    setNewFieldNameVal(event.target.value)
-    updateNode({ ...node, data: node.data.clone({ ...node.data, newFieldName: event.target.value }) })
+    const durationSeconds = parseFloat(event.target.value);
+    setDurationSeconds(durationSeconds)
+    updateNode({ ...node, data: node.data.clone({ ...node.data, durationSeconds }) })
   }, [node, updateNode])
+
+  const onMaxDeviationChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    const maxDeviation = parseFloat(event.target.value);
+    setMaxDeviation(maxDeviation)
+    updateNode({ ...node, data: node.data.clone({ ...node.data, maxDeviation }) })
+  }, [node, updateNode])
+
+
+
+
+  const fields: string[] | void = useMemo(() => {
+    return Object.keys(node?.data?.logs?.[0] || {})
+  }, [node?.data.logs])
 
   let headerGroups: HeaderGroup<LogRecord>[] = [];
 
@@ -94,20 +126,17 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   } catch (e) {
     console.log()
   }
-  // if (table.getHeaderGroups())
-  // table.getHeaderGroups().map(headerGroup => (
-  //   <tr
-  //     key={headerGroup.id}
+
   return (
     <div className={`flex flex-col p-2 border border-black rounded nowheel bg-teal-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
-      <CustomHandle dataType="Log" type="target" position={Position.Left} id={RunningLogAlterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
-      <CustomHandle dataType="Log" type="source" position={Position.Right} id={RunningLogAlterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
+      <CustomHandle dataType="Log" type="target" position={Position.Left} id={MovingAverageLogFilterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
+      <CustomHandle dataType="Log" type="source" position={Position.Right} id={MovingAverageLogFilterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
       <div
         onDoubleClick={() => setExpanded(!expanded)}
         className='flex justify-between drag-handle'
       >
-        <div className='pr-2'>Running Log Alter</div>
+        <div className='pr-2'>Moving Average Log Filter</div>
 
         <div className='flex'>
           <div className=''>
@@ -118,28 +147,15 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
             />
             <div className='tooltip'>
               <div className='bg-white rounded-lg p-4 min-w-[600px] border-black border-2'>
-                <p className='text-2xl'>New Field Name</p>
-                <p className='pl-2 mb-2'>The new field that will be added to output log records</p>
-                <p className='text-2xl'>Until Func</p>
-                <p className='pl-2'>Loops through <Code>currentLogRecord</Code>&apos;s until <Code>stop</Code> is true returning <Code>accumulator</Code></p>
-                <p className='text-lg'>Parameters</p>
-                <p className='pl-2'><Code>logRecord</Code> The current log record</p>
-                <p className='pl-2'><Code>currentLogRecord</Code> The value of the future log record being looped</p>
-                <p className='pl-2'><Code>currentIndex</Code> Current index of currentLogRecord in logs</p>
-                <p className='pl-2 mb-2'><Code>accumulator</Code> The last return value from Alter Func</p>
-                <p className='text-lg'>Return value</p>
-                <p className='pl-2'><Code>[stop: boolean, nextIndex: number, nextAccumulator: Value]</Code> Tuple</p>
-                <p className='pl-2'><Code>stop</Code> Whether or not to continue looping to future records</p>
-                <p className='pl-2'><Code>nextIndex</Code> Index for the next value of currentLogRecord</p>
-                <p className='pl-2 mb-2'><Code>nextAccumulator</Code> The value of accumulator for the next loop</p>
-                <p className='text-2xl'>Alter Func</p>
-                <p className='pl-2'>The value to set the new field to</p>
-                <p className='text-lg'>Parameters</p>
-                <p className='pl-2'><Code>logRecord</Code> The current log record</p>
-                <p className='pl-2'><Code>currentLogRecord</Code> The last log record from Alter Func</p>
-                <p className='pl-2'><Code>accumulator</Code> The last return value from Alter Func</p>
-                <p className='text-lg'>Return value</p>
-                <p className='pl-2 mb-2'><Code>fieldValue</Code> value for the new field</p>
+                <p className='pl-2 mb-2'>Uses Moving Average to filter out Log Records. Useful for removing swings in data.</p>
+                <p className='text-2xl'>Field</p>
+                <p className='pl-2 mb-2'>Log Record Field to compare in Moving Average</p>
+                <p className='text-2xl'>Direction</p>
+                <p className='pl-2'>Which direction to build Moving Average</p>
+                <p className='text-2xl'>Time Window (Seconds)</p>
+                <p className='pl-2'>A duration in seconds to collect <Code>Field</Code>&apos;s Average</p>
+                <p className='text-2xl'>Max Average Difference (% as decimal)</p>
+                <p className='pl-2'>The maximum difference between <Code>Field</Code> and the Average over <Code>Time Window (Seconds)</Code></p>
               </div>
             </div>
           </div>
@@ -152,47 +168,68 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
 
       </div>
       <div>
-        <div className="max-w-sm">
+
+
+        <div className='mb-2'>
+          <label htmlFor="logField" className="block mb-1 text-sm font-medium text-gray-900">Field</label>
+          <select
+            id="logField"
+            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            onChange={onFieldSelect}
+            value={data.logField}
+          >
+            <option>Select field</option>
+            {
+              fields?.map((f) => {
+                return (
+                  <option key={f} value={f}>{f}</option>
+                )
+              })
+            }
+          </select>
+        </div>
+        <div className='mb-2'>
+          <label htmlFor="direction" className="block mb-1 text-sm font-medium text-gray-900">Direction</label>
+          <select
+            id="direction"
+            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            onChange={onDirectionSelect}
+            value={data.direction}
+          >
+            <option>Select Direction</option>
+            {
+              Object.keys(Direction).map((f) => {
+                return (
+                  <option key={f} value={f}>{f}</option>
+                )
+              })
+            }
+          </select>
+        </div>
+
+        <div className="mb-2 max-w-sm">
           <div className='flex flex-col'>
             <div className='mr-2'>
-              <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">New Field Name</label>
+              <label htmlFor="logField" className="block mb-1 text-sm font-medium text-gray-900">Time Window (Seconds)</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg mb-2'
-                type="text"
-                value={newFieldNameVal}
-                onChange={onNewFieldNameChange}
+                className='pl-4 w-full auto-expand-textarea p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
+                type="number"
+                value={durationSeconds}
+                onChange={onDurationSecondsChange}
               />
             </div>
           </div>
         </div>
-        <div className="max-w-sm">
+
+        <div className="mb-2 max-w-sm">
           <div className='flex flex-col'>
             <div className='mr-2'>
-              <label htmlFor="logField" className="block text-sm font-medium text-gray-900">Until Func</label>
-              <div className='ml-2 mb-2'>
-                <p className='text-xs text-gray-700 whitespace-nowrap'>params: [logRecord, currentLogRecord, accumulator, currentIndex]</p>
-                <p className='text-xs text-gray-700 whitespace-nowrap'>return: [stop, nextIndex, nextAccumulator]</p>
-              </div>
-              <textarea
-                value={untilFuncVal}
-                onChange={onUntilFuncChange}
-                className='w-full auto-expand-textarea p-1 pb-4 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
-              />
-            </div>
-          </div>
-        </div>
-        <div className="max-w-sm">
-          <div className='flex flex-col'>
-            <div className='mr-2'>
-              <label htmlFor="logField" className="block text-sm font-medium text-gray-900">Alter Func</label>
-              <div className='ml-2 mb-2'>
-                <p className='text-xs text-gray-700 whitespace-nowrap'>params: [logRecord, currentLogRecord, accumulator]</p>
-              </div>
+              <label htmlFor="logField" className="block mb-1 text-sm font-medium text-gray-900">Max Average Difference (% as decimal)</label>
               <input
-                className='w-full p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
-                type="text"
-                value={alterFuncVal}
-                onChange={onAlterFuncChange}
+                className='pl-4 w-full auto-expand-textarea p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
+                type="number"
+                value={maxDeviation}
+                onChange={onMaxDeviationChange}
               />
             </div>
           </div>
@@ -304,4 +341,4 @@ function RunningLogAlterNode({ id, data, isConnectable }: NodeProps<RunningLogAl
   );
 }
 
-export default RunningLogAlterNode
+export default MovingAverageLogFilterNode

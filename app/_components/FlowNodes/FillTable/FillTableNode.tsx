@@ -30,9 +30,8 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
     }
   }, [id, nodes])
 
-  const onFilterSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+  const onFieldSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     const logField = event.target.value as keyof LogRecord
-    const node = nodes.find(n => n.id == id) as FillTableNodeType
     if (!node) return console.log('FillTableNode failed to find self node')
     updateNode({
       ...node,
@@ -41,11 +40,10 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
         logField
       })
     })
-  }, [id, nodes, updateNode])
+  }, [node, updateNode])
 
   const onAggregatorSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     const aggregator = event.target.value as Aggregator
-    const node = nodes.find(n => n.id == id) as FillTableNodeType
     if (!node) return console.log('FillTableNode failed to find self node')
     updateNode({
       ...node,
@@ -54,7 +52,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
         aggregator
       })
     })
-  }, [id, nodes, updateNode])
+  }, [node, updateNode])
 
   const updateNodeInternals = useUpdateNodeInternals()
 
@@ -115,7 +113,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
               <select
                 id="logField"
                 className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                onChange={onFilterSelect}
+                onChange={onFieldSelect}
                 value={data.logField}
               >
                 <option>Select field</option>

@@ -36,6 +36,7 @@ import { RunningLogAlterNodeType } from "@/app/_components/FlowNodes/RunningLogA
 import { isRefreshableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
 import { AfrShiftNodeType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
+import { MovingAverageLogFilterNodeType } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes";
 
 export type MyNode =
   | BaseLogNodeType
@@ -50,6 +51,7 @@ export type MyNode =
   | CombineAdvancedTableNodeType
   | RunningLogAlterNodeType
   | AfrShiftNodeType
+  | MovingAverageLogFilterNodeType
   | GroupNodeType;
 
 const initialNodes = [] as MyNode[];
@@ -215,6 +217,12 @@ const useFlow = createWithEqualityFn<RFState>(
     },
     updateNode: async (node: MyNode) => {
       await set((state) => {
+        const oldNode = state.nodes.find((n) => n.id == node.id);
+        if (oldNode && isRefreshableNode(oldNode)) {
+          oldNode?.data.activeUpdate?.worker.postMessage({
+            type: "kill",
+          });
+        }
         // Instantly add new update
         const allNodesUpdated = state.nodes.filter((n) => n.id != node.id);
         allNodesUpdated.push(node);
@@ -233,9 +241,10 @@ const useFlow = createWithEqualityFn<RFState>(
             allNodesUpdated,
             state.edges
           );
+          const thisPromise = updateNode.data.activeUpdate?.promise;
 
-          updateNode.data.activeUpdate?.promise
-            .then((refreshedData) => {
+          thisPromise
+            ?.then((refreshedData) => {
               // TODO how can i tell typescript that this promise belongs to updateNode
               set((state) => {
                 const thisNode = state.nodes.find(
@@ -243,6 +252,9 @@ const useFlow = createWithEqualityFn<RFState>(
                 ) as typeof updateNode;
                 if (!thisNode) return {};
                 if (!isRefreshableNode(thisNode)) return {};
+                // if (thisPromise != thisNode.data.activeUpdate?.promise) {
+                //   return {};
+                // }
 
                 refreshedData.loading = false;
                 if (!thisNode.data.isPartial(refreshedData)) {
