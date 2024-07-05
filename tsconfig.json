@@ -31,12 +31,5 @@
     ".next/types/**/*.ts",
     "**/*.test.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "index.ts",
-    "log-chopper/index.ts",
-    "map-fixer/index.ts",
-    "rom-handler/index.ts",
-    "xml-wrapper/index.ts"
-  ]
+  "exclude": ["node_modules"]
 }
