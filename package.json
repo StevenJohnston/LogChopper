@@ -30,6 +30,8 @@
     "echarts-for-react": "^3.0.2",
     "echarts-gl": "^2.0.9",
     "expr-eval": "^2.0.2",
+    "idb": "^8.0.0",
+    "idb-keyval": "^6.2.1",
     "json2csv": "^4.5.4",
     "next": "^14.0.4",
     "next-pwa": "^5.6.0",

@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid'
 import useRom, { useRomSelector } from "@/app/store/useRom";
 import TableSelector from "@/app/_components/TableSelector"
 import { BaseRomData, BaseRomType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes"
+import { set as idbSet, get as idbGet } from 'idb-keyval';
 
 export interface SidebarProps {
   className: string
@@ -71,6 +72,7 @@ export default function Sidebar({
       id: "metadata"
     });
     setMetadataDirectoryHandle(directoryHandle)
+    idbSet('metadataDirectoryHandle', directoryHandle)
   }, [setMetadataDirectoryHandle])
 
   const onMetadataSidebarClick = useCallback(async () => {
@@ -90,6 +92,7 @@ export default function Sidebar({
       id: "rom"
     });
     setRomDirectoryHandle(directoryHandle)
+    idbSet('romDirectoryHandle', directoryHandle)
   }, [setRomDirectoryHandle])
 
   const onRomSideBarClick = useCallback(async () => {
@@ -110,6 +113,7 @@ export default function Sidebar({
       id: "log"
     });
     setLogDirectoryHandle(directoryHandle)
+    idbSet('logDirectoryHandle', directoryHandle)
   }, [setLogDirectoryHandle])
 
   const onLogSideBarClick = useCallback(async () => {
@@ -157,6 +161,40 @@ export default function Sidebar({
       return
     }
   }, [nodes, setSelectedRom, updateNode])
+
+  // Attempt to load the last directory
+  useEffect(() => {
+    (async () => {
+      try {
+        const dbMetaDataDirectoryHandle = await idbGet('metadataDirectoryHandle')
+        if (dbMetaDataDirectoryHandle) {
+          setMetadataDirectoryHandle(dbMetaDataDirectoryHandle)
+        }
+      } catch (e) {
+        console.log("It appears metaDataDirectoryHandle doesn't exists in the database", e)
+      }
+    })();
+    (async () => {
+      try {
+        const dbRomDirectoryHandle = await idbGet('romDirectoryHandle')
+        if (dbRomDirectoryHandle) {
+          setRomDirectoryHandle(dbRomDirectoryHandle)
+        }
+      } catch (e) {
+        console.log("It appears romDirectoryHandle doesn't exists in the database", e)
+      }
+    })();
+    (async () => {
+      try {
+        const dbLogDirectoryHandle = await idbGet('logDirectoryHandle')
+        if (dbLogDirectoryHandle) {
+          setLogDirectoryHandle(dbLogDirectoryHandle)
+        }
+      } catch (e) {
+        console.log("It appears logDirectoryHandle doesn't exists in the database", e)
+      }
+    })();
+  }, [setMetadataDirectoryHandle, setRomDirectoryHandle, setLogDirectoryHandle])
 
   return (
     <div className={`flex flex-row ${className}`}>
