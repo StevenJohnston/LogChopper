@@ -81,6 +81,7 @@ function BaseTableNode({ id, data, isConnectable }: NodeProps<BaseTableData>) {
         && <RomModuleUI
           ref={childRef}
           table={data.table}
+          tableName={data.table.name || id}
           scalingMap={data.scalingMap}
           scalingValue={data.scalingValue}
           setScalingValue={setScalingValue}

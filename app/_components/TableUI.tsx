@@ -4,9 +4,11 @@ import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
 import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
 import ScalingSelector from "@/app/_components/ScalingSelector";
+import useCellSelectionStore from "@/app/store/useCellSelection";
 
 interface TableUIProps {
   table: BasicTable
+  tableName: string
 
   scalingMap?: Record<string, Scaling> | null
   scalingValue?: Scaling | null
@@ -62,7 +64,15 @@ const isCellWithinSelection = (cell: CellPos, minCell: CellPos, maxCell: CellPos
   return false
 }
 
-const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingMap, scalingValue, setScalingValue }, textAreaRef) => {
+const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableName, scalingMap, scalingValue, setScalingValue }, textAreaRef) => {
+
+  const { 
+    tableName: selectedTableName,
+    startCell: selectedStartCell,
+    endCell: selectedEndCell,
+    setSelectedCell,
+    clearSelectedCell,
+  } = useCellSelectionStore();
 
   const [selectStartCell, setSelectStartCell] = useState<CellPos>()
   const [selectEndCell, setSelectEndCell] = useState<CellPos>()
@@ -76,7 +86,8 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingM
     if (!cellpos) return console.log("Failed to get start cellpos from event")
 
     setSelectStartCell(cellpos)
-  }, [])
+    setSelectedCell(tableName, cellpos, cellpos)
+  }, [tableName, setSelectedCell])
 
   const highlightCells = useCallback(() => {
     if (!selectStartCell) return console.log("No selectStartCell")
@@ -119,8 +130,12 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingM
       const endCell = eventToCellpos(event)
       if (!endCell) return console.log("Failed to get end cellpos from event")
       setSelectEndCell(endCell)
+      // Update global selection range as user drags
+      if (selectStartCell) {
+        setSelectedCell(tableName, selectStartCell, endCell);
+      }
     }
-  }, [mouseDown])
+  }, [mouseDown, selectStartCell, tableName, setSelectedCell])
 
   const cellOnMouseUp = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
     console.log("up")
@@ -129,7 +144,12 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingM
     if (!endCell) return console.log("Failed to get end cellpos from event")
     setSelectEndCell(endCell)
     highlightCells()
-  }, [highlightCells, setSelectEndCell])
+
+    // Update global selection with the final range
+    if (selectStartCell && endCell) {
+      setSelectedCell(tableName, selectStartCell, endCell);
+    }
+  }, [highlightCells, setSelectEndCell, selectStartCell, tableName, setSelectedCell])
 
   const tableScaling: Scaling | undefined = useMemo(() => {
     if (scalingValue) return scalingValue
@@ -172,10 +192,25 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingM
       }
     }
 
+    if (
+      tableName === selectedTableName &&
+      selectedStartCell &&
+      selectedEndCell
+    ) {
+      const [minGlobalCell, maxGlobalCell] = sortCellPos(selectedStartCell, selectedEndCell);
+      if (isCellWithinSelection([row, col], minGlobalCell, maxGlobalCell)) {
+        return {
+          backgroundColor: "#FFD700", // Gold color for global selection
+          color: "#000",
+          border: "2px solid #FFA500", // Orange border
+        };
+      }
+    }
+
     return {
       backgroundColor: getColor(tableScaling, parseFloat(cell?.toString() || ""))
     }
-  }, [tableScaling, selectStartCell, selectEndCell])
+  }, [tableScaling, selectStartCell, selectEndCell, tableName, selectedTableName, selectedStartCell, selectedEndCell])
 
   const maxWidth = useMemo(() => {
     if (!table) return 0
@@ -244,7 +279,11 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, scalingM
   if (table.type == "Other") return <div>Other table tyoe not supported</div>
   if (table.type != "3D") return <div>2D 1D not supported</div>
   return (
-    <div className="flex flex-col items-center text-[12px] pr-2">
+    <div className="flex flex-col items-center text-[12px] pr-2" onMouseUp={(event) => {
+      if (!(event.target as HTMLElement).closest('td')) {
+        clearSelectedCell();
+      }
+    }}>
       <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
       {
         scalingMap
