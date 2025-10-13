@@ -37,6 +37,7 @@ import { isRefreshableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
 import { AfrShiftNodeType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
 import { MovingAverageLogFilterNodeType } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes";
+import { TableRemapData, TableRemapNodeType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 
 export type MyNode =
   | BaseLogNodeType
@@ -52,7 +53,8 @@ export type MyNode =
   | RunningLogAlterNodeType
   | AfrShiftNodeType
   | MovingAverageLogFilterNodeType
-  | GroupNodeType;
+  | GroupNodeType
+  | TableRemapNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -72,11 +74,7 @@ export type RFState = {
   softUpdateNode: (node: MyNode) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
-  // orderedRefreshNodes: (
-  //   nodesIds: string[],
-  //   sourceUpdate: RefreshSource,
-  //   i?: number
-  // ) => Promise<void>;
+  updateTableRemapNodeConfig: (nodeId: string, config: Partial<TableRemapData>) => void;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
 };
 
@@ -321,6 +319,14 @@ const useFlow = createWithEqualityFn<RFState>(
       set({
         reactFlowInstance,
       });
+    },
+    updateTableRemapNodeConfig: (nodeId: string, config: Partial<TableRemapData>) => {
+      const nodes = get().nodes;
+      const node = nodes.find((n) => n.id === nodeId) as TableRemapNodeType | undefined;
+      if (node) {
+        const newNode = { ...node, data: node.data.clone(config) };
+        get().updateNode(newNode);
+      }
     },
   })
   // )

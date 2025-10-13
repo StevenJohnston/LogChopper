@@ -18,6 +18,7 @@ import AccelFilter from "@/app/_components/NodeSelector/AccelFilter"
 import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
 import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
+import { TableRemapper } from "./TableRemapper"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -73,10 +74,8 @@ const NodeSelector = () => {
           {expanded ? "_" : "^"}
         </button>
       </div>
-      {expanded
-        && <div
-          className="flex max-h-[10%] flex-wrap content-start w-full mt-2"
-        >
+      {expanded && (
+        <div className="flex max-h-full flex-col flex-wrap content-start w-full mt-2">
           <div className="w-full">Log Filters</div>
           <NodeSelectorButton
             onClick={() => {
@@ -116,16 +115,11 @@ const NodeSelector = () => {
           </NodeSelectorButton>
           <MapAfrGroup />
           <AfrMapGroup />
-          {
-            savedGroups.length > 0 &&
-            <div
-              className='flex justify-between'
-            >
+          <TableRemapper />
+          {savedGroups.length > 0 && (
+            <div className='flex justify-between'>
               Saved Groups
-              <button
-                onClick={() => { setGroupDelete(!groupDelete) }}
-              >
-
+              <button onClick={() => { setGroupDelete(!groupDelete) }}>
                 <GearSvg
                   className='inline stroke-black hover:stroke-blue-500 border border-black rounded-md'
                   width={24}
@@ -133,7 +127,7 @@ const NodeSelector = () => {
                 />
               </button>
             </div>
-          }
+          )}
           {savedGroups.map((savedGroup) => {
             return (
               <NodeSelectorButton
@@ -145,14 +139,13 @@ const NodeSelector = () => {
                     : onLoadSavedGroup(savedGroup)
                 }}
               >
-                {
-                  groupDelete &&
+                {groupDelete && (
                   <TrashSvg
                     className='stroke-red hover:stroke-white'
                     width={24}
                     height={24}
                   />
-                }
+                )}
                 <div>
                   {savedGroup.groupName}
                 </div>
@@ -160,7 +153,7 @@ const NodeSelector = () => {
             )
           })}
         </div>
-      }
+      )}
     </div>
   )
 }
