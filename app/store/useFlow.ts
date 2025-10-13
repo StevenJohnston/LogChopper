@@ -38,6 +38,7 @@ import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomType
 import { AfrShiftNodeType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
 import { MovingAverageLogFilterNodeType } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes";
 import { TableRemapData, TableRemapNodeType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
+import { RomSelectorNodeType } from "@/app/_components/FlowNodes/RomSelector/RomSelectorTypes";
 
 export type MyNode =
   | BaseLogNodeType
@@ -54,7 +55,8 @@ export type MyNode =
   | AfrShiftNodeType
   | MovingAverageLogFilterNodeType
   | GroupNodeType
-  | TableRemapNodeType;
+  | TableRemapNodeType
+  | RomSelectorNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];

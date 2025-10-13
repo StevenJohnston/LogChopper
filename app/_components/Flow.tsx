@@ -34,6 +34,7 @@ import BaseRomNode from "@/app/_components/FlowNodes/BaseRom/BaseRomNode";
 import AfrShiftNode from "@/app/_components/FlowNodes/AfrShift/AfrShiftNode";
 import MovingAverageLogFilterNode from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterNode";
 import TableRemapNode from "@/app/_components/FlowNodes/TableRemap/TableRemapNode";
+import RomSelectorNode from "@/app/_components/FlowNodes/RomSelector/RomSelectorNode";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -51,7 +52,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode }
+    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode, romSelector: RomSelectorNode }
   }, [])
   const connectingNodeId = useRef<string | null>(null);
   const connectingHandleId = useRef<string | null>(null);

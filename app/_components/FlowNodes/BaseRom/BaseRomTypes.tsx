@@ -4,6 +4,7 @@ import { BaseRomWorker } from '@/app/_components/FlowNodes/BaseRom/BaseRomWorker
 import { NodeWithType, RefreshableNode, RomNode, SaveableNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { BasicTable, Scaling } from '@/app/_lib/rom-metadata';
 import { MyNode } from '@/app/store/useFlow';
+import { RomSelectorType } from '../RomSelector/RomSelectorTypes';
 
 export interface BaseRomDataProps extends Partial<RefreshableNode<BaseRomData>> {
   selectedRomFile?: File | null;
@@ -38,7 +39,7 @@ export class BaseRomData extends RefreshableNode<BaseRomData> implements RomNode
     const worker = this.createWorker()
 
     const promise = new Promise<BaseRomData>((resolveRefresh, rejectRefresh) => {
-      if (node.type != BaseRomType) {
+      if (node.type !== BaseRomType && node.type !== RomSelectorType) {
         console.log(`BaseRomData.getRefreshedData called with incorrect node type found ${node.type} expected ${BaseRomType}`)
         rejectRefresh(`BaseRomData.getRefreshedData called with incorrect node type found ${node.type} expected ${BaseRomType}`)
         return

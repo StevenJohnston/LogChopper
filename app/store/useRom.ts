@@ -3,7 +3,7 @@
 import { createWithEqualityFn } from "zustand/traditional";
 import { BasicTable, LoadRomMetadata, Scaling } from "@/app/_lib/rom-metadata";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { findFileByName } from "@/app/_lib/utils";
+import { findFileByName, getAllFileHandles } from "@/app/_lib/utils";
 
 export type RomState = {
   defaultXml: string | null;
@@ -11,6 +11,7 @@ export type RomState = {
 
   metadataDirectoryHandle: FileSystemDirectoryHandle | null;
   romDirectoryHandle: FileSystemDirectoryHandle | null;
+  romFiles: FileSystemFileHandle[];
   logDirectoryHandle: FileSystemDirectoryHandle | null;
   selectedRomMetadataHandle: FileSystemFileHandle | null;
   selectedRom: FileSystemFileHandle | null;
@@ -42,6 +43,7 @@ export function useRomSelector(state: RomState) {
   return {
     metadataDirectoryHandle: state.metadataDirectoryHandle,
     romDirectoryHandle: state.romDirectoryHandle,
+    romFiles: state.romFiles,
     logDirectoryHandle: state.logDirectoryHandle,
 
     selectedRomMetadataHandle: state.selectedRomMetadataHandle,
@@ -70,6 +72,7 @@ const useRom = createWithEqualityFn<RomState>()(
 
       metadataDirectoryHandle: null,
       romDirectoryHandle: null,
+      romFiles: [],
       logDirectoryHandle: null,
       selectedRomMetadataHandle: null,
       selectedRom: null,
@@ -113,7 +116,8 @@ const useRom = createWithEqualityFn<RomState>()(
       setRomDirectoryHandle: async (
         romDirectoryHandle: FileSystemDirectoryHandle
       ) => {
-        set({ romDirectoryHandle });
+        const romFiles = await getAllFileHandles(romDirectoryHandle);
+        set({ romDirectoryHandle, romFiles });
 
         // Select default xml
         const defaultRom = get().defaultRom;
