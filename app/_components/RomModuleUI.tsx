@@ -19,6 +19,7 @@ const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table, 
       <div className="flex flex-row">
         <TableUI
           table={table}
+          tableName={table.name || "unknown"}
           scalingValue={scalingValue}
           scalingMap={scalingMap}
           setScalingValue={setScalingValue}
