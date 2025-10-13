@@ -19,6 +19,7 @@ import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
 import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 import { TableRemapper } from "./TableRemapper"
+import { RomSelectorButton } from "./RomSelectorButton"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -97,6 +98,7 @@ const NodeSelector = () => {
 
           <div className="w-full">Rom</div>
           <SelectedRom />
+          <RomSelectorButton />
           <div className="w-full">Group Node</div>
           <NodeSelectorButton
             onClick={() => {

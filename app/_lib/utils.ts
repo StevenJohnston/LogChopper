@@ -32,3 +32,18 @@ export const formatter = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
   hour12: false,
 });
+
+export const getAllFileHandles = async (
+  dirHandle: FileSystemDirectoryHandle
+): Promise<FileSystemFileHandle[]> => {
+  const files: FileSystemFileHandle[] = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === "file") {
+      files.push(entry);
+    } else if (entry.kind === "directory") {
+      files.push(...(await getAllFileHandles(entry)));
+    }
+  }
+  return files;
+};
+
