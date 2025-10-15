@@ -1,4 +1,9 @@
-import { Table } from "@/app/_lib/rom";
+import { BasicTable } from "@/app/_lib/rom-metadata";
+import {
+  ExternalWorker,
+  WorkerMessage,
+  WorkerResult,
+} from "@/app/_lib/worker-utilts";
 import { TableRemapAxis, TableRemapSource } from "./TableRemapTypes";
 
 export type TableRemapConfig = {
@@ -6,23 +11,23 @@ export type TableRemapConfig = {
   lookupValueSource: TableRemapAxis;
   searchTarget: TableRemapSource;
   outputSource: TableRemapSource;
-}
+};
 
-export type TableRemapWorker = Worker & {
-  onmessage: (e: MessageEvent<TableRemapWorkerOutput>) => void;
-  postMessage: (msg: { type: 'run', data: TableRemapWorkerInput } | {type: 'kill'}) => void;
+interface WorkerResponse {
+  outputTable: BasicTable;
 }
-
-export type TableRemapWorkerInput = {
-  tableA: Table;
-  tableB: Table;
+interface WorkerRequest {
+  tableA: BasicTable;
+  tableB: BasicTable;
   config: TableRemapConfig;
-};
+}
 
-export type TableRemapWorkerOutput = {
-  type: 'data';
-  outputTable: Table;
-} | {
-  type: 'error';
-  error: string;
-};
+export const TableRemapWorkerType = "TableRemapWorker";
+export type TableRemapWorkerMessage = WorkerMessage<WorkerRequest>;
+export type TableRemapWorkerResult = WorkerResult<WorkerResponse>;
+
+export interface TableRemapWorker
+  extends ExternalWorker<
+    TableRemapWorkerMessage,
+    TableRemapWorkerResult
+  > {}

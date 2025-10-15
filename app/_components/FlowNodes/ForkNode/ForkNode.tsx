@@ -45,7 +45,7 @@ function ForkNode({ isConnectable, id }: NodeProps<ForkData>) {
   const [node, parentNode]: (Node | undefined)[] = useMemo(() => {
     const node = nodes.find(n => n.id == id)
     if (!node) return [node]
-    const i = getIncomers(node, nodes, edges)
+    const i = getIncomers(node as Node, nodes as Node[], edges)
     return [node, i[0]]
   }, [nodes, edges, id])
 
