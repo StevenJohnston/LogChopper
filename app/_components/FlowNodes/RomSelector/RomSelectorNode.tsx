@@ -40,6 +40,8 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
         sortFiles();
     }, [romFiles]);
 
+    const selectedRomFileHandle = sortedRomFiles.find(handle => handle.name === data.selectedRomFile?.name) ?? null;
+
     const filteredRoms = sortedRomFiles
         .filter(file => file.name.endsWith('.bin') || file.name.endsWith('.srf'))
         .filter(file => file.name.toLowerCase().includes(query.toLowerCase()));
@@ -62,11 +64,11 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
                 <p className="text-black">ROM Selector</p>
             </div>
             <div className="relative mt-2">
-                <Combobox onChange={handleRomSelect} value={data.selectedRomFile}>
+                <Combobox onChange={handleRomSelect} value={selectedRomFileHandle}>
                     <Combobox.Input
                         className="w-full rounded-md border-0 bg-lime-400 py-1.5 pl-3 pr-10 text-black focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm sm:leading-6"
                         onChange={(event) => setQuery(event.target.value)}
-                        displayValue={(file: File) => file?.name || ''}
+                        displayValue={(file: FileSystemFileHandle) => file?.name || ''}
                         placeholder="Select a ROM..."
                     />
                     <Combobox.Button className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none">
@@ -74,7 +76,7 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
                     </Combobox.Button>
 
                     {filteredRoms.length > 0 && (
-                        <Combobox.Options 
+                        <Combobox.Options
                             className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-lime-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                             {filteredRoms.map((file) => (
                                 <Combobox.Option
@@ -84,7 +86,7 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
                                         `relative cursor-default select-none py-2 pl-3 pr-9 text-white ${active ? 'bg-lime-600' : ''}`
                                     }
                                 >
-                                    {({ active, selected }) => (
+                                    {({ selected }) => (
                                         <span className={`block ${selected ? 'font-semibold' : ''}`}>
                                             {file.name}
                                         </span>
@@ -95,7 +97,7 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
                     )}
                 </Combobox>
             </div>
-            <CustomHandle type="source" position={Position.Right} id="rom" dataType={'Rom'} data={{ rom: data, parentId: id }} />
+            <CustomHandle type="source" position={Position.Right} id="rom" dataType={'Rom'} />
         </div>
     );
 };
