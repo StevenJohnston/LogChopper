@@ -94,7 +94,6 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
               && <RomModuleUI
                 ref={childRef}
                 table={data.table}
-                tableName={data.table.name || id}
                 scalingMap={data.scalingMap}
                 scalingValue={data.scalingValue}
                 setScalingValue={setScalingValue}

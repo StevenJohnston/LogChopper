@@ -185,7 +185,6 @@ function CombineAdvancedNode({ id, data, isConnectable }: NodeProps<CombineAdvan
               && <RomModuleUI
                 ref={childRef}
                 table={data.table}
-                tableName={data.table.name || id}
                 scalingMap={data.scalingMap}
                 scalingValue={data.scalingValue}
                 setScalingValue={setScalingValue}

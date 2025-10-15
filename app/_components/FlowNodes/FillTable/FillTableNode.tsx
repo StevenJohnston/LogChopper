@@ -156,7 +156,6 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
               && <RomModuleUI
                 ref={childRef}
                 table={data.table}
-                tableName={data.table.name || id}
                 scalingMap={data.scalingMap}
                 scalingValue={data.scalingValue}
                 setScalingValue={setScalingValue}
