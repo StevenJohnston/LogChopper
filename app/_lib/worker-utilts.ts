@@ -9,6 +9,7 @@ import { LogAlterWorker } from "@/app/_components/FlowNodes/LogAlter/LogAlterWor
 import { LogFilterWorker } from "@/app/_components/FlowNodes/LogFilter/LogFilterWorkertypes";
 import { MovingAverageLogFilterWorker } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterWorkerTypes";
 import { RunningLogAlterWorker } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterWorkertypes";
+import { TableRemapWorker } from "@/app/_components/FlowNodes/TableRemap/TableRemapWorkerTypes";
 
 export interface RunMessage<T> {
   type: "run";
@@ -42,7 +43,8 @@ export type MyWorker =
   | LogAlterWorker
   | LogFilterWorker
   | RunningLogAlterWorker
-  | MovingAverageLogFilterWorker;
+  | MovingAverageLogFilterWorker
+  | TableRemapWorker;
 
 type TransferOrOptions = Transferable[] | StructuredSerializeOptions;
 export interface ExternalWorker<MessageIn, MessageOut>
