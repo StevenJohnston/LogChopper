@@ -12,6 +12,7 @@ import {
 import { LogRecord } from "@/app/_lib/log";
 import { MyNode } from "@/app/store/useFlow";
 import { HandleTypes } from "@/app/_components/FlowNodes/CustomHandle/CustomType";
+import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
 
 export interface RefreshSource {
   sourceNodeId: string;
@@ -50,6 +51,8 @@ export abstract class RefreshableNode<T> implements Cloneable<T> {
 export interface NodeWithType<T, U extends string> extends Node<T, U> {
   type: U;
 }
+
+export type TpsAfrDeleteNodeType = NodeWithType<TpsAfrDeleteData, typeof TpsAfrDeleteType>;
 
 export interface SaveableNode<T = {}> {
   getLoadable: () => T;

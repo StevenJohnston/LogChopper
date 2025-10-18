@@ -413,3 +413,95 @@ export async function movingAverageFilter(
     runningSum -= logRecord[field];
   }
 }
+
+export function markTpsAfrAffectedRecordsForDeletion(
+  logRecords: LogRecord[],
+  tpsPercentPerSecondThreshold: number = 5, // Minimum TPS percentage change per second
+  afrThreshold: number = 0.5, // Minimum AFR raw value difference
+  windowDuration: number = 1 // Duration of the window in seconds
+): void {
+  if (logRecords.length < 2) {
+    return;
+  }
+
+  let windowStart = 0; // Index of the first record in the current window
+
+  for (let i = 0; i < logRecords.length; i++) {
+    const currentRecord = logRecords[i];
+
+    if (
+      currentRecord.LogEntrySeconds === undefined ||
+      currentRecord.TPS === undefined ||
+      currentRecord.AFR === undefined
+    ) {
+      continue;
+    }
+
+    // Advance windowStart to keep the window within windowDuration
+    while (
+      logRecords[windowStart] &&
+      logRecords[windowStart].LogEntrySeconds !== undefined &&
+      currentRecord.LogEntrySeconds - (logRecords[windowStart] as LogRecord).LogEntrySeconds! >
+        windowDuration
+    ) {
+      windowStart++;
+    }
+
+    // Ensure there are enough records in the window to make a meaningful comparison
+    // We need at least two records to calculate a change
+    if (i === windowStart) {
+      continue;
+    }
+
+    const startRecordInWindow = logRecords[windowStart];
+    if (
+      startRecordInWindow.TPS === undefined ||
+      startRecordInWindow.AFR === undefined ||
+      startRecordInWindow.LogEntrySeconds === undefined
+    ) {
+      continue;
+    }
+
+    // Calculate the maximum TPS change within the current window
+    let minTpsInWindow = currentRecord.TPS;
+    let maxTpsInWindow = currentRecord.TPS;
+    let minAfrInWindow = currentRecord.AFR; // New: Track min AFR in window
+    let maxAfrInWindow = currentRecord.AFR; // New: Track max AFR in window
+
+    for (let j = windowStart; j <= i; j++) {
+      const recordInWindow = logRecords[j];
+      if (recordInWindow.TPS !== undefined) {
+        minTpsInWindow = Math.min(minTpsInWindow, recordInWindow.TPS);
+        maxTpsInWindow = Math.max(maxTpsInWindow, recordInWindow.TPS);
+      }
+      if (recordInWindow.AFR !== undefined) {
+        // New: Update min/max AFR
+        minAfrInWindow = Math.min(minAfrInWindow, recordInWindow.AFR);
+        maxAfrInWindow = Math.max(maxAfrInWindow, recordInWindow.AFR);
+      }
+    }
+    const tpsRangeInWindow = maxTpsInWindow - minTpsInWindow;
+    const afrRangeInWindow = maxAfrInWindow - minAfrInWindow; // New: AFR range
+
+    const timeElapsedInWindow =
+      currentRecord.LogEntrySeconds - startRecordInWindow.LogEntrySeconds;
+
+    if (timeElapsedInWindow <= 0) {
+      continue;
+    }
+
+    // Calculate TPS percentage change per second based on the range within the window
+    const tpsPercentRateOfChange =
+      (tpsRangeInWindow / 100 / timeElapsedInWindow) * 100;
+
+    // Check for rapid TPS change (either up or down) and significant AFR change (range)
+    if (
+      tpsPercentRateOfChange > tpsPercentPerSecondThreshold &&
+      afrRangeInWindow > afrThreshold
+    ) {
+      currentRecord.delete = true;
+      currentRecord.deleteReason =
+        "Rapid TPS change and significant AFR change within window";
+    }
+  }
+}
