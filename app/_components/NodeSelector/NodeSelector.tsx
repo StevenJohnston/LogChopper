@@ -20,6 +20,8 @@ import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 import { TableRemapper } from "./TableRemapper"
 import { RomSelectorButton } from "./RomSelectorButton"
+import { AfrMlShifterButton } from "./AfrMlShifterButton"
+import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -63,7 +65,7 @@ const NodeSelector = () => {
   }, [addNode, addEdge])
 
   return (
-    <div className={`fixed flex top-0 right-0 bg-opacity-50 bg-blue-200 p-2 ${expanded ? 'w-[200px]' : ''} flex-col max-h-[calc(100%-200px)] m-[15px]`}>
+    <div className={`fixed flex top-0 right-0 bg-opacity-50 bg-blue-200 p-2 ${expanded ? 'w-[200px]' : ''} flex-col max-h-[calc(100%-200px)] m-[15px] overflow-y-scroll`}>
       <div
         onDoubleClick={() => setExpanded(!expanded)}
         className='flex justify-between drag-handle w-full'
@@ -76,8 +78,8 @@ const NodeSelector = () => {
         </button>
       </div>
       {expanded && (
-        <div className="flex max-h-full flex-col flex-wrap content-start w-full mt-2">
-          <div className="w-full">Log Filters</div>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="col-span-2">Log Filters</div>
           <NodeSelectorButton
             onClick={() => {
               const logFilter: LogFilterNodeType = {
@@ -94,12 +96,27 @@ const NodeSelector = () => {
           </NodeSelectorButton>
           <IPW />
           <AfrShifter />
+          <NodeSelectorButton
+            onClick={() => {
+              const tpsAfrDelete: TpsAfrDeleteNodeType = {
+                position: getViewportPosition(100, 100),
+                id: uuid(),
+                type: TpsAfrDeleteType,
+                data: new TpsAfrDeleteData({}),
+                dragHandle: '.drag-handle',
+              }
+              updateNode(tpsAfrDelete)
+            }}
+          >
+            TPS AFR Delete
+          </NodeSelectorButton>
+          <AfrMlShifterButton />
           <AccelFilter />
 
-          <div className="w-full">Rom</div>
+          <div className="col-span-2">Rom</div>
           <SelectedRom />
           <RomSelectorButton />
-          <div className="w-full">Group Node</div>
+          <div className="col-span-2">Group Node</div>
           <NodeSelectorButton
             onClick={() => {
               const group: GroupNodeType = {
@@ -119,7 +136,7 @@ const NodeSelector = () => {
           <AfrMapGroup />
           <TableRemapper />
           {savedGroups.length > 0 && (
-            <div className='flex justify-between'>
+            <div className='flex justify-between col-span-2'>
               Saved Groups
               <button onClick={() => { setGroupDelete(!groupDelete) }}>
                 <GearSvg

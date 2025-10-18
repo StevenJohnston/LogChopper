@@ -37,8 +37,25 @@ import { isRefreshableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { BaseRomNodeType } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
 import { AfrShiftNodeType } from "@/app/_components/FlowNodes/AfrShift/AfrShiftTypes";
 import { MovingAverageLogFilterNodeType } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes";
-import { TableRemapData, TableRemapNodeType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
+import {
+  TableRemapData,
+  TableRemapNodeType,
+} from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { RomSelectorNodeType } from "@/app/_components/FlowNodes/RomSelector/RomSelectorTypes";
+import { AfrMlShifterNodeType } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
+import { TpsAfrDeleteNodeType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
+
+interface ClonableData {
+  clone: (data: any) => any;
+}
+
+function isClonableData(data: any): data is ClonableData {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    typeof data.clone === "function"
+  );
+}
 
 export type MyNode =
   | BaseLogNodeType
@@ -56,7 +73,9 @@ export type MyNode =
   | MovingAverageLogFilterNodeType
   | GroupNodeType
   | TableRemapNodeType
-  | RomSelectorNodeType;
+  | RomSelectorNodeType
+  | AfrMlShifterNodeType
+  | TpsAfrDeleteNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -76,7 +95,11 @@ export type RFState = {
   softUpdateNode: (node: MyNode) => void;
   updateNode: (node: MyNode) => void;
   updateEdge: (edge: Edge, connection: Connection) => void;
-  updateTableRemapNodeConfig: (nodeId: string, config: Partial<TableRemapData>) => void;
+  updateTableRemapNodeConfig: (
+    nodeId: string,
+    config: Partial<TableRemapData>
+  ) => void;
+  updateNodeData: (nodeId: string, data: any) => void;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
 };
 
@@ -293,6 +316,21 @@ const useFlow = createWithEqualityFn<RFState>(
                 "Failed to getRefreshedData, skipping node update",
                 e
               );
+            })
+            .finally(() => {
+              set((state) => {
+                const thisNode = state.nodes.find(
+                  (n) => n.id == updateNode.id
+                ) as typeof updateNode;
+                if (!thisNode) return {};
+                thisNode.data = thisNode.data.clone({ loading: false });
+                return {
+                  nodes: [
+                    ...state.nodes.filter((n) => n.id != thisNode.id),
+                    thisNode,
+                  ],
+                };
+              });
             });
           updateNode.data = updateNode.data.clone({
             loading: true,
@@ -322,13 +360,31 @@ const useFlow = createWithEqualityFn<RFState>(
         reactFlowInstance,
       });
     },
-    updateTableRemapNodeConfig: (nodeId: string, config: Partial<TableRemapData>) => {
+    updateTableRemapNodeConfig: (
+      nodeId: string,
+      config: Partial<TableRemapData>
+    ) => {
       const nodes = get().nodes;
-      const node = nodes.find((n) => n.id === nodeId) as TableRemapNodeType | undefined;
+      const node = nodes.find((n) => n.id === nodeId) as
+        | TableRemapNodeType
+        | undefined;
       if (node) {
         const newNode = { ...node, data: node.data.clone(config) };
         get().updateNode(newNode);
       }
+    },
+    updateNodeData: (nodeId: string, data: any) => {
+      set((state) => {
+        const node = state.nodes.find((n) => n.id === nodeId);
+        if (node) {
+          if (isClonableData(node.data)) {
+            node.data = node.data.clone(data);
+          } else {
+            node.data = { ...node.data, ...data };
+          }
+        }
+        return { nodes: [...state.nodes] };
+      });
     },
   })
   // )

@@ -38,12 +38,13 @@ async function loadLogsFromFiles(
   selectedLogFiles: File[]
 ): Promise<LogRecord[]> {
   const logPromises = selectedLogFiles.map(
-    async (file: File): Promise<LogRecord[]> => {
+    async (file: File, index: number): Promise<LogRecord[]> => {
       if (shouldTerminate) {
         throw new Error("loadLogsFromFiles map terminated");
       }
       const text = await file.text();
-      return csv({ checkType: true }).fromString(text);
+      const records = await csv({ checkType: true }).fromString(text);
+      return records.map((record) => ({ ...record, logId: index }));
     }
   );
   const logsArray = (await Promise.allSettled(logPromises)).filter(
