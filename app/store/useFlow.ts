@@ -42,6 +42,7 @@ import {
   TableRemapNodeType,
 } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { RomSelectorNodeType } from "@/app/_components/FlowNodes/RomSelector/RomSelectorTypes";
+import { LogSelectorNodeType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
 import { AfrMlShifterNodeType } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
 import { TpsAfrDeleteNodeType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
 
@@ -74,6 +75,7 @@ export type MyNode =
   | GroupNodeType
   | TableRemapNodeType
   | RomSelectorNodeType
+  | LogSelectorNodeType
   | AfrMlShifterNodeType
   | TpsAfrDeleteNodeType;
 

@@ -9,6 +9,7 @@ export const BaseLogType = "BaseLogNode"
 
 interface BaseLogDataProps extends Partial<RefreshableNode<BaseLogData>> {
   selectedLogFiles?: File[]
+  selectedLogFileNames?: string[]
   logs?: LogRecord[]
 }
 
@@ -17,16 +18,19 @@ export type BaseLogNodeType = NodeWithType<BaseLogData, typeof BaseLogType>;
 
 export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode, SaveableNode {
   public selectedLogFiles: File[] = [];
+  public selectedLogFileNames: string[] = [];
   public logs: LogRecord[] = [];
   public loading: boolean = false;
   constructor({
     selectedLogFiles = [],
+    selectedLogFileNames = [],
     logs = [],
     loading = false,
     activeUpdate = null,
   }: BaseLogDataProps) {
     super()
     this.selectedLogFiles = selectedLogFiles
+    this.selectedLogFileNames = selectedLogFileNames
     this.logs = logs
     this.loading = loading
     this.activeUpdate = activeUpdate
@@ -35,9 +39,10 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
   public addWorkerPromise(node: MyNode): void {
     const worker = this.createWorker()
     const promise = new Promise<BaseLogData>((resolveRefresh, rejectRefresh) => {
-      if (node.type != BaseLogType) {
-        console.log(`newBaseLogData.getRefreshedData called with incorrect node type found ${node.type} expected ${BaseLogType}`)
-        rejectRefresh(new Error(`newBaseLogData.getRefreshedData called with incorrect node type found ${node.type} expected ${BaseLogType}`))
+      if (node.type !== BaseLogType && node.type !== 'logSelector') { // Adjusted to support LogSelectorType
+        const errorMessage = `newBaseLogData.getRefreshedData called with incorrect node type found ${node.type} expected ${BaseLogType} or logSelector`;
+        console.log(errorMessage)
+        rejectRefresh(new Error(errorMessage))
         return
       }
       if (!node.data.selectedLogFiles) {
@@ -76,15 +81,25 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
       import.meta.url
     ));
   }
-  public getLoadable() { return {} }
+  public getLoadable() { 
+    return {
+      selectedLogFileNames: this.selectedLogFileNames,
+    }
+   }
   public clone(updates: Partial<BaseLogData>): BaseLogData {
     return new BaseLogData({
       selectedLogFiles: this.selectedLogFiles,
+      selectedLogFileNames: this.selectedLogFileNames,
       logs: this.logs,
       loading: this.loading,
       activeUpdate: this.activeUpdate,
       ...updates
     })
+  }
+  public toJSON() {
+    return {
+      selectedLogFileNames: this.selectedLogFileNames,
+    }
   }
 }
 
