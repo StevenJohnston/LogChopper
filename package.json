@@ -27,7 +27,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "color-scales": "^3.0.2",
     "csvtojson": "^2.0.10",
-    "echarts": "^5.4.3",
+    "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "echarts-gl": "^2.0.9",
     "expr-eval": "^2.0.2",

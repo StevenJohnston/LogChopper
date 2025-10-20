@@ -10,14 +10,32 @@ import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { Aggregator } from '@/app/_lib/consts';
 import { Scaling } from '@/app/_lib/rom-metadata';
+import useCellSelectionStore from '@/app/store/useCellSelection';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
   updateNode: state.updateNode,
   softUpdateNode: state.softUpdateNode
 });
+
+const sortCellPos = (cell1: [number, number], cell2: [number, number]): [[number, number], [number, number]] => {
+  const startCell: [number, number] = [
+    cell1[0] < cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] < cell2[1] ? cell1[1] : cell2[1],
+  ]
+  const endCell: [number, number] = [
+    cell1[0] > cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] > cell2[1] ? cell1[1] : cell2[1],
+  ]
+  return [startCell, endCell]
+}
+
 function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   const { nodes, updateNode, softUpdateNode } = useFlow(selector, shallow);
+  const [distributionData, setDistributionData] = useState<number[] | null>(null);
+  const { tableName, startCell, endCell } = useCellSelectionStore();
+
+
   const childRef = useRef<HTMLTextAreaElement>(null)
 
   const [expanded, setExpanded] = useState<boolean>(false)
@@ -29,6 +47,28 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       }
     }
   }, [id, nodes])
+
+  useEffect(() => {
+    const thisTableName = data.table?.name || id;
+    if (tableName === thisTableName && startCell && endCell && data.sourceTable && data.sourceTable.type === '3D' && data.logField) {
+      const allValues: number[] = [];
+      const [min, max] = sortCellPos(startCell, endCell);
+
+      for (let row = min[0]; row <= max[0]; row++) {
+        for (let col = min[1]; col <= max[1]; col++) {
+          const logRecords = data.sourceTable.values[row]?.[col];
+          if (logRecords) {
+            const values = logRecords.map(record => Number(record[data.logField!])).filter(n => !isNaN(n));
+            allValues.push(...values);
+          }
+        }
+      }
+      setDistributionData(allValues);
+    } else {
+      setDistributionData(null);
+    }
+  }, [tableName, startCell, endCell, data.sourceTable, data.logField, data.table, id]);
+
 
   const onFieldSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
     const logField = event.target.value as keyof LogRecord
@@ -159,6 +199,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
                 scalingMap={data.scalingMap}
                 scalingValue={data.scalingValue}
                 setScalingValue={setScalingValue}
+                distributionData={distributionData}
               />
             }
           </div>
