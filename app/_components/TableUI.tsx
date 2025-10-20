@@ -89,12 +89,9 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
     setSelectedCell(tableName, cellpos, cellpos)
   }, [tableName, setSelectedCell])
 
-  const highlightCells = useCallback(() => {
+  const highlightCells = useCallback((endCell: CellPos) => {
     if (!selectStartCell) return console.log("No selectStartCell")
-    // const cellpos = eventToCellpos(event)
-    const endCell = selectEndCell
     if (!endCell) return console.log("Failed to get end cellpos from event")
-    setSelectEndCell(endCell)
 
     const [[minRow, minCol], [maxRow, maxCol]] = sortCellPos(selectStartCell, endCell)
     console.log(`start: [${minRow}, ${minCol}] end: [${maxRow}, ${maxCol}]`)
@@ -123,7 +120,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
     }
     if (textAreaRef.current == null) return console.log()
     selectText(textAreaRef.current as HTMLTextAreaElement, csvText)
-  }, [textAreaRef, selectEndCell, selectStartCell, table])
+  }, [textAreaRef, selectStartCell, table])
 
   const cellOnMouseEnter = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
     if (mouseDown) {
@@ -143,7 +140,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
     const endCell = eventToCellpos(event)
     if (!endCell) return console.log("Failed to get end cellpos from event")
     setSelectEndCell(endCell)
-    highlightCells()
+    highlightCells(endCell)
 
     // Update global selection with the final range
     if (selectStartCell && endCell) {

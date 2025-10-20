@@ -144,7 +144,6 @@ const Flow: React.FC = () => {
 
   return (
     <div className="w-full h-full">
-
       <ReactFlow
         onInit={setRealReactFlowInstance}
         nodeTypes={nodeTypes}

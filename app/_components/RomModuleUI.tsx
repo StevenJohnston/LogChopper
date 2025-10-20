@@ -3,15 +3,17 @@ import { Scaling, Table } from "../_lib/rom-metadata";
 import TableUI from "./TableUI";
 import Surface from "./Surface";
 import { forwardRef, useState } from "react";
+import DistributionChart from "./DistributionChart";
 
 interface RomModuleUIProps {
   table: Table<string | number>
   scalingMap?: Record<string, Scaling> | null
   scalingValue?: Scaling | null
   setScalingValue?: (scalingValue: Scaling | undefined | null) => void
+  distributionData?: number[] | null
 }
 
-const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table, scalingMap, scalingValue, setScalingValue }, ref) => {
+const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table, scalingMap, scalingValue, setScalingValue, distributionData }, ref) => {
   const [showSurface, setShowSurface] = useState<boolean>(false)
 
   return (
@@ -25,12 +27,16 @@ const RomModuleUI = forwardRef<HTMLTextAreaElement, RomModuleUIProps>(({ table, 
           setScalingValue={setScalingValue}
           ref={ref}
         />
-        {
-          showSurface && table.type == "3D" &&
-          <div className="my-auto w-[500px]">
+        <div className="my-auto w-[500px] h-[400px]">
+          {
+            distributionData && distributionData.length > 0 &&
+            <DistributionChart values={distributionData} />
+          }
+          {
+            showSurface && table.type == "3D" && !(distributionData && distributionData.length > 0) &&
             <Surface table={table} />
-          </div>
-        }
+          }
+        </div>
       </div>
       {
         table.type == "3D" &&
