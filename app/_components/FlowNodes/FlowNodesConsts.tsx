@@ -15,26 +15,28 @@ import { MovingAverageLogFilterData, MovingAverageLogFilterType } from "@/app/_c
 import { AfrMlShifterData, AfrMlShifterType } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
 import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
 import { LogSelectorType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
+import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
 
 export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 
 export const NodeFactoryLookup = {
-  [BaseRomType]: BaseRomData,
-  [BaseLogType]: BaseLogData,
-  [BaseTableType]: BaseTableData,
-  [FillLogTableType]: FillLogTableData,
-  [FillTableType]: FillTableData,
-  [GroupType]: GroupData,
-  [LogFilterType]: LogFilterData,
-  [LogAlterType]: LogAlterData,
-  [CombineAdvancedTableType]: CombineAdvancedTableData,
-  [CombineType]: CombineData,
-  [RunningLogAlterType]: RunningLogAlterData,
-  [AfrShiftType]: AfrShiftData,
-  [MovingAverageLogFilterType]: MovingAverageLogFilterData,
-  [AfrMlShifterType]: AfrMlShifterData,
-  [TpsAfrDeleteType]: TpsAfrDeleteData,
-  [LogSelectorType]: BaseLogData
+    [BaseRomType]: BaseRomData,
+    [BaseLogType]: BaseLogData,
+    [BaseTableType]: BaseTableData,
+    [FillLogTableType]: FillLogTableData,
+    [FillTableType]: FillTableData,
+    [GroupType]: GroupData,
+    [LogFilterType]: LogFilterData,
+    [LogAlterType]: LogAlterData,
+    [CombineAdvancedTableType]: CombineAdvancedTableData,
+    [CombineType]: CombineData,
+    [RunningLogAlterType]: RunningLogAlterData,
+    [AfrShiftType]: AfrShiftData,
+    [MovingAverageLogFilterType]: MovingAverageLogFilterData,
+    [AfrMlShifterType]: AfrMlShifterData,
+    [TpsAfrDeleteType]: TpsAfrDeleteData,
+    [LogSelectorType]: BaseLogData,
+    [RomSelectorType]: BaseRomData
 } as const

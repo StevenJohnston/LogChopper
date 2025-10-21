@@ -8,6 +8,7 @@ import { RomSelectorType } from '../RomSelector/RomSelectorTypes';
 
 export interface BaseRomDataProps extends Partial<RefreshableNode<BaseRomData>> {
   selectedRomFile?: File | null;
+  selectedRomFileName?: string | null;
   scalingMap?: Record<string, Scaling> | null;
   tableMap?: Record<string, BasicTable> | null;
 }
@@ -17,11 +18,13 @@ export type BaseRomNodeType = NodeWithType<BaseRomData, typeof BaseRomType>;
 
 export class BaseRomData extends RefreshableNode<BaseRomData> implements RomNode, SaveableNode {
   public selectedRomFile: File | null = null
+  public selectedRomFileName: string | null = null;
   public scalingMap: Record<string, Scaling> | null = null;
   public tableMap: Record<string, BasicTable> | null = null;
   public loading: boolean = false;
   constructor({
     selectedRomFile = null,
+    selectedRomFileName = null,
     scalingMap = null,
     tableMap = null,
     loading = false,
@@ -29,6 +32,7 @@ export class BaseRomData extends RefreshableNode<BaseRomData> implements RomNode
   }: BaseRomDataProps) {
     super()
     this.selectedRomFile = selectedRomFile
+    this.selectedRomFileName = selectedRomFileName
     this.scalingMap = scalingMap
     this.tableMap = tableMap
     this.loading = loading
@@ -83,10 +87,13 @@ export class BaseRomData extends RefreshableNode<BaseRomData> implements RomNode
       )
     );
   }
-  public getLoadable() { return {} }
+  public getLoadable() {
+    return { selectedRomFileName: this.selectedRomFileName }
+  }
   public clone(updates: Partial<BaseRomData> = {}): BaseRomData {
     return new BaseRomData({
       selectedRomFile: this.selectedRomFile,
+      selectedRomFileName: this.selectedRomFileName,
       scalingMap: this.scalingMap,
       tableMap: this.tableMap,
       loading: this.loading,

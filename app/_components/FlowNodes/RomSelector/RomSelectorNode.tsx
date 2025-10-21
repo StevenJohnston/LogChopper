@@ -14,11 +14,12 @@ import { BaseRomData } from "@/app/_components/FlowNodes/BaseRom/BaseRomTypes";
 const selector = (state: RFState) => ({
     nodes: state.nodes,
     updateNode: state.updateNode,
+    updateNodeData: state.updateNodeData,
 });
 
 const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
     const { romFiles, scalingMap, tableMap } = useRom(useRomSelector, shallow);
-    const { nodes, updateNode } = useFlow(selector, shallow);
+    const { nodes, updateNode, updateNodeData } = useFlow(selector, shallow);
 
     const [query, setQuery] = useState('');
     const [sortedRomFiles, setSortedRomFiles] = useState<FileSystemFileHandle[]>([]);
@@ -40,6 +41,22 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
         sortFiles();
     }, [romFiles]);
 
+    useEffect(() => {
+        if (sortedRomFiles.length > 0 && data.selectedRomFileName && !data.selectedRomFile) {
+            const selected = sortedRomFiles.find(handle => handle.name === data.selectedRomFileName);
+            if (selected) {
+                (async () => {
+                    const selectedRomFile = await selected.getFile();
+                    console.warn("RomSelectorNode: Loading ROM file from selectedRomFileName", data.selectedRomFileName);
+                    updateNodeData(id, { selectedRomFile, scalingMap, tableMap });
+                    const node = nodes.find(n => n.id === id) as RomSelectorNodeType;
+                    if (!node) return;
+                    updateNode(node);
+                })();
+            }
+        }
+    }, [sortedRomFiles, data.selectedRomFileName, data.selectedRomFile, id, updateNodeData, scalingMap, tableMap, nodes, updateNode]);
+
     const selectedRomFileHandle = sortedRomFiles.find(handle => handle.name === data.selectedRomFile?.name) ?? null;
 
     const filteredRoms = sortedRomFiles
@@ -53,7 +70,7 @@ const RomSelectorNode = ({ id, data }: NodeProps<BaseRomData>) => {
         if (!node) return;
 
         const selectedRomFile = await fileHandle.getFile();
-        const romData = new BaseRomData({ selectedRomFile, scalingMap, tableMap });
+        const romData = new BaseRomData({ selectedRomFile, selectedRomFileName: fileHandle.name, scalingMap, tableMap });
 
         updateNode({ ...node, data: romData });
     };
