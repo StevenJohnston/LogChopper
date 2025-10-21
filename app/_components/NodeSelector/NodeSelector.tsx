@@ -20,6 +20,7 @@ import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 import { TableRemapper } from "./TableRemapper"
 import { RomSelectorButton } from "./RomSelectorButton"
+import { LogSelectorButton } from "./LogSelectorButton";
 import { AfrMlShifterButton } from "./AfrMlShifterButton"
 import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
 
@@ -80,6 +81,7 @@ const NodeSelector = () => {
       {expanded && (
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div className="col-span-2">Log Filters</div>
+          <LogSelectorButton />
           <NodeSelectorButton
             onClick={() => {
               const logFilter: LogFilterNodeType = {

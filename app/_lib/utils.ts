@@ -30,7 +30,7 @@ export const formatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit", // '2-digit' for leading zero (e.g., 01)
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false,
+  hourCycle: 'h23',
 });
 
 export const getAllFileHandles = async (

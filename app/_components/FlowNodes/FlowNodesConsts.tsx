@@ -14,8 +14,9 @@ import { AfrShiftData, AfrShiftType } from "@/app/_components/FlowNodes/AfrShift
 import { MovingAverageLogFilterData, MovingAverageLogFilterType } from "@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes";
 import { AfrMlShifterData, AfrMlShifterType } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
 import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
+import { LogSelectorType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
 
 
@@ -34,5 +35,6 @@ export const NodeFactoryLookup = {
   [AfrShiftType]: AfrShiftData,
   [MovingAverageLogFilterType]: MovingAverageLogFilterData,
   [AfrMlShifterType]: AfrMlShifterData,
-  [TpsAfrDeleteType]: TpsAfrDeleteData
+  [TpsAfrDeleteType]: TpsAfrDeleteData,
+  [LogSelectorType]: BaseLogData
 } as const

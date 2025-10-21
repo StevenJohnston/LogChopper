@@ -13,6 +13,7 @@ export type RomState = {
   romDirectoryHandle: FileSystemDirectoryHandle | null;
   romFiles: FileSystemFileHandle[];
   logDirectoryHandle: FileSystemDirectoryHandle | null;
+  logFiles: FileSystemFileHandle[];
   selectedRomMetadataHandle: FileSystemFileHandle | null;
   selectedRom: FileSystemFileHandle | null;
   scalingMap: Record<string, Scaling>;
@@ -29,7 +30,7 @@ export type RomState = {
   ) => Promise<void>;
   setLogDirectoryHandle: (
     logDirectoryHandle: FileSystemDirectoryHandle | null
-  ) => void;
+  ) => Promise<void>;
   setSelectedRomMetadataHandle: (
     selectedRomMetadataHandle: FileSystemFileHandle
   ) => void;
@@ -45,6 +46,7 @@ export function useRomSelector(state: RomState) {
     romDirectoryHandle: state.romDirectoryHandle,
     romFiles: state.romFiles,
     logDirectoryHandle: state.logDirectoryHandle,
+    logFiles: state.logFiles,
 
     selectedRomMetadataHandle: state.selectedRomMetadataHandle,
     selectedRom: state.selectedRom,
@@ -74,6 +76,7 @@ const useRom = createWithEqualityFn<RomState>()(
       romDirectoryHandle: null,
       romFiles: [],
       logDirectoryHandle: null,
+      logFiles: [],
       selectedRomMetadataHandle: null,
       selectedRom: null,
       scalingMap: {},
@@ -132,10 +135,15 @@ const useRom = createWithEqualityFn<RomState>()(
           get().setSelectedRom(rom);
         }
       },
-      setLogDirectoryHandle: (
+      setLogDirectoryHandle: async (
         logDirectoryHandle: FileSystemDirectoryHandle | null
       ) => {
-        set({ logDirectoryHandle });
+        if (logDirectoryHandle) {
+          const logFiles = await getAllFileHandles(logDirectoryHandle);
+          set({ logDirectoryHandle, logFiles });
+        } else {
+          set({ logDirectoryHandle: null, logFiles: [] });
+        }
       },
 
       setSelectedRomMetadataHandle: async (
