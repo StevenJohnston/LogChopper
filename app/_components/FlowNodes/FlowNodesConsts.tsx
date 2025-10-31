@@ -40,5 +40,5 @@ export const NodeFactoryLookup = {
     [TpsAfrDeleteType]: TpsAfrDeleteData,
     [LogSelectorType]: BaseLogData,
     [RomSelectorType]: BaseRomData,
-    [TableRemapType]: TableRemapData
+    [TableRemapType]: TableRemapData,
 } as const

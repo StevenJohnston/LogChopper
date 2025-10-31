@@ -34,45 +34,48 @@ export const LogFields = [
 
 export interface LogRecord {
   LogID?: number;
-  // LogEntryDate?: string;
-  // LogEntryTime?: string;
+  LogEntryDate?: string;
+  LogEntryTime?: string;
   LogEntrySeconds?: number;
+  "01_LogMark"?: number;
   AFR?: number;
   STFT?: number;
   CurrentLTFT?: number;
-  // IdleLTFT?: string;
-  // CruiseLTFT?: string;
+  IdleLTFT?: string;
+  CruiseLTFT?: string;
   Load?: number;
-  // O2Sensor2?: string;
+  O2Sensor2?: string;
   IPW?: number;
-  // AFRMAP?: string;
+  AFRMAP?: string;
   LoadTiming?: number;
   TimingAdv?: number;
   KnockSum?: number;
   RPM?: number;
-  // Baro?: string;
+  Baro?: string;
   MAP?: number;
   Boost?: number;
   WGDC_Active?: number;
-  // MAF?: string;
-  // IDC?: string;
-  // ExVVTtarget?: string;
-  // InVVTtarget?: string;
+  MAF?: string;
+  IDC?: string;
+  ExVVTtarget?: string;
+  InVVTtarget?: string;
   InVVTactual?: number;
   ExVVTactual?: number;
   TPS?: number;
   APP?: number;
-  // IAT?: string;
+  IAT?: string;
   WGDCCorr?: number;
   Speed?: number;
-  // Battery?: string;
-  // ECT?: string;
-  // MAT?: string;
+  Battery?: string;
+  ECT?: string;
+  MAT?: string;
   MAPCalcs?: number;
   IMAPCalcs?: number;
   MAFCalcs?: number;
-  // ChosenCalc?: string;
-  // AFROffsetSeconds?: string;
+  ChosenCalc?: string;
+  AFROffsetSeconds?: string;
+  FrontO2?: number;
+  MAFHz?: number;
 
   RPMGain?: number;
   delete?: boolean;
@@ -91,6 +94,31 @@ export async function loadLogs(
     async (f: FileSystemFileHandle): Promise<LogRecord[]> => {
       const file = await f.getFile();
       const text = await file.text();
+      const lines = text.split("\n");
+      const headers = lines[0].split(",").map((h) => h.trim());
+
+      if (headers.includes("2ByteRPM")) {
+        const newHeaders = headers.map((h) => {
+          if (h === "2ByteRPM") return "RPM";
+          if (h === "PSIG") return "MAP";
+          return h;
+        });
+
+        const csvData = lines.slice(1).join("\n");
+
+        const records = await csv({
+          checkType: true,
+          headers: newHeaders,
+          colParser: {
+            RPM: "number",
+            MAP: (item) => Number(item) + 100,
+          },
+        }).fromString(csvData);
+        console.log("First record RPM type:", typeof records[0]?.RPM);
+        console.log("First record RPM value:", records[0]?.RPM);
+        return records;
+      }
+
       return csv({ checkType: true }).fromString(text);
     }
   );

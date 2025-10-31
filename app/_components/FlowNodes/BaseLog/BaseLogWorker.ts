@@ -43,6 +43,29 @@ async function loadLogsFromFiles(
         throw new Error("loadLogsFromFiles map terminated");
       }
       const text = await file.text();
+      const lines = text.split("\n");
+      const headers = lines[0].split(",").map((h) => h.trim());
+
+      if (headers.includes("2ByteRPM")) {
+        const newHeaders = headers.map((h) => {
+          if (h === "2ByteRPM") return "RPM";
+          if (h === "PSIG") return "MAP";
+          return h;
+        });
+
+        const csvData = lines.slice(1).join("\n");
+
+        const records = await csv({
+          checkType: true,
+          headers: newHeaders,
+          colParser: {
+            RPM: "number",
+            MAP: (item) => Number(item) + 100,
+          },
+        }).fromString(csvData);
+        return records.map((record) => ({ ...record, logId: index }));
+      }
+
       const records = await csv({ checkType: true }).fromString(text);
       return records.map((record) => ({ ...record, logId: index }));
     }

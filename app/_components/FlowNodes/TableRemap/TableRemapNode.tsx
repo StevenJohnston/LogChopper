@@ -25,7 +25,7 @@ const selector = (state: RFState) => ({
 
 function TableRemapNode({ id, data }: NodeProps<TableRemapData>) {
   const { updateTableRemapNodeConfig } = useFlow(selector, shallow);
-  const outputTable = data.output;
+  const table = data.table;
 
   const handleUpdate = (config: Partial<TableRemapData>) => {
     updateTableRemapNodeConfig(id, config);
@@ -89,7 +89,7 @@ function TableRemapNode({ id, data }: NodeProps<TableRemapData>) {
             value={data.lookupValueSource}
             onChange={(e) => handleUpdate({ lookupValueSource: e.target.value as TableRemapAxis })}
           >
-            {axisOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {sourceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div>
@@ -114,10 +114,10 @@ function TableRemapNode({ id, data }: NodeProps<TableRemapData>) {
         </div>
       </div>
 
-      {outputTable && expanded && (
+      {table && expanded && (
         <div className="mt-2">
           <h2 className="text-md font-semibold">Output Table</h2>
-          <TableUI table={outputTable} tableName={outputTable.name || id} />
+          <TableUI table={table} tableName={table.name || id} />
         </div>
       )}
     </div>
