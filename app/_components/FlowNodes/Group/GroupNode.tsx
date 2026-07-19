@@ -68,6 +68,108 @@ function GroupNode({ id, data }: NodeProps<GroupData>) {
     saveGroup({ groupName: data.name, nodes: saveNodes as MyNode[], edges: saveEdges })
   }, [flowInstance, node, edges, id, data, saveGroup])
 
+  const onCopyJson = useCallback(() => {
+    if (!flowInstance) return console.log("Error saving due to missing flowInstance")
+    if (!node) return console.log(`Error saving group node: could not find node in store ${id}`)
+    if (!node.data) return console.log("Error saving group node: Missing data")
+    const saveNodes: Node[] = []
+    const saveEdges: Edge[] = []
+    saveNodes.push({
+      ...node,
+      data: node.data.getLoadable()
+    })
+
+    const interNodes: MyNode[] = flowInstance.getIntersectingNodes(
+      node
+    ) as MyNode[];
+
+    const interNodeIds: Record<string, boolean> = {}
+
+    for (const interNode of interNodes) {
+      interNodeIds[interNode.id] = true
+      if ("getLoadable" in interNode.data) {
+        saveNodes.push({
+          ...interNode,
+          data: interNode.data.getLoadable()
+        })
+      } else {
+        saveNodes.push(interNode)
+      }
+    }
+
+    for (const edge of edges) {
+      if (interNodeIds[edge.source] && interNodeIds[edge.target]) {
+        saveEdges.push(edge)
+      }
+    }
+    
+    const savedGroup = { groupName: data.name, nodes: saveNodes as MyNode[], edges: saveEdges };
+    const jsonStr = JSON.stringify(savedGroup, null, 2);
+    
+    const safeName = data.name.replace(/[^a-zA-Z0-9]/g, '');
+    const componentName = safeName ? safeName.charAt(0).toUpperCase() + safeName.slice(1) : 'MyGroup';
+    
+    const fileContent = `import NodeSelectorButton from "@/app/_components/NodeSelector/NodeSelectorButton"
+import useFlow, { MyNode, RFState } from "@/app/store/useFlow";
+import { useCallback } from "react";
+import { shallow } from "zustand/shallow";
+import { SavedGroup, cloneSavedGroup } from "@/app/store/useNodeStorage";
+
+const selector = (state: RFState) => ({
+  reactFlowInstance: state.reactFlowInstance,
+  updateNode: state.updateNode,
+  addNode: state.addNode,
+  addEdge: state.addEdge
+});
+
+const ${componentName} = () => {
+  const { addNode, addEdge } = useFlow(selector, shallow);
+
+  const onLoadSavedGroup = useCallback((savedGroup: SavedGroup) => {
+    const newGroup = cloneSavedGroup(savedGroup)
+
+    for (const node of newGroup.nodes) {
+      addNode(node as MyNode)
+    }
+    for (const edge of newGroup.edges) {
+      addEdge(edge)
+    }
+  }, [addNode, addEdge])
+
+  return (
+    <NodeSelectorButton
+      onClick={() => {
+        onLoadSavedGroup(savedGroup)
+      }}
+    >
+      {\`${data.name}\`}
+    </NodeSelectorButton>
+  )
+}
+
+const savedGroup: SavedGroup = ${jsonStr};
+
+export default ${componentName};
+`;
+
+    const command = `cat << 'EOF' > app/_components/NodeSelector/${componentName}.tsx
+${fileContent}
+EOF
+
+# Add import and component to NodeSelector if not present
+if ! grep -q "import ${componentName} from" app/_components/NodeSelector/NodeSelector.tsx; then
+  sed -i '' 's|import MapAfrGroup|import ${componentName} from "@/app/_components/NodeSelector/${componentName}"\\nimport MapAfrGroup|g' app/_components/NodeSelector/NodeSelector.tsx
+  sed -i '' 's|<MapAfrGroup />|<${componentName} />\\n          <MapAfrGroup />|g' app/_components/NodeSelector/NodeSelector.tsx
+  echo "Added ${componentName}.tsx and updated NodeSelector.tsx"
+else
+  echo "Updated ${componentName}.tsx"
+fi
+`;
+
+    navigator.clipboard.writeText(command);
+    alert("Copied terminal command to clipboard!");
+  }, [flowInstance, node, edges, id, data]);
+
 
   const onGroupNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!node) return
@@ -95,7 +197,11 @@ function GroupNode({ id, data }: NodeProps<GroupData>) {
             onChange={onGroupNameChange}
           />
           <div>
-
+            <button className='border rounded border-black p-1'
+              onClick={onCopyJson}
+            >
+              Copy Json
+            </button>
             <button className='border rounded border-black p-1'
               onClick={() => {
                 updateNode({ ...node, data: new GroupData({ ...node.data, locked: !node.data.locked }) })
