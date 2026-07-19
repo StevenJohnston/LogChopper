@@ -1,6 +1,6 @@
 import { RefreshableNode } from "./RefreshableNode";
 
-import { Node, Edge } from "reactflow";
+import { Node } from "reactflow";
 import {
   BasicTable,
   LogTable,

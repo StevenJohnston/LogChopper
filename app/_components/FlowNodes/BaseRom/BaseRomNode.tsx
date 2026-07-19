@@ -53,6 +53,7 @@ function BaseRomNode({ id, data, isConnectable }: NodeProps<BaseRomData>) {
       }
       updateNode(typeSafeUpdateNode)
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRom, scalingMap, tableMap, updateNode])
 
   return (

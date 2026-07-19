@@ -50,7 +50,6 @@ import { TpsAfrDeleteNodeType } from "@/app/_components/FlowNodes/TpsAfrDelete/T
 import {
   TableLookupData,
   TableLookupNodeType,
-  TableLookupType,
 } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 
 interface ClonableData {

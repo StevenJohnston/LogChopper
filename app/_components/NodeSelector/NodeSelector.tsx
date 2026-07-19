@@ -41,7 +41,7 @@ const nodeStorageSelector = (state: NodeStorageState) => ({
 
 
 const NodeSelector = () => {
-  const { reactFlowInstance, updateNode, addNode, addEdge, getViewportPosition } = useFlow(selector, shallow);
+  const { updateNode, addNode, addEdge, getViewportPosition } = useFlow(selector, shallow);
   const { savedGroups, deleteGroup } = useNodeStorage(nodeStorageSelector, shallow)
 
   const [groupDelete, setGroupDelete] = useState<boolean>(false);
