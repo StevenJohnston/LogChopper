@@ -9,10 +9,10 @@ import { MyNode } from "@/app/store/useFlow";
 import { getParentsByHandleIds } from "@/app/_lib/react-flow-utils";
 import { isTableNode, isLogNode } from "../FlowNodesConsts";
 import {
-  TableLookupWorker,
   TableLookupWorkerInput,
   TableLookupWorkerOutput,
 } from "./TableLookupWorkerTypes";
+import { TableLookupWorker } from "./TableLookupWorker";
 import { LogRecord } from "@/app/_lib/log";
 
 export const TableLookupType = "TableLookupNode";
@@ -29,11 +29,11 @@ export interface TableLookupDataProps
 
 export type TableLookupNodeType = NodeWithType<
   TableLookupData,
-  typeof TABLE_LOOKUP_NODE_TYPE
+  typeof TableLookupType
 >;
 
 export function isTableLookupNode(node: Node): node is TableLookupNodeType {
-  return node.type === TABLE_LOOKUP_NODE_TYPE;
+  return node.type === TableLookupType;
 }
 
 export class TableLookupData
@@ -100,8 +100,8 @@ export class TableLookupData
 
       try {
         const [tableData, logData]: any = await Promise.all([
-          tableNode.data.activeUpdate?.promise,
-          logNode.data.activeUpdate?.promise,
+          (tableNode.data as any).activeUpdate?.promise,
+          (logNode.data as any).activeUpdate?.promise,
         ]);
 
         if (!tableData?.table || !logData?.logs)
@@ -123,7 +123,7 @@ export class TableLookupData
           }
         };
 
-        worker.onerror = (e) => reject(e);
+        worker.onerror = (e: any) => reject(e);
 
         const workerInput: TableLookupWorkerInput = {
           table: tableData.table,
