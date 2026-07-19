@@ -19,6 +19,7 @@ import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
 import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 import { TableRemapper } from "./TableRemapper"
+import { TableLookupButton } from "./TableLookupButton";
 import { RomSelectorButton } from "./RomSelectorButton"
 import { LogSelectorButton } from "./LogSelectorButton";
 import { AfrMlShifterButton } from "./AfrMlShifterButton"
@@ -28,7 +29,8 @@ const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
   updateNode: state.updateNode,
   addNode: state.addNode,
-  addEdge: state.addEdge
+  addEdge: state.addEdge,
+  getViewportPosition: state.getViewportPosition,
 });
 
 const nodeStorageSelector = (state: NodeStorageState) => ({
@@ -39,20 +41,14 @@ const nodeStorageSelector = (state: NodeStorageState) => ({
 
 
 const NodeSelector = () => {
-  const { reactFlowInstance, updateNode, addNode, addEdge } = useFlow(selector, shallow);
+  const { reactFlowInstance, updateNode, addNode, addEdge, getViewportPosition } = useFlow(selector, shallow);
   const { savedGroups, deleteGroup } = useNodeStorage(nodeStorageSelector, shallow)
 
   const [groupDelete, setGroupDelete] = useState<boolean>(false);
 
   const [expanded, setExpanded] = useState<boolean>()
 
-  const getViewportPosition = useCallback((x: number = 0, y: number = 0) => {
-    const viewPort = reactFlowInstance?.getViewport()
-    return {
-      x: (viewPort?.x || 0) * -1 + x,
-      y: (viewPort?.y || 0) * -1 + y,
-    }
-  }, [reactFlowInstance])
+
 
   const onLoadSavedGroup = useCallback((savedGroup: SavedGroup) => {
     const newGroup = cloneSavedGroup(savedGroup)
@@ -137,6 +133,7 @@ const NodeSelector = () => {
           <MapAfrGroup />
           <AfrMapGroup />
           <TableRemapper />
+          <TableLookupButton />
           {savedGroups.length > 0 && (
             <div className='flex justify-between col-span-2'>
               Saved Groups

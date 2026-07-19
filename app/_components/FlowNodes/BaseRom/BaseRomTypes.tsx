@@ -1,7 +1,8 @@
 'use client'
 
 import { BaseRomWorker } from '@/app/_components/FlowNodes/BaseRom/BaseRomWorkerTypes';
-import { NodeWithType, RefreshableNode, RomNode, SaveableNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { NodeWithType, RomNode, SaveableNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { BasicTable, Scaling } from '@/app/_lib/rom-metadata';
 import { MyNode } from '@/app/store/useFlow';
 import { RomSelectorType } from '../RomSelector/RomSelectorTypes';

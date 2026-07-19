@@ -1,5 +1,6 @@
 'use client'
-import { NodeWithType, RefreshableNode, SaveableNode, isTableBasic, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { NodeWithType, SaveableNode, isTableBasic, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { MyNode } from "@/app/store/useFlow";
 import { Edge, Node } from "reactflow";
 import { getParentsByHandleIds } from "@/app/_lib/react-flow-utils";
@@ -120,6 +121,8 @@ export class TableRemapData extends RefreshableNode<TableRemapData> implements T
               tableMap: dataA.tableMap,
               scalingMap: dataA.scalingMap,
               selectedRomFile: dataA.selectedRomFile,
+              tableType: data.data.outputTable.type as HandleTypes,
+              scalingValue: this.scalingValue === undefined ? dataA.table?.scalingValue : this.scalingValue,
             });
             return;
           }

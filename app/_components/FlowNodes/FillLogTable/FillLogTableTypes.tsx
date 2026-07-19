@@ -1,6 +1,7 @@
 'use client'
 
-import { LogNode, NodeWithType, RefreshableLogNode, RefreshableNode, RefreshableTableNode, SaveableNode, TableNode, isRefreshableLogNode, isRefreshableTableNode, isTableBasic } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { LogNode, NodeWithType, RefreshableLogNode, RefreshableTableNode, SaveableNode, TableNode, isRefreshableLogNode, isRefreshableTableNode, isTableBasic } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { BasicTable, LogTable, Scaling } from '@/app/_lib/rom-metadata';
 import { HandleTypes } from '@/app/_components/FlowNodes/CustomHandle/CustomType';
 import { MyNode } from '@/app/store/useFlow';

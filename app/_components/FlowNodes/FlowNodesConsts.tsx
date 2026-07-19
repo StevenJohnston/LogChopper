@@ -17,9 +17,12 @@ import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/
 import { LogSelectorType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
 import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
 import { TableRemapData, TableRemapType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
+import { TableLookupType, TableLookupData } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
+import { Node } from "reactflow";
+import { LogNode, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 
 export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType]
-export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType]
+export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType]
 
 
 export const NodeFactoryLookup = {
@@ -41,4 +44,13 @@ export const NodeFactoryLookup = {
     [LogSelectorType]: BaseLogData,
     [RomSelectorType]: BaseRomData,
     [TableRemapType]: TableRemapData,
+    [TableLookupType]: TableLookupData,
 } as const
+
+export function isLogNode(node: Node): node is Node<LogNode> {
+  return LogNodeTypes.includes(node.type as string);
+}
+
+export function isTableNode(node: Node): node is Node<TableNode> {
+  return TableNodeTypes.includes(node.type as string);
+}

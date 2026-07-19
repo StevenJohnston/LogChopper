@@ -1,7 +1,8 @@
 'use client'
 
 import { BaseLogWorker } from '@/app/_components/FlowNodes/BaseLog/BaseLogWorkerTypes';
-import { LogNode, NodeWithType, RefreshableNode, SaveableNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { LogNode, NodeWithType, SaveableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 import { LogRecord } from '@/app/_lib/log';
 import { MyNode } from '@/app/store/useFlow';
 
@@ -102,4 +103,6 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
     }
   }
 }
+
+
 

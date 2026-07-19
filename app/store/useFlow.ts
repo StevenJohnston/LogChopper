@@ -43,8 +43,15 @@ import {
 } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { RomSelectorNodeType } from "@/app/_components/FlowNodes/RomSelector/RomSelectorTypes";
 import { LogSelectorNodeType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
-import { AfrMlShifterNodeType } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
+import {
+  AfrMlShifterNodeType,
+} from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
 import { TpsAfrDeleteNodeType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
+import {
+  TableLookupData,
+  TableLookupNodeType,
+  TableLookupType,
+} from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 
 interface ClonableData {
   clone: (data: any) => any;
@@ -77,7 +84,8 @@ export type MyNode =
   | RomSelectorNodeType
   | LogSelectorNodeType
   | AfrMlShifterNodeType
-  | TpsAfrDeleteNodeType;
+  | TpsAfrDeleteNodeType
+  | TableLookupNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -101,8 +109,14 @@ export type RFState = {
     nodeId: string,
     config: Partial<TableRemapData>
   ) => void;
+  updateTableLookupNodeConfig: (
+    nodeId: string,
+    config: Partial<TableLookupData>
+  ) => void;
   updateNodeData: (nodeId: string, data: any) => void;
   setReactFlowInstance: (reactFlowInstance: ReactFlowInstance) => void;
+  getViewportPosition: (x?: number, y?: number) => { x: number; y: number };
+  getInputs: (nodeId: string) => MyNode[];
 };
 
 const useFlow = createWithEqualityFn<RFState>(
@@ -375,6 +389,19 @@ const useFlow = createWithEqualityFn<RFState>(
         get().updateNode(newNode);
       }
     },
+    updateTableLookupNodeConfig: (
+      nodeId: string,
+      config: Partial<TableLookupData>
+    ) => {
+      const nodes = get().nodes;
+      const node = nodes.find((n) => n.id === nodeId) as
+        | TableLookupNodeType
+        | undefined;
+      if (node) {
+        const newNode = { ...node, data: node.data.clone(config) };
+        get().updateNode(newNode);
+      }
+    },
     updateNodeData: (nodeId: string, data: any) => {
       set((state) => {
         const node = state.nodes.find((n) => n.id === nodeId);
@@ -387,6 +414,18 @@ const useFlow = createWithEqualityFn<RFState>(
         }
         return { nodes: [...state.nodes] };
       });
+    },
+    getViewportPosition: (x: number = 0, y: number = 0) => {
+      const viewPort = get().reactFlowInstance?.getViewport();
+      return {
+        x: (viewPort?.x || 0) * -1 + x,
+        y: (viewPort?.y || 0) * -1 + y,
+      };
+    },
+    getInputs: (nodeId: string) => {
+      const edges = get().edges.filter((e) => e.target === nodeId);
+      const sourceIds = edges.map((e) => e.source);
+      return get().nodes.filter((n) => sourceIds.includes(n.id));
     },
   })
   // )

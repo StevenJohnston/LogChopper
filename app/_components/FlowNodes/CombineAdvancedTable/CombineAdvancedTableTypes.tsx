@@ -1,6 +1,7 @@
 'use client'
 
-import { NodeWithType, RefreshableNode, RefreshableTableNode, SaveableNode, TableNode, isRefreshableTableNode, isTableBasic } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { NodeWithType, RefreshableTableNode, SaveableNode, TableNode, isRefreshableTableNode, isTableBasic } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { HandleTypes } from '@/app/_components/FlowNodes/CustomHandle/CustomType';
 import { MatchCriteria } from '@/app/_lib/rom';
 import { BasicTable, Scaling } from '@/app/_lib/rom-metadata';
