@@ -16,9 +16,10 @@ import { AfrMlShifterData, AfrMlShifterType } from "@/app/_components/FlowNodes/
 import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
 import { LogSelectorType } from "@/app/_components/FlowNodes/LogSelector/LogSelectorTypes";
 import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
+import { TableRemapData, TableRemapType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 
 export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType]
-export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType]
+export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType]
 
 
 export const NodeFactoryLookup = {
@@ -38,5 +39,6 @@ export const NodeFactoryLookup = {
     [AfrMlShifterType]: AfrMlShifterData,
     [TpsAfrDeleteType]: TpsAfrDeleteData,
     [LogSelectorType]: BaseLogData,
-    [RomSelectorType]: BaseRomData
+    [RomSelectorType]: BaseRomData,
+    [TableRemapType]: TableRemapData
 } as const
