@@ -5,7 +5,8 @@ import { MyNode } from '@/app/store/useFlow';
 import { Edge } from 'reactflow';
 import { getParentsByHandleIds, orderAndTypeArray } from '@/app/_lib/react-flow-utils';
 import { LogRecord } from '@/app/_lib/log';
-import { RefreshableNode, SaveableNode, LogNode, isRefreshableLogNode, RefreshableLogNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { SaveableNode, LogNode, isRefreshableLogNode, RefreshableLogNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { AfrMlShifterWorker, AfrMlShifterWorkerMessage, AfrMlShifterWorkerResult } from './AfrMlShifterWorkerTypes';
 
 export const AfrMlShifterType = "afrMlShifter";

@@ -1,4 +1,4 @@
-import { MyWorker } from "@/app/_lib/worker-utilts";
+import { RefreshableNode } from "./RefreshableNode";
 
 import { Node, Edge } from "reactflow";
 import {
@@ -14,39 +14,7 @@ import { MyNode } from "@/app/store/useFlow";
 import { HandleTypes } from "@/app/_components/FlowNodes/CustomHandle/CustomType";
 import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
 
-export interface RefreshSource {
-  sourceNodeId: string;
-  refreshUUID: string;
-}
 
-export interface KillablePromise<T> {
-  worker: MyWorker;
-  promise: Promise<T>;
-}
-
-export interface Cloneable<T> {
-  clone(updates?: Partial<T>): T;
-}
-
-export abstract class RefreshableNode<T> implements Cloneable<T> {
-  loading?: boolean;
-  updates?: RefreshSource[];
-  activeUpdate?: KillablePromise<Partial<T>> | null;
-  abstract clone(updates?: Partial<T>): T;
-  abstract createWorker(): Worker;
-  public abstract addWorkerPromise(
-    node: MyNode,
-    nodes: MyNode[],
-    edges: Edge[]
-  ): void;
-  public isPartial(nodeData: unknown): nodeData is Partial<T> {
-    return (
-      nodeData !== null &&
-      typeof nodeData === "object" &&
-      Object.keys(nodeData).every((key) => key in this)
-    );
-  }
-}
 
 export interface NodeWithType<T, U extends string> extends Node<T, U> {
   type: U;
@@ -115,9 +83,7 @@ export function isTableBasic(
   return !isTableLogRecord(table);
 }
 
-export function isLogNode(node: Node): node is Node<LogNode> {
-  return "logs" in node.data;
-}
+
 
 export type RefreshableLogNode = RefreshableNode<LogNode> & LogNode;
 export function isRefreshableLogNode(
@@ -156,3 +122,5 @@ export function isRefreshableRomNode(
 ): node is Node<RefreshableRomNode> {
   return "addWorkerPromise" in node.data && "selectedRomFile" in node.data;
 }
+
+

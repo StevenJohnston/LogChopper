@@ -1,6 +1,7 @@
 'use client'
 
-import { NodeWithType, RefreshableNode, RefreshableRomNode, RomNode, SaveableNode, TableNode, isRefreshableRomNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { NodeWithType, RefreshableRomNode, RomNode, SaveableNode, TableNode, isRefreshableRomNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { HandleTypes } from "@/app/_components/FlowNodes/CustomHandle/CustomType";
 import { MyNode } from '@/app/store/useFlow';
 import { Edge, Node } from 'reactflow';
@@ -175,4 +176,6 @@ export class BaseTableData extends RefreshableNode<BaseTableData> implements Tab
     })
   }
 }
+
+
 

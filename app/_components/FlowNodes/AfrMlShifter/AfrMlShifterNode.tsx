@@ -6,7 +6,7 @@ import { shallow } from 'zustand/shallow';
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import { AfrMlShifterData, AfrMlShifterNodeType, AfrShiftMethod, AfrMlShifterTargetLogHandleId, AfrMlShifterSourceLogHandleId } from './AfrMlShifterTypes';
 import useFlow from '@/app/store/useFlow';
-import { RefreshableNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
 
 const AfrMlShifterNode = ({ id }: NodeProps<AfrMlShifterData>) => {
   const { updateNode, nodeData } = useFlow(state => ({

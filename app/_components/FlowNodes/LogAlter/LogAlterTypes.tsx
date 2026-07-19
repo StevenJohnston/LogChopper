@@ -1,5 +1,6 @@
 'use client'
-import { LogNode, NodeWithType, RefreshableLogNode, RefreshableNode, SaveableNode, isRefreshableLogNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
+import { RefreshableNode } from "@/app/_components/FlowNodes/RefreshableNode";
+import { LogNode, NodeWithType, RefreshableLogNode, SaveableNode, isRefreshableLogNode } from '@/app/_components/FlowNodes/FlowNodesTypes';
 import { LogAlterWorker } from '@/app/_components/FlowNodes/LogAlter/LogAlterWorkerTypes';
 import { LogRecord } from '@/app/_lib/log';
 import { getParentsByHandleIds, orderAndTypeArray } from '@/app/_lib/react-flow-utils';

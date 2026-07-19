@@ -54,10 +54,14 @@ function GroupNode({ id, data }: NodeProps<GroupData>) {
 
     for (const interNode of interNodes) {
       interNodeIds[interNode.id] = true
-      saveNodes.push({
-        ...interNode,
-        data: interNode.data.getLoadable()
-      })
+      if ("getLoadable" in interNode.data) {
+        saveNodes.push({
+          ...interNode,
+          data: interNode.data.getLoadable()
+        })
+      } else {
+        saveNodes.push(interNode)
+      }
     }
 
     for (const edge of edges) {
