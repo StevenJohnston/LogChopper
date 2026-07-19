@@ -1,21 +1,18 @@
+const fs = require('fs');
+const path = require('path');
 
-'use client'
-import { useMemo, useRef, useState } from 'react';
-import { Position, NodeProps } from 'reactflow';
+const directory = '/Users/steven/go/github.com/LogChopper/app/_components/FlowNodes';
 
-import { LogRecord } from '@/app/_lib/log';
-import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { TpsAfrDeleteData, TpsAfrDeleteSourceLogHandleId, TpsAfrDeleteTargetLogHandleId } from '@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes';
+const filesToUpdate = [
+  'AfrShift/AfrShiftNode.tsx',
+  'LogAlter/LogAlterNode.tsx',
+  'LogFilter/LogFilterNode.tsx',
+  'MovingAverageLogFilter/MovingAverageLogFilterNode.tsx',
+  'RunningLogAlter/RunningLogAlterNode.tsx',
+  'TpsAfrDelete/TpsAfrDeleteNode.tsx'
+];
 
-
-function TpsAfrDeleteNode({ data, isConnectable }: NodeProps<TpsAfrDeleteData>) {
-  const [expanded, setExpanded] = useState<boolean>(false)
-  const [showDeleted, setShowDeleted] = useState<boolean>(false)
-
-  const columnHelper = createColumnHelper<LogRecord>()
-    const columns = useMemo(() => {
+const newColumns = `  const columns = useMemo(() => {
     if (!data.logs || data.logs.length === 0) return []
     return Object.keys(data.logs[0] || {}).map(c => {
       return columnHelper.accessor(c, {
@@ -27,58 +24,9 @@ function TpsAfrDeleteNode({ data, isConnectable }: NodeProps<TpsAfrDeleteData>) 
         footer: info => info.column.id,
       })
     })
-  }, [data.logs, columnHelper])
+  }, [data.logs, columnHelper])`;
 
-  const filteredLogs = useMemo(() => {
-    if (!data.logs) return []
-    return data.logs.filter(l => showDeleted ? l.delete : !l.delete)
-  }, [data.logs, showDeleted])
-
-  const table = useReactTable({ columns, data: filteredLogs, getCoreRowModel: getCoreRowModel(), })
-  const { rows } = table.getRowModel()
-  //The virtualizer needs to know the scrollable container element
-  const tableContainerRef = useRef<HTMLDivElement>(null)
-
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
-    getScrollElement: () => tableContainerRef.current,
-    //measure dynamic row height, except in firefox because it measures table border height incorrectly
-    measureElement:
-      typeof window !== 'undefined' &&
-        navigator.userAgent.indexOf('Firefox') === -1
-        ? element => element?.getBoundingClientRect().height
-        : undefined,
-    overscan: 5,
-  })
-
-  return (
-    <div className={`flex flex-col p-2 border border-black rounded nowheel bg-emerald-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
-      <CustomHandle dataType="Log" type="target" position={Position.Left} id={TpsAfrDeleteTargetLogHandleId} isConnectable={isConnectable} top='20px' />
-      <CustomHandle dataType="Log" type="source" position={Position.Right} id={TpsAfrDeleteSourceLogHandleId} isConnectable={isConnectable} top="20px" />
-
-      <div
-        onDoubleClick={() => setExpanded(!expanded)}
-        className='flex justify-between drag-handle'
-      >
-        <div className='pr-2'>TPS AFR Delete</div>
-        <label className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={showDeleted}
-            onChange={(e) => setShowDeleted(e.target.checked)}
-            className="form-checkbox"
-          />
-          <span>Show Deleted</span>
-        </label>
-        <button className='border-2 border-black w-8 h-8'
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "_" : "^"}
-        </button>
-
-      </div>
-            {
+const newTableContainer = `      {
         expanded
         && <div
           className="container mt-2 bg-white"
@@ -139,7 +87,7 @@ function TpsAfrDeleteNode({ data, isConnectable }: NodeProps<TpsAfrDeleteData>) 
             <tbody
               style={{
                 display: 'grid',
-                height: `${rowVirtualizer.getTotalSize()}px`,
+                height: \`\${rowVirtualizer.getTotalSize()}px\`,
                 position: 'relative',
               }}
             >
@@ -152,7 +100,7 @@ function TpsAfrDeleteNode({ data, isConnectable }: NodeProps<TpsAfrDeleteData>) 
                     style={{
                       display: 'flex',
                       position: 'absolute',
-                      transform: `translateY(${virtualRow.start}px)`,
+                      transform: \`translateY(\${virtualRow.start}px)\`,
                       width: '100%',
                       borderBottom: '1px solid #e5e7eb'
                     }}
@@ -181,9 +129,33 @@ function TpsAfrDeleteNode({ data, isConnectable }: NodeProps<TpsAfrDeleteData>) 
             </tbody>
           </table>
         </div>
-      }
-    </div>
-  );
-}
+      }`;
 
-export default TpsAfrDeleteNode
+filesToUpdate.forEach(relPath => {
+  const fullPath = path.join(directory, relPath);
+  if (fs.existsSync(fullPath)) {
+    let content = fs.readFileSync(fullPath, 'utf8');
+
+    // Replace columns definition
+    const columnsRegex = /const columns = useMemo\(\(\) => \{[\s\S]*?\}, \[data\.logs, columnHelper\]\)/;
+    if (columnsRegex.test(content)) {
+      content = content.replace(columnsRegex, newColumns);
+      console.log(`Replaced columns in ${relPath}`);
+    } else {
+      console.log(`Failed to find columns block in ${relPath}`);
+    }
+
+    // Replace table container
+    const tableContainerRegex = /\{\s*expanded\s*&& <div\s*className="container"[\s\S]*?<\/div>\s*\}/;
+    if (tableContainerRegex.test(content)) {
+      content = content.replace(tableContainerRegex, newTableContainer);
+      console.log(`Replaced table container in ${relPath}`);
+    } else {
+      console.log(`Failed to find table container block in ${relPath}`);
+    }
+
+    fs.writeFileSync(fullPath, content, 'utf8');
+  } else {
+    console.log(`File not found: ${fullPath}`);
+  }
+});

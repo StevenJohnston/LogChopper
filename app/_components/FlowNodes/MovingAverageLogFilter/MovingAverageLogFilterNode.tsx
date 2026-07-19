@@ -4,7 +4,7 @@ import { Position, NodeProps } from 'reactflow';
 import InfoSVG from "../../../icons/info.svg"
 
 import { Direction, LogRecord } from '@/app/_lib/log';
-import { HeaderGroup, Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import { MovingAverageLogFilterData, MovingAverageLogFilterSourceLogHandleId, MovingAverageLogFilterTargetLogHandleId, MovingAverageLogFilterType, MovingAverageLogFilterNodeType } from '@/app/_components/FlowNodes/MovingAverageLogFilter/MovingAverageLogFilterTypes';
@@ -28,11 +28,15 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
   const [expanded, setExpanded] = useState<boolean>(false)
 
   const columnHelper = createColumnHelper<LogRecord>()
-  const columns = useMemo(() => {
-    if (!data.logs) return []
+    const columns = useMemo(() => {
+    if (!data.logs || data.logs.length === 0) return []
     return Object.keys(data.logs[0] || {}).map(c => {
       return columnHelper.accessor(c, {
-        cell: info => info.getValue(),
+        cell: info => {
+          const val = info.getValue()
+          if (typeof val === 'number') return val.toFixed(2)
+          return val
+        },
         footer: info => info.column.id,
       })
     })
@@ -118,14 +122,6 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
   const fields: string[] | void = useMemo(() => {
     return Object.keys(node?.data?.logs?.[0] || {})
   }, [node?.data.logs])
-
-  let headerGroups: HeaderGroup<LogRecord>[] = [];
-
-  try {
-    headerGroups = table.getHeaderGroups()
-  } catch (e) {
-    console.log()
-  }
 
   return (
     <div className={`flex flex-col p-2 border border-black rounded nowheel bg-teal-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
@@ -235,18 +231,18 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
           </div>
         </div>
       </div>
-      {
+            {
         expanded
         && <div
-          className="container"
+          className="container mt-2 bg-white"
           ref={tableContainerRef}
           style={{
-            overflow: 'auto', //our scrollable table container
-            position: 'relative', //needed for sticky header
-            height: '800px', //should be a fixed height
+            overflow: 'auto',
+            position: 'relative',
+            height: '400px',
+            border: '1px solid black'
           }}
         >
-          {/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
           <table style={{ display: 'grid' }}>
             <thead
               style={{
@@ -254,9 +250,10 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
                 position: 'sticky',
                 top: 0,
                 zIndex: 1,
+                background: '#f3f4f6'
               }}
             >
-              {headerGroups.map(headerGroup => (
+              {table.getHeaderGroups().map(headerGroup => (
                 <tr
                   key={headerGroup.id}
                   style={{ display: 'flex', width: '100%' }}
@@ -268,6 +265,9 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
                         style={{
                           display: 'flex',
                           width: header.getSize(),
+                          padding: '4px',
+                          borderRight: '1px solid #e5e7eb',
+                          borderBottom: '1px solid #e5e7eb'
                         }}
                       >
                         <div
@@ -282,10 +282,6 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
                             header.column.columnDef.header,
                             header.getContext()
                           )}
-                          {/* {{
-                            asc: ' 🔼',
-                            desc: ' 🔽',
-                          }[header.column.getIsSorted() as string] ?? null} */}
                         </div>
                       </th>
                     )
@@ -296,22 +292,22 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
             <tbody
               style={{
                 display: 'grid',
-                height: `${rowVirtualizer.getTotalSize()}px`, //tells scrollbar how big the table is
-                position: 'relative', //needed for absolute positioning of rows
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                position: 'relative',
               }}
             >
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
                 const row = rows[virtualRow.index] as Row<LogRecord>
                 return (
                   <tr
-                    data-index={virtualRow.index} //needed for dynamic row height measurement
-                    // ref={node => rowVirtualizer.measureElement(node)} //measure dynamic row height
+                    data-index={virtualRow.index}
                     key={row.id}
                     style={{
                       display: 'flex',
                       position: 'absolute',
-                      transform: `translateY(${virtualRow.start}px)`, //this should always be a `style` as it changes on scroll
+                      transform: `translateY(${virtualRow.start}px)`,
                       width: '100%',
+                      borderBottom: '1px solid #e5e7eb'
                     }}
                   >
                     {row.getVisibleCells().map(cell => {
@@ -321,6 +317,8 @@ function MovingAverageLogFilterNode({ id, data, isConnectable }: NodeProps<Movin
                           style={{
                             display: 'flex',
                             width: cell.column.getSize(),
+                            padding: '4px',
+                            borderRight: '1px solid #e5e7eb'
                           }}
                         >
                           {flexRender(

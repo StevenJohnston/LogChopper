@@ -533,3 +533,143 @@ export function markTpsAfrAffectedRecordsForDeletion(
     }
   }
 }
+
+export function calculateDynamicAfrLag(
+  mafGs: number,
+  mafPoints: number[],
+  lagPoints: number[]
+): number {
+  if (mafPoints.length !== lagPoints.length || mafPoints.length === 0) {
+    return 0.5; // Fallback
+  }
+
+  if (mafGs <= mafPoints[0]) return lagPoints[0];
+  if (mafGs >= mafPoints[mafPoints.length - 1]) return lagPoints[lagPoints.length - 1];
+
+  // Linear interpolation
+  for (let i = 0; i < mafPoints.length - 1; i++) {
+    if (mafGs >= mafPoints[i] && mafGs <= mafPoints[i + 1]) {
+      const fraction = (mafGs - mafPoints[i]) / (mafPoints[i + 1] - mafPoints[i]);
+      return lagPoints[i] + fraction * (lagPoints[i + 1] - lagPoints[i]);
+    }
+  }
+
+  return 0.5;
+}
+
+export interface SteadyStateFilterOptions {
+  mafPoints: number[];
+  lagPoints: number[];
+  offThrottleThreshold: number;
+  tpsFluctuationThreshold: number;
+  decelBuffer: number;
+  filterIpwZero: boolean;
+  filterEctCold: boolean;
+}
+
+export function processSteadyStateFilter(
+  logRecords: LogRecord[],
+  options: SteadyStateFilterOptions
+): LogRecord[] {
+  if (logRecords.length === 0) return [];
+
+  // Deep clone to avoid mutating input logs directly if we are in a pure flow
+  const records = logRecords.map((r) => ({ ...r }));
+
+  // PASS 1: Mark individual rows as "Steady"
+  for (let i = 0; i < records.length; i++) {
+    const row = records[i];
+    const current_time = row.LogEntrySeconds || 0;
+    const current_tps = row.TPS || 0;
+
+    let lookback_idx = i;
+    while (
+      lookback_idx > 0 &&
+      current_time - (records[lookback_idx].LogEntrySeconds || 0) < 1.0
+    ) {
+      lookback_idx--;
+    }
+
+    const window = records.slice(lookback_idx, i + 1);
+    let max_tps = -Infinity;
+    let min_tps = Infinity;
+    for (const r of window) {
+      const tps = r.TPS || 0;
+      if (tps > max_tps) max_tps = tps;
+      if (tps < min_tps) min_tps = tps;
+    }
+    const start_tps = records[lookback_idx].TPS || 0;
+
+    let is_steady = true;
+    let deleteReason = "";
+
+    // RULE A: Off-throttle decel is never steady
+    if (current_tps < options.offThrottleThreshold) {
+      is_steady = false;
+      deleteReason = "Off-throttle decel";
+    }
+    // RULE B: TPS cannot fluctuate more than threshold in the last 1 second
+    else if (max_tps - min_tps > options.tpsFluctuationThreshold) {
+      is_steady = false;
+      deleteReason = "TPS fluctuation too high";
+    }
+    // RULE C: Cannot be decelerating noticeably compared to 1 second ago
+    else if (current_tps < start_tps - options.decelBuffer) {
+      is_steady = false;
+      deleteReason = "Decelerating";
+    }
+    // RULE D: IPW Filter
+    else if (options.filterIpwZero && (row.IPW === undefined || row.IPW <= 0)) {
+      is_steady = false;
+      deleteReason = "IPW <= 0";
+    }
+    // RULE E: ECT Filter
+    else if (options.filterEctCold && (row.ECT !== undefined && parseFloat(row.ECT) < 80)) {
+      is_steady = false;
+      deleteReason = "ECT < 80";
+    }
+
+    row["Is_Steady"] = is_steady;
+    if (!is_steady) {
+      row.delete = true;
+      row.deleteReason = row.deleteReason ? `${row.deleteReason}; ${deleteReason}` : deleteReason;
+    }
+  }
+
+  // PASS 2: Map precise AFR
+  for (let i = 0; i < records.length; i++) {
+    const row = records[i];
+    if (!row["Is_Steady"]) {
+      row["AFR_SHIFTED"] = null;
+      row["Calculated_Lag"] = null;
+      continue;
+    }
+
+    const mafStr = row.MAF || "0";
+    let maf = parseFloat(mafStr);
+    if (isNaN(maf)) {
+        // MAF might be MAFCalcs or another field, try falling back
+        maf = row.MAFCalcs || 0;
+    }
+
+    const dynamic_lag_sec = calculateDynamicAfrLag(
+      maf,
+      options.mafPoints,
+      options.lagPoints
+    );
+    const target_afr_time = (row.LogEntrySeconds || 0) + dynamic_lag_sec;
+
+    let true_afr = row.AFR;
+    for (let j = i; j < records.length; j++) {
+      if ((records[j].LogEntrySeconds || 0) >= target_afr_time) {
+        true_afr = records[j].AFR;
+        break;
+      }
+    }
+
+    row["AFR_SHIFTED"] = true_afr;
+    row["Calculated_Lag"] = dynamic_lag_sec;
+  }
+
+  return records;
+}

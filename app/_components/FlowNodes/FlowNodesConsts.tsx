@@ -18,10 +18,11 @@ import { LogSelectorType } from "@/app/_components/FlowNodes/LogSelector/LogSele
 import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
 import { TableRemapData, TableRemapType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { TableLookupType, TableLookupData } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
+import { SteadyStateFilterData, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
 import { Node } from "reactflow";
 import { LogNode, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType]
 
 
@@ -45,6 +46,7 @@ export const NodeFactoryLookup = {
     [RomSelectorType]: BaseRomData,
     [TableRemapType]: TableRemapData,
     [TableLookupType]: TableLookupData,
+    [SteadyStateFilterType]: SteadyStateFilterData,
 } as const
 
 export function isLogNode(node: Node): node is Node<LogNode> {
