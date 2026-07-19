@@ -51,6 +51,7 @@ import {
   TableLookupData,
   TableLookupNodeType,
 } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
+import { SteadyStateFilterNodeType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
 
 interface ClonableData {
   clone: (data: any) => any;
@@ -84,7 +85,8 @@ export type MyNode =
   | LogSelectorNodeType
   | AfrMlShifterNodeType
   | TpsAfrDeleteNodeType
-  | TableLookupNodeType;
+  | TableLookupNodeType
+  | SteadyStateFilterNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];

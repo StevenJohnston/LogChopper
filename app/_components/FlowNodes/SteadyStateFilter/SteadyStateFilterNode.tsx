@@ -1,27 +1,28 @@
 'use client'
-import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Position, NodeProps } from 'reactflow';
 
 import { LogRecord } from '@/app/_lib/log';
 import { Row, createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { LogFilterData, LogFilterSourceLogHandleId, LogFilterTargetLogHandleId, LogFilterType, LogFilterNodeType } from '@/app/_components/FlowNodes/LogFilter/LogFilterTypes';
+import { SteadyStateFilterData, SteadyStateFilterSourceLogHandleId, SteadyStateFilterTargetLogHandleId, SteadyStateFilterType, SteadyStateFilterNodeType } from '@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
+import InfoSVG from '../../../icons/info.svg';
+import Code from '@/app/_components/Code';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
   updateNode: state.updateNode
 });
 
-function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
-  const [funcVal, setFuncVal] = useState(data.func || "")
+function SteadyStateFilterNode({ id, data, isConnectable }: NodeProps<SteadyStateFilterData>) {
   const { nodes, updateNode } = useFlow(selector, shallow);
   const [expanded, setExpanded] = useState<boolean>(false)
 
   const columnHelper = createColumnHelper<LogRecord>()
-    const columns = useMemo(() => {
+  const columns = useMemo(() => {
     if (!data.logs || data.logs.length === 0) return []
     return Object.keys(data.logs[0] || {}).map(c => {
       return columnHelper.accessor(c, {
@@ -42,14 +43,12 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
 
   const table = useReactTable({ columns, data: filteredLogs, getCoreRowModel: getCoreRowModel(), })
   const { rows } = table.getRowModel()
-  //The virtualizer needs to know the scrollable container element
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
+    estimateSize: () => 33,
     getScrollElement: () => tableContainerRef.current,
-    //measure dynamic row height, except in firefox because it measures table border height incorrectly
     measureElement:
       typeof window !== 'undefined' &&
         navigator.userAgent.indexOf('Firefox') === -1
@@ -58,56 +57,115 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
     overscan: 5,
   })
 
-
-  const node: LogFilterNodeType | undefined = useMemo(() => {
+  const node: SteadyStateFilterNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
-      if (n.id == id && n.type == LogFilterType) {
+      if (n.id == id && n.type == SteadyStateFilterType) {
         return n
       }
     }
   }, [id, nodes])
 
-  const onFuncChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+  const handleUpdate = useCallback((config: Partial<SteadyStateFilterData>) => {
     if (!node) return
-    setFuncVal(event.target.value)
-    updateNode({ ...node, data: node.data.clone({ ...node.data, func: event.target.value }) })
+    updateNode({ ...node, data: node.data.clone(config) })
   }, [node, updateNode])
 
   return (
     <div className={`flex flex-col p-2 border border-black rounded nowheel bg-emerald-400/75 bg-opacity-50 ${data.loading && 'animate-pulse'}`}>
-      <CustomHandle dataType="Log" type="target" position={Position.Left} id={LogFilterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
-      <CustomHandle dataType="Log" type="source" position={Position.Right} id={LogFilterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
+      <CustomHandle dataType="Log" type="target" position={Position.Left} id={SteadyStateFilterTargetLogHandleId} isConnectable={isConnectable} top='20px' />
+      <CustomHandle dataType="Log" type="source" position={Position.Right} id={SteadyStateFilterSourceLogHandleId} isConnectable={isConnectable} top="20px" />
 
-      <div
-        onDoubleClick={() => setExpanded(!expanded)}
-        className='flex justify-between drag-handle'
-      >
-        <div className='pr-2'>Log Filter</div>
-        <button className='border-2 border-black w-8 h-8'
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "_" : "^"}
-        </button>
-
-      </div>
-      <div>
-        <div className="max-w-sm">
-          <div className='flex flex-col'>
-            <div className='mr-2'>
-              <label htmlFor="logField" className="block mb-2 text-sm font-medium text-gray-900">Filter Func</label>
-              <input
-                className='w-full auto-expand-textarea p-1 text-md text-gray-900 bg-white border-0 dark:bg-gray-800 dark:text-white focus:ring-0 rounded-lg'
-                type="text"
-                value={funcVal}
-                onChange={onFuncChange}
-              />
+      <div className='flex justify-between items-center drag-handle'>
+        <div className='pr-2 font-bold'>Steady State Filter</div>
+        <div className='flex'>
+          <div className=''>
+            <InfoSVG className='mx-2 anchor' width={24} height={24} />
+            <div className='tooltip'>
+              <div className='bg-white rounded-lg p-4 min-w-[600px] border-black border-2 font-normal'>
+                <p className='text-2xl'>Steady State Filter</p>
+                <p className='pl-2 mb-2'>Filters out non-steady rows based on TPS and shifts AFR based on dynamic MAF lag.</p>
+                <p className='text-lg'>Rules for non-steady rows:</p>
+                <p className='pl-2'><Code>Off-Throttle</Code>: TPS below threshold</p>
+                <p className='pl-2'><Code>Fluctuation</Code>: TPS fluctuates more than threshold within 1 second</p>
+                <p className='pl-2'><Code>Deceleration</Code>: TPS drops more than buffer compared to 1 second ago</p>
+                <p className='mt-2'>Creates columns <Code>Is_Steady</Code>, <Code>AFR_SHIFTED</Code>, and <Code>Calculated_Lag</Code>.</p>
+              </div>
             </div>
           </div>
+          <button className='border-2 border-black w-8 h-8' onClick={() => setExpanded(!expanded)}>
+            {expanded ? "_" : "V"}
+          </button>
         </div>
       </div>
+      
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <div>
+          <label className="block mb-1 text-xs font-medium text-gray-900">MAF Points (g/s)</label>
+          <input
+            className='w-full p-1 text-xs text-gray-900 bg-white border border-gray-300 rounded focus:ring-blue-500'
+            type="text"
+            value={data.mafPointsStr}
+            onChange={(e) => handleUpdate({ mafPointsStr: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-xs font-medium text-gray-900">Lag Points (sec)</label>
+          <input
+            className='w-full p-1 text-xs text-gray-900 bg-white border border-gray-300 rounded focus:ring-blue-500'
+            type="text"
+            value={data.lagPointsStr}
+            onChange={(e) => handleUpdate({ lagPointsStr: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-xs font-medium text-gray-900">Off-Throttle TPS (%)</label>
+          <input
+            className='w-full p-1 text-xs text-gray-900 bg-white border border-gray-300 rounded focus:ring-blue-500'
+            type="number" step="0.1"
+            value={data.offThrottleThreshold}
+            onChange={(e) => handleUpdate({ offThrottleThreshold: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-xs font-medium text-gray-900">TPS Fluctuation (%)</label>
+          <input
+            className='w-full p-1 text-xs text-gray-900 bg-white border border-gray-300 rounded focus:ring-blue-500'
+            type="number" step="0.1"
+            value={data.tpsFluctuationThreshold}
+            onChange={(e) => handleUpdate({ tpsFluctuationThreshold: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-xs font-medium text-gray-900">Decel Buffer (%)</label>
+          <input
+            className='w-full p-1 text-xs text-gray-900 bg-white border border-gray-300 rounded focus:ring-blue-500'
+            type="number" step="0.1"
+            value={data.decelBuffer}
+            onChange={(e) => handleUpdate({ decelBuffer: parseFloat(e.target.value) || 0 })}
+          />
+        </div>
+        <div className="flex items-center mt-4">
+          <input
+            type="checkbox"
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            checked={data.filterIpwZero}
+            onChange={(e) => handleUpdate({ filterIpwZero: e.target.checked })}
+          />
+          <label className="ml-2 text-xs font-medium text-gray-900">Filter out IPW &lt;= 0</label>
+        </div>
+        <div className="flex items-center mt-4">
+          <input
+            type="checkbox"
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+            checked={data.filterEctCold}
+            onChange={(e) => handleUpdate({ filterEctCold: e.target.checked })}
+          />
+          <label className="ml-2 text-xs font-medium text-gray-900">Filter out ECT &lt; 80</label>
+        </div>
+      </div>
+
       {
         expanded
-        && data.func
         && <div
           className="container mt-2 bg-white"
           ref={tableContainerRef}
@@ -209,10 +267,9 @@ function LogFilterNode({ id, data, isConnectable }: NodeProps<LogFilterData>) {
             </tbody>
           </table>
         </div>
-        || <div>Filter Func required</div>
       }
     </div>
   );
 }
 
-export default LogFilterNode
+export default SteadyStateFilterNode

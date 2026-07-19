@@ -24,6 +24,7 @@ import { RomSelectorButton } from "./RomSelectorButton"
 import { LogSelectorButton } from "./LogSelectorButton";
 import { AfrMlShifterButton } from "./AfrMlShifterButton"
 import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
+import { SteadyStateFilterData, SteadyStateFilterNodeType, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -110,6 +111,20 @@ const NodeSelector = () => {
           </NodeSelectorButton>
           <AfrMlShifterButton />
           <AccelFilter />
+          <NodeSelectorButton
+            onClick={() => {
+              const filter: SteadyStateFilterNodeType = {
+                position: getViewportPosition(100, 100),
+                id: uuid(),
+                type: SteadyStateFilterType,
+                data: new SteadyStateFilterData({}),
+                dragHandle: '.drag-handle',
+              }
+              updateNode(filter)
+            }}
+          >
+            Steady State Filter
+          </NodeSelectorButton>
 
           <div className="col-span-2">Rom</div>
           <SelectedRom />

@@ -40,6 +40,8 @@ import AfrMlShifterNode from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShif
 import TpsAfrDeleteNode from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteNode";
 import TableLookupNode from "@/app/_components/FlowNodes/TableLookup/TableLookupNode";
 import { TableLookupType } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
+import SteadyStateFilterNode from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterNode";
+import { SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -57,7 +59,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode, romSelector: RomSelectorNode, logSelector: LogSelectorNode, afrMlShifter: AfrMlShifterNode, TpsAfrDeleteNode, [TableLookupType]: TableLookupNode }
+    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode, romSelector: RomSelectorNode, logSelector: LogSelectorNode, afrMlShifter: AfrMlShifterNode, TpsAfrDeleteNode, [TableLookupType]: TableLookupNode, [SteadyStateFilterType]: SteadyStateFilterNode }
   }, [])
   const connectingNodeId = useRef<string | null>(null);
   const connectingHandleId = useRef<string | null>(null);
