@@ -3,7 +3,7 @@ import { Table } from "@/app/_lib/rom-metadata";
 import { LookupMode } from "./TableLookupTypes";
 
 export type TableLookupWorkerInput = {
-  table: Table;
+  table: Table<any>;
   logs: LogRecord[];
   newColumnName: string;
   lookupMode: LookupMode;

@@ -46,7 +46,8 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
         rejectRefresh(new Error(errorMessage))
         return
       }
-      if (!node.data.selectedLogFiles) {
+      const thisNode = node as BaseLogNodeType;
+      if (!thisNode.data.selectedLogFiles) {
         rejectRefresh(new Error('newBaseLogData.getRefreshedData missing selectedLogFiles'))
       }
 
@@ -57,7 +58,7 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
           return
         }
         if (data.type == "data") {
-          resolveRefresh(node.data.clone({
+          resolveRefresh(thisNode.data.clone({
             logs: data.data.logs
           }))
           return
@@ -67,7 +68,7 @@ export class BaseLogData extends RefreshableNode<BaseLogData> implements LogNode
       worker.postMessage({
         type: "run",
         data: {
-          selectedLogFiles: node.data.selectedLogFiles
+          selectedLogFiles: thisNode.data.selectedLogFiles
         }
       })
     })

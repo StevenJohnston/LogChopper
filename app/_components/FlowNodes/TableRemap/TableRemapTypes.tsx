@@ -5,7 +5,7 @@ import { MyNode } from "@/app/store/useFlow";
 import { Edge, Node } from "reactflow";
 import { getParentsByHandleIds } from "@/app/_lib/react-flow-utils";
 import { TableRemapWorker, TableRemapWorkerResult } from "./TableRemapWorkerTypes";
-import { BasicTable, Scaling } from "@/app/_lib/rom-metadata";
+import { BasicTable, LogTable, Scaling } from "@/app/_lib/rom-metadata";
 import { HandleTypes } from "../CustomHandle/CustomType";
 
 export type TableRemapAxis = "x" | "y";
@@ -31,7 +31,7 @@ export class TableRemapData extends RefreshableNode<TableRemapData> implements T
   lookupValueSource: TableRemapSource;
   searchTarget: TableRemapSource;
   outputSource: TableRemapSource;
-  table?: BasicTable | null;
+  table: BasicTable | LogTable | null;
   tableMap: Record<string, BasicTable> | null;
   scalingMap: Record<string, Scaling> | null;
   selectedRomFile: File | null;
@@ -80,7 +80,7 @@ export class TableRemapData extends RefreshableNode<TableRemapData> implements T
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
     const worker = this.createWorker();
     // eslint-disable-next-line no-async-promise-executor
-    const promise = new Promise<Partial<TableNode>>(async (resolve, reject) => {
+    const promise = new Promise<Partial<TableRemapData>>(async (resolve, reject) => {
       if (node.type !== TableRemapType) return reject(new Error("Invalid node type"));
 
       const parentNodes = getParentsByHandleIds(node, nodes, edges, ["a", "b"]);
@@ -95,7 +95,7 @@ export class TableRemapData extends RefreshableNode<TableRemapData> implements T
       const [tableANode, tableBNode] = parentNodes;
 
       try {
-        const [dataA, dataB]: any = await Promise.all([tableANode.data.activeUpdate?.promise, tableBNode.data.activeUpdate?.promise]);
+        const [dataA, dataB]: any = await Promise.all([(tableANode.data as any).activeUpdate?.promise, (tableBNode.data as any).activeUpdate?.promise]);
 
         if (!dataA?.table || !dataB?.table) return reject(new Error("Parent data not ready"));
 
@@ -136,10 +136,10 @@ export class TableRemapData extends RefreshableNode<TableRemapData> implements T
             tableA: dataA.table,
             tableB: dataB.table,
             config: {
-              commonAxis: this.commonAxis,
-              lookupValueSource: this.lookupValueSource,
-              searchTarget: this.searchTarget,
-              outputSource: this.outputSource,
+              commonAxis: this.commonAxis as any,
+              lookupValueSource: this.lookupValueSource as any,
+              searchTarget: this.searchTarget as any,
+              outputSource: this.outputSource as any,
             },
           }
         };

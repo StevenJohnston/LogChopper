@@ -33,7 +33,7 @@ test("topologicalSort 1-2, 2-3, 2-4, 3-4, ", () => {
     edgeMaker("NODE_2", "NODE_4"),
     edgeMaker("NODE_3", "NODE_4"),
   ];
-  const sorted = topologicalSort(rootNode, inputNodes, inputEdges);
+  const sorted = topologicalSort(rootNode as any, inputNodes as any, inputEdges);
   assert.equal(
     true,
     sorted.findIndex((n) => n.id == "NODE_1") <
@@ -65,7 +65,7 @@ test("topologicalSort 1-4, 1-2, 2-3, 3-4", () => {
     edgeMaker("NODE_2", "NODE_3"),
     edgeMaker("NODE_3", "NODE_4"),
   ];
-  const sorted = topologicalSort(rootNode, inputNodes, inputEdges);
+  const sorted = topologicalSort(rootNode as any, inputNodes as any, inputEdges);
   assert.equal(
     true,
     sorted.findIndex((n) => n.id == "NODE_1") <

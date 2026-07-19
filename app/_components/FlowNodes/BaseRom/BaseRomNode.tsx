@@ -26,7 +26,7 @@ function BaseRomNode({ id, data, isConnectable }: NodeProps<BaseRomData>) {
   const node: BaseRomNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
       if (n.id == id && n.type == BaseRomType) {
-        return n
+        return n as BaseRomNodeType
       }
     }
   }, [id, nodes])
