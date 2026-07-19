@@ -45,6 +45,7 @@ function BaseLogNode({ id, data, isConnectable }: NodeProps<BaseLogData>) {
       } as BaseLogNodeType)
     })()
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLogs, updateNode])
 
   return (

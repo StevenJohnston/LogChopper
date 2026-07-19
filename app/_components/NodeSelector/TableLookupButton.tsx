@@ -1,9 +1,7 @@
 "use client";
 
-import { TableLookupType } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 import useFlow from "@/app/store/useFlow";
 import { useCallback } from "react";
-import { v4 as uuid } from "uuid";
 import NodeSelectorButton from "./NodeSelectorButton";
 import { TableLookupNodeFactory } from "@/app/_components/FlowNodes/TableLookup/TableLookupNodeFactory";
 

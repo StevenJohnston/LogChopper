@@ -3,7 +3,7 @@ import {
   TableLookupWorkerOutput,
 } from "./TableLookupWorkerTypes";
 import { LogRecord } from "@/app/_lib/log";
-import { Axis, Table } from "@/app/_lib/rom-metadata";
+import { Table } from "@/app/_lib/rom-metadata";
 
 // Functions copied from app/_lib/rom.ts
 
