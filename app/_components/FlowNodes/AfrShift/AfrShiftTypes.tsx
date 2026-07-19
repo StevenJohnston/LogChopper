@@ -83,9 +83,10 @@ export class AfrShiftData extends RefreshableNode<AfrShiftData> implements LogNo
           return
         }
         if (data.type == "data") {
-          node.data.logs = data.data.logs
+          const thisNode = node as AfrShiftNodeType;
+          thisNode.data.logs = data.data.logs
 
-          resolveRefresh(node.data)
+          resolveRefresh(thisNode.data)
           return
         }
       }

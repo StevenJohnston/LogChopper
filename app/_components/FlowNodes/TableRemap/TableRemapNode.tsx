@@ -117,7 +117,7 @@ function TableRemapNode({ id, data }: NodeProps<TableRemapData>) {
       {table && expanded && (
         <div className="mt-2">
           <h2 className="text-md font-semibold">Output Table</h2>
-          <TableUI table={table} tableName={table.name || id} />
+          <TableUI table={table as any} tableName={table.name || id} />
         </div>
       )}
     </div>

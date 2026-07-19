@@ -25,7 +25,7 @@ function BaseLogNode({ id, data, isConnectable }: NodeProps<BaseLogData>) {
   const node: BaseLogNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
       if (n.id == id && n.type == BaseLogType) {
-        return n
+        return n as BaseLogNodeType
       }
     }
   }, [id, nodes])

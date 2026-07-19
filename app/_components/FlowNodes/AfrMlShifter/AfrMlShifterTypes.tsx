@@ -105,8 +105,9 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
           } else if (data.type === "progress") {
             // This is a soft update, so we don't resolve the promise yet
             // The UI will get this from the node data directly
-            node.data.status = data.status;
-            node.data.progress = data.progress;
+            const thisNode = node as AfrMlShifterNodeType;
+            thisNode.data.status = data.status;
+            thisNode.data.progress = data.progress;
             return Promise.resolve();
           } else if (data.type === "data") {
             this.logs = data.data.correctedLogs;

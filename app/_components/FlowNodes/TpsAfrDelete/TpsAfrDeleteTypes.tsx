@@ -84,9 +84,10 @@ export class TpsAfrDeleteData extends RefreshableNode<TpsAfrDeleteData> implemen
           return
         }
         if (data.type == "data") {
-          node.data.logs = data.data.logs
+          const thisNode = node as TpsAfrDeleteNodeType;
+          thisNode.data.logs = data.data.logs
 
-          resolveRefresh(node.data)
+          resolveRefresh(thisNode.data)
           return
         }
       }

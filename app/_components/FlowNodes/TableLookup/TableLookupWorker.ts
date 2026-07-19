@@ -3,7 +3,7 @@ import {
   TableLookupWorkerOutput,
 } from "./TableLookupWorkerTypes";
 import { LogRecord } from "@/app/_lib/log";
-import { Table } from "@/app/_lib/rom-metadata";
+import { Table, Table3D } from "@/app/_lib/rom-metadata";
 
 // Functions copied from app/_lib/rom.ts
 
@@ -77,7 +77,7 @@ function calculateFloatBetween(
 }
 
 function getInterpolatedValue(
-  table: Table,
+  table: Table<any>,
   y: number,
   x: number
 ): number | null {
@@ -102,14 +102,15 @@ function getInterpolatedValue(
 }
 
 function getInterpolatedXAxisValue(
-  table: Table,
+  table: Table<any>,
   yIndex: number,
   targetValue: number
 ): number | null {
   if (table.type !== "3D") {
     return null;
   }
-  if (!table.xAxis?.values || !table.yAxis?.values) {
+  const t3d = table as Table3D<any>;
+  if (!t3d.xAxis?.values || !t3d.yAxis?.values) {
     return null;
   }
 
@@ -167,7 +168,7 @@ function getInterpolatedXAxisValue(
     }
   }
 
-  return getValueFromIndexFloat(table.xAxis.values, xIndexFloat);
+  return getValueFromIndexFloat(t3d.xAxis.values as number[], xIndexFloat);
 }
 
 export type TableLookupWorker = Worker;
@@ -187,8 +188,9 @@ self.onmessage = (
       lookupMode,
       targetValueColumnName,
     } = event.data.data;
-    if (!table.xAxis || !table.yAxis) {
-      postMessage({ error: "Table is missing xaxis or yaxis" });
+    const t3d = table as Table3D<any>;
+    if (t3d.type !== "3D" || !t3d.xAxis || !t3d.yAxis) {
+      postMessage({ error: "Table is missing xaxis or yaxis or is not 3D" });
       return;
     }
 
@@ -197,10 +199,7 @@ self.onmessage = (
       return;
     }
 
-    if (table.type !== "3D") {
-      postMessage({ error: "Table must be 3D" });
-      return;
-    }
+
 
     const newLogs: LogRecord[] = logs.map((record) => {
       if (lookupMode === "xAxis") {
@@ -210,7 +209,7 @@ self.onmessage = (
             [newColumnName]: "targetValueColumnName not set",
           };
         }
-        const yValue = record[table.yAxis!.name];
+        const yValue = record[t3d.yAxis!.name];
         const targetValue = record[targetValueColumnName];
 
         if (yValue === undefined || targetValue === undefined) {
@@ -220,7 +219,7 @@ self.onmessage = (
           };
         }
 
-        const yIndex = getIndexFloat(table.yAxis!.values, yValue as number);
+        const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
         const interpolatedValue = getInterpolatedXAxisValue(
           table,
           yIndex,
@@ -232,8 +231,8 @@ self.onmessage = (
           [newColumnName]: interpolatedValue,
         };
       } else {
-        const xValue = record[table.xAxis!.name];
-        const yValue = record[table.yAxis!.name];
+        const xValue = record[t3d.xAxis!.name];
+        const yValue = record[t3d.yAxis!.name];
 
         if (xValue === undefined || yValue === undefined) {
           return {
@@ -242,8 +241,8 @@ self.onmessage = (
           };
         }
 
-        const xIndex = getIndexFloat(table.xAxis!.values, xValue as number);
-        const yIndex = getIndexFloat(table.yAxis!.values, yValue as number);
+        const xIndex = getIndexFloat(t3d.xAxis!.values as number[], xValue as number);
+        const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
 
         const interpolatedValue = getInterpolatedValue(table, yIndex, xIndex);
 

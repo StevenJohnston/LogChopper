@@ -131,7 +131,8 @@ const useFlow = createWithEqualityFn<RFState>(
           const intersections = reactFlowInstance.getIntersectingNodes(
             node
           ) as MyNode[];
-          if (!node.data.locked) {
+          const groupNode = node as GroupNodeType;
+          if (!groupNode.data.locked) {
             for (const interNode of intersections) {
               if (!interNode) {
                 continue;
