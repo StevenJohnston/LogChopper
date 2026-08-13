@@ -19,10 +19,11 @@ import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
 import { TableRemapData, TableRemapType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { TableLookupType, TableLookupData } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 import { SteadyStateFilterData, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
+import { GearData, GearType } from "@/app/_components/FlowNodes/Gear/GearTypes";
 import { Node } from "reactflow";
 import { LogNode, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType, GearType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType]
 
 
@@ -42,6 +43,7 @@ export const NodeFactoryLookup = {
     [MovingAverageLogFilterType]: MovingAverageLogFilterData,
     [AfrMlShifterType]: AfrMlShifterData,
     [TpsAfrDeleteType]: TpsAfrDeleteData,
+    [GearType]: GearData,
     [LogSelectorType]: BaseLogData,
     [RomSelectorType]: BaseRomData,
     [TableRemapType]: TableRemapData,

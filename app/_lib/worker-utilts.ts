@@ -11,7 +11,11 @@ import { MovingAverageLogFilterWorker } from "@/app/_components/FlowNodes/Moving
 import { RunningLogAlterWorker } from "@/app/_components/FlowNodes/RunningLogAlter/RunningLogAlterWorkertypes";
 import { TableRemapWorker } from "@/app/_components/FlowNodes/TableRemap/TableRemapWorkerTypes";
 import { AfrMlShifterWorker } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterWorkerTypes";
+<<<<<<< HEAD
 import { SteadyStateFilterWorker } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterWorkerTypes";
+=======
+import { GearWorker } from "@/app/_components/FlowNodes/Gear/GearWorkerTypes";
+>>>>>>> 550ac41 (gear)
 
 export interface RunMessage<T> {
   type: "run";
@@ -48,7 +52,8 @@ export type MyWorker =
   | MovingAverageLogFilterWorker
   | TableRemapWorker
   | AfrMlShifterWorker
-  | SteadyStateFilterWorker;
+  | SteadyStateFilterWorker
+  | GearWorker;
 
 type TransferOrOptions = Transferable[] | StructuredSerializeOptions;
 export interface ExternalWorker<MessageIn, MessageOut>

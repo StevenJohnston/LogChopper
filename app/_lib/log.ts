@@ -24,6 +24,8 @@ export const LogFields = [
   "APP",
   "WGDCCorr",
   "Speed",
+  "SmoothedSpeed",
+  "Gear",
   "MAPCalcs",
   "IMAPCalcs",
   "MAFCalcs",
@@ -66,6 +68,8 @@ export interface LogRecord {
   IAT?: string;
   WGDCCorr?: number;
   Speed?: number;
+  SmoothedSpeed?: number;
+  Gear?: number;
   Battery?: string;
   ECT?: string;
   MAT?: string;
@@ -534,6 +538,7 @@ export function markTpsAfrAffectedRecordsForDeletion(
   }
 }
 
+<<<<<<< HEAD
 export function calculateDynamicAfrLag(
   mafGs: number,
   mafPoints: number[],
@@ -672,4 +677,100 @@ export function processSteadyStateFilter(
   }
 
   return records;
+}
+
+/**
+ * Smooths transitions between value changes.
+ * - Flat run <= lookahead: Smooths ALL records between changes.
+ * - Flat run > lookahead: Starts ramp retroactively (lookahead / 2) before the change.
+ * 
+ * @param arr - Input numerical array
+ * @param lookahead - Max lookahead window size (default 20)
+ * @returns Smoothed array
+ */
+export function smoothUpcomingChanges(arr: number[], lookahead = 20): number[] {
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+
+  const result = [...arr];
+  const halfLookahead = Math.floor(lookahead / 2);
+
+  for (let i = 0; i < arr.length - 1; i++) {
+    if (arr[i] !== arr[i + 1]) {
+      const startVal = arr[i];
+      const endVal = arr[i + 1];
+
+      // Measure the flat run leading up to this change
+      let flatStart = i;
+      while (flatStart > 0 && arr[flatStart - 1] === startVal) {
+        flatStart--;
+      }
+
+      const flatLength = i - flatStart + 1;
+      const rampStart = (flatLength <= lookahead) 
+        ? flatStart 
+        : i - halfLookahead + 1;
+
+      const totalSteps = i + 1 - rampStart;
+      for (let j = rampStart; j <= i; j++) {
+        const step = j - rampStart;
+        result[j] = Number((startVal + (endVal - startVal) * (step / totalSteps)).toFixed(2));
+      }
+    }
+  }
+
+  return result;
+}
+
+export interface GearRatios {
+  1: number;
+  2: number;
+  3: number;
+  4: number;
+  5: number;
+}
+
+export const DefaultGearRatios: GearRatios = {
+  1: 130,
+  2: 80,
+  3: 57,
+  4: 42,
+  5: 30,
+};
+
+export function smoothSpeedAndCalculateGear(
+  logRecords: LogRecord[],
+  gearRatios: GearRatios = DefaultGearRatios,
+  lookahead: number = 20
+): LogRecord[] {
+  if (!logRecords || logRecords.length === 0) return [];
+
+  const speeds = logRecords.map((r) => Number(r.Speed ?? 0));
+  const smoothedSpeeds = smoothUpcomingChanges(speeds, lookahead);
+
+  const gears = [1, 2, 3, 4, 5] as const;
+
+  return logRecords.map((record, index) => {
+    const smoothedSpeed = smoothedSpeeds[index];
+    const rpm = Number(record.RPM ?? 0);
+
+    let gear = 0;
+    if (smoothedSpeed > 0 && rpm > 0) {
+      const ratio = rpm / smoothedSpeed;
+      let minDiff = Infinity;
+      gears.forEach((g) => {
+        const targetRatio = gearRatios[g];
+        const diff = Math.abs(ratio - targetRatio);
+        if (diff < minDiff) {
+          minDiff = diff;
+          gear = g;
+        }
+      });
+    }
+
+    return {
+      ...record,
+      SmoothedSpeed: smoothedSpeed,
+      Gear: gear,
+    };
+  });
 }

@@ -13,6 +13,7 @@ import { LogRecord } from "@/app/_lib/log";
 import { MyNode } from "@/app/store/useFlow";
 import { HandleTypes } from "@/app/_components/FlowNodes/CustomHandle/CustomType";
 import { TpsAfrDeleteData, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
+import { GearData, GearType } from "@/app/_components/FlowNodes/Gear/GearTypes";
 
 
 
@@ -21,6 +22,7 @@ export interface NodeWithType<T, U extends string> extends Node<T, U> {
 }
 
 export type TpsAfrDeleteNodeType = NodeWithType<TpsAfrDeleteData, typeof TpsAfrDeleteType>;
+export type GearNodeType = NodeWithType<GearData, typeof GearType>;
 
 export interface SaveableNode<T = {}> {
   getLoadable: () => T;
