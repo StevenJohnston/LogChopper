@@ -538,7 +538,6 @@ export function markTpsAfrAffectedRecordsForDeletion(
   }
 }
 
-<<<<<<< HEAD
 export function calculateDynamicAfrLag(
   mafGs: number,
   mafPoints: number[],

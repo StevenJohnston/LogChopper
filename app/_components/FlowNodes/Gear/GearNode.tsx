@@ -211,12 +211,13 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
 
       {expanded && (
         <div
-          className="container mt-2"
+          className="container mt-2 bg-white"
           ref={tableContainerRef}
           style={{
             overflow: 'auto',
             position: 'relative',
-            height: '600px',
+            height: '400px',
+            border: '1px solid black',
           }}
         >
           <table style={{ display: 'grid' }}>
@@ -226,6 +227,7 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
                 position: 'sticky',
                 top: 0,
                 zIndex: 1,
+                background: '#f3f4f6',
               }}
             >
               {table.getHeaderGroups().map((headerGroup) => (
@@ -236,9 +238,19 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
                       style={{
                         display: 'flex',
                         width: header.getSize(),
+                        padding: '4px',
+                        borderRight: '1px solid #e5e7eb',
+                        borderBottom: '1px solid #e5e7eb',
                       }}
                     >
-                      <div>
+                      <div
+                        {...{
+                          className: header.column.getCanSort()
+                            ? 'cursor-pointer select-none'
+                            : '',
+                          onClick: header.column.getToggleSortingHandler(),
+                        }}
+                      >
                         {flexRender(
                           header.column.columnDef.header,
                           header.getContext()
@@ -266,6 +278,7 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
                       position: 'absolute',
                       transform: `translateY(${virtualRow.start}px)`,
                       width: '100%',
+                      borderBottom: '1px solid #e5e7eb',
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -274,6 +287,8 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
                         style={{
                           display: 'flex',
                           width: cell.column.getSize(),
+                          padding: '4px',
+                          borderRight: '1px solid #e5e7eb',
                         }}
                       >
                         {flexRender(
