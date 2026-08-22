@@ -17,6 +17,10 @@ export interface GearDataProps extends Partial<RefreshableNode<GearData>>, Parti
   gear4Ratio?: number
   gear5Ratio?: number
   lookahead?: number
+  enableFilter?: boolean
+  invertFilter?: boolean
+  maxAccuracy?: number
+  filterWindowSeconds?: number
 }
 
 export type GearNodeType = NodeWithType<GearData, typeof GearType>;
@@ -32,6 +36,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
   public gear4Ratio: number;
   public gear5Ratio: number;
   public lookahead: number;
+  public enableFilter: boolean;
+  public invertFilter: boolean;
+  public maxAccuracy: number;
+  public filterWindowSeconds: number;
   public loading: boolean = false;
 
   constructor({
@@ -42,6 +50,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
     gear4Ratio = DefaultGearRatios[4],
     gear5Ratio = DefaultGearRatios[5],
     lookahead = 20,
+    enableFilter = false,
+    invertFilter = false,
+    maxAccuracy = 10,
+    filterWindowSeconds = 0.5,
     loading = false,
     activeUpdate = null,
   }: GearDataProps) {
@@ -54,6 +66,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
     this.gear4Ratio = gear4Ratio
     this.gear5Ratio = gear5Ratio
     this.lookahead = lookahead
+    this.enableFilter = enableFilter
+    this.invertFilter = invertFilter
+    this.maxAccuracy = maxAccuracy
+    this.filterWindowSeconds = filterWindowSeconds
     this.loading = loading
     this.activeUpdate = activeUpdate
   }
@@ -127,6 +143,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
           sourceLogs: updatedSourceLog.logs,
           gearRatios,
           lookahead: this.lookahead,
+          enableFilter: this.enableFilter,
+          invertFilter: this.invertFilter,
+          maxAccuracy: this.maxAccuracy,
+          filterWindowSeconds: this.filterWindowSeconds,
         }
       })
     })
@@ -152,6 +172,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
       gear4Ratio: this.gear4Ratio,
       gear5Ratio: this.gear5Ratio,
       lookahead: this.lookahead,
+      enableFilter: this.enableFilter,
+      invertFilter: this.invertFilter,
+      maxAccuracy: this.maxAccuracy,
+      filterWindowSeconds: this.filterWindowSeconds,
     }
   }
 
@@ -164,6 +188,10 @@ export class GearData extends RefreshableNode<GearData> implements LogNode, Save
       gear4Ratio: this.gear4Ratio,
       gear5Ratio: this.gear5Ratio,
       lookahead: this.lookahead,
+      enableFilter: this.enableFilter,
+      invertFilter: this.invertFilter,
+      maxAccuracy: this.maxAccuracy,
+      filterWindowSeconds: this.filterWindowSeconds,
 
       loading: this.loading,
       activeUpdate: this.activeUpdate,

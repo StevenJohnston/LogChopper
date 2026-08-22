@@ -22,9 +22,32 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
   const [gear4Ratio, setGear4Ratio] = useState(data.gear4Ratio ?? 42);
   const [gear5Ratio, setGear5Ratio] = useState(data.gear5Ratio ?? 30);
   const [lookahead, setLookahead] = useState(data.lookahead ?? 20);
+  const [enableFilter, setEnableFilter] = useState(data.enableFilter ?? false);
+  const [invertFilter, setInvertFilter] = useState(data.invertFilter ?? false);
+  const [maxAccuracy, setMaxAccuracy] = useState(data.maxAccuracy ?? 10);
+  const [filterWindowSeconds, setFilterWindowSeconds] = useState(data.filterWindowSeconds ?? 0.5);
 
   const { nodes, updateNode } = useFlow(selector, shallow);
   const [expanded, setExpanded] = useState<boolean>(false);
+
+  const node: GearNodeType | undefined = useMemo(() => {
+    for (const n of nodes) {
+      if (n.id == id && n.type == GearType) {
+        return n as GearNodeType;
+      }
+    }
+  }, [id, nodes]);
+
+  const handleUpdate = useCallback(
+    (updates: Partial<GearData>) => {
+      if (!node) return;
+      updateNode({
+        ...node,
+        data: node.data.clone({ ...node.data, ...updates }),
+      });
+    },
+    [node, updateNode]
+  );
 
   const columnHelper = createColumnHelper<LogRecord>();
   const columns = useMemo(() => {
@@ -61,37 +84,20 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
     overscan: 5,
   });
 
-  const node: GearNodeType | undefined = useMemo(() => {
-    for (const n of nodes) {
-      if (n.id == id && n.type == GearType) {
-        return n as GearNodeType;
-      }
-    }
-  }, [id, nodes]);
-
   const onGearChange = useCallback(
     (gearNum: 1 | 2 | 3 | 4 | 5, val: number) => {
-      if (!node) return;
-      const key = `gear${gearNum}Ratio` as keyof GearData;
-      updateNode({
-        ...node,
-        data: node.data.clone({ ...node.data, [key]: val }),
-      });
+      handleUpdate({ [`gear${gearNum}Ratio` as keyof GearData]: val });
     },
-    [node, updateNode]
+    [handleUpdate]
   );
 
   const onLookaheadChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      if (!node) return;
       const val = parseInt(event.target.value, 10) || 16;
       setLookahead(val);
-      updateNode({
-        ...node,
-        data: node.data.clone({ ...node.data, lookahead: val }),
-      });
+      handleUpdate({ lookahead: val });
     },
-    [node, updateNode]
+    [handleUpdate]
   );
 
   return (
@@ -205,6 +211,78 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
               value={lookahead}
               onChange={onLookaheadChange}
             />
+          </div>
+        </div>
+
+        <div className="border-t border-black/20 pt-2 mt-2 space-y-2 max-w-xs">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id={`enableFilter-${id}`}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              checked={enableFilter}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setEnableFilter(checked);
+                handleUpdate({ enableFilter: checked });
+              }}
+            />
+            <label htmlFor={`enableFilter-${id}`} className="ml-2 text-xs font-medium text-gray-900 cursor-pointer">
+              Enable Gear Accuracy Filter
+            </label>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id={`invertFilter-${id}`}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              checked={invertFilter}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setInvertFilter(checked);
+                handleUpdate({ invertFilter: checked });
+              }}
+            />
+            <label htmlFor={`invertFilter-${id}`} className="ml-2 text-xs font-medium text-gray-900 cursor-pointer">
+              Invert Filter
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1">
+            <div>
+              <label className="block text-gray-900 font-medium">Max Accuracy (%)</label>
+              <input
+                className="w-full p-1 text-sm bg-white border rounded"
+                type="number"
+                step="0.5"
+                min="0"
+                value={maxAccuracy}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  setMaxAccuracy(val);
+                  handleUpdate({ maxAccuracy: val });
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-gray-900 font-medium">
+                Window: {filterWindowSeconds.toFixed(1)}s
+              </label>
+              <input
+                className="w-full h-7 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={filterWindowSeconds}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  setFilterWindowSeconds(val);
+                  handleUpdate({ filterWindowSeconds: val });
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

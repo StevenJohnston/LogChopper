@@ -742,12 +742,27 @@ export const DefaultGearRatios: GearRatios = {
   5: 30,
 };
 
+export interface GearFilterOptions {
+  enableFilter?: boolean;
+  invertFilter?: boolean;
+  maxAccuracy?: number;
+  filterWindowSeconds?: number;
+}
+
 export function smoothSpeedAndCalculateGear(
   logRecords: LogRecord[],
   gearRatios: GearRatios = DefaultGearRatios,
-  lookahead: number = 20
+  lookahead: number = 20,
+  filterOptions: GearFilterOptions = {}
 ): LogRecord[] {
   if (!logRecords || logRecords.length === 0) return [];
+
+  const {
+    enableFilter = false,
+    invertFilter = false,
+    maxAccuracy = 10,
+    filterWindowSeconds = 0.5,
+  } = filterOptions;
 
   const speeds = logRecords.map((r) => Number(r.Speed ?? 0));
   const smoothedSpeeds = smoothUpcomingChanges(speeds, lookahead);
@@ -755,7 +770,7 @@ export function smoothSpeedAndCalculateGear(
   const gears = [1, 2, 3, 4, 5] as const;
   let currentGear = 0;
 
-  return logRecords.map((record, index) => {
+  const calculatedRecords: LogRecord[] = logRecords.map((record, index) => {
     const smoothedSpeed = smoothedSpeeds[index];
     const rpm = Number(record.RPM ?? 0);
 
@@ -806,5 +821,46 @@ export function smoothSpeedAndCalculateGear(
       Gear: gear,
       GearAccuracy: gearAccuracy,
     };
+  });
+
+  if (!enableFilter) {
+    return calculatedRecords;
+  }
+
+  // Backward pass rolling filter in O(N) time
+  const n = calculatedRecords.length;
+  const isBad = new Array<boolean>(n).fill(false);
+  let lastSeenBadTime: number | null = null;
+
+  for (let i = n - 1; i >= 0; i--) {
+    const record = calculatedRecords[i];
+    const acc = record.GearAccuracy ?? 0;
+    const time = record.LogEntrySeconds ?? i * 0.05;
+
+    if (acc > maxAccuracy) {
+      isBad[i] = true;
+      lastSeenBadTime = time;
+    } else if (
+      lastSeenBadTime !== null &&
+      lastSeenBadTime - time <= filterWindowSeconds
+    ) {
+      isBad[i] = true;
+    }
+  }
+
+  return calculatedRecords.map((record, index) => {
+    const bad = isBad[index];
+    const shouldDelete = invertFilter ? !bad : bad;
+
+    if (shouldDelete) {
+      return {
+        ...record,
+        delete: true,
+        deleteReason: invertFilter
+          ? "Inverted gear accuracy filter"
+          : `Gear accuracy > ${maxAccuracy}% or within ${filterWindowSeconds}s before inaccuracy`,
+      };
+    }
+    return record;
   });
 }

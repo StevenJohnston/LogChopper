@@ -13,6 +13,10 @@ interface WorkerRequest {
   sourceLogs: LogRecord[];
   gearRatios: GearRatios;
   lookahead: number;
+  enableFilter?: boolean;
+  invertFilter?: boolean;
+  maxAccuracy?: number;
+  filterWindowSeconds?: number;
 }
 
 export const GearWorkerType = "GearWorker";

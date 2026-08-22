@@ -18,7 +18,13 @@ ctx.onmessage = async (
       const logs = smoothSpeedAndCalculateGear(
         event.data.data.sourceLogs,
         event.data.data.gearRatios,
-        event.data.data.lookahead
+        event.data.data.lookahead,
+        {
+          enableFilter: event.data.data.enableFilter,
+          invertFilter: event.data.data.invertFilter,
+          maxAccuracy: event.data.data.maxAccuracy,
+          filterWindowSeconds: event.data.data.filterWindowSeconds,
+        }
       );
 
       ctx.postMessage({

@@ -556,3 +556,53 @@ test("gear calculation remains stable with hysteresis near ratio boundaries", ()
   assert.strictEqual(result[3].Gear, 3);
 });
 
+test("rolling gear accuracy filter marks inaccurate records and records within window prior to inaccuracy", () => {
+  const records: LogRecord[] = [
+    { LogEntrySeconds: 0.0, RPM: 3000, Speed: 37.5 }, // 0% off (Gear 2 = 80)
+    { LogEntrySeconds: 0.2, RPM: 3000, Speed: 37.5 }, // 0% off
+    { LogEntrySeconds: 0.4, RPM: 3000, Speed: 37.5 }, // 0% off
+    { LogEntrySeconds: 0.6, RPM: 3000, Speed: 30.0 }, // 100 ratio -> 25% off ratio 80 (bad!)
+    { LogEntrySeconds: 0.8, RPM: 3000, Speed: 37.5 }, // 0% off
+  ];
+
+  // Max accuracy = 10%, window = 0.5s
+  const result = smoothSpeedAndCalculateGear(records, DefaultGearRatios, 1, {
+    enableFilter: true,
+    invertFilter: false,
+    maxAccuracy: 10,
+    filterWindowSeconds: 0.5,
+  });
+
+  // t=0.6 (index 3) is 25% > 10% -> deleted
+  assert.strictEqual(result[3].delete, true);
+  // t=0.4 (index 2, 0.6 - 0.4 = 0.2 <= 0.5s) -> deleted
+  assert.strictEqual(result[2].delete, true);
+  // t=0.2 (index 1, 0.6 - 0.2 = 0.4 <= 0.5s) -> deleted
+  assert.strictEqual(result[1].delete, true);
+  // t=0.0 (index 0, 0.6 - 0.0 = 0.6 > 0.5s) -> NOT deleted
+  assert.notStrictEqual(result[0].delete, true);
+  // t=0.8 (index 4, after inaccuracy) -> NOT deleted
+  assert.notStrictEqual(result[4].delete, true);
+});
+
+test("inverted rolling gear accuracy filter keeps inaccurate records and deletes good records", () => {
+  const records: LogRecord[] = [
+    { LogEntrySeconds: 0.0, RPM: 3000, Speed: 37.5 },
+    { LogEntrySeconds: 0.2, RPM: 3000, Speed: 37.5 },
+    { LogEntrySeconds: 0.6, RPM: 3000, Speed: 30.0 }, // Bad record
+  ];
+
+  const result = smoothSpeedAndCalculateGear(records, DefaultGearRatios, 1, {
+    enableFilter: true,
+    invertFilter: true,
+    maxAccuracy: 10,
+    filterWindowSeconds: 0.5,
+  });
+
+  // Bad records (t=0.2, t=0.6) are kept in inverted mode (delete is not true)
+  assert.notStrictEqual(result[1].delete, true);
+  assert.notStrictEqual(result[2].delete, true);
+  // Good record (t=0.0) is deleted in inverted mode
+  assert.strictEqual(result[0].delete, true);
+});
+
