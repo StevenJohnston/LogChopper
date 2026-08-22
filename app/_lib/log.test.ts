@@ -536,5 +536,8 @@ test("smoothSpeedAndCalculateGear calculates gear based on ratio", () => {
   assert.strictEqual(result[44].Gear, 5);
   assert.strictEqual(result[52].Gear, 0);
   assert.ok("SmoothedSpeed" in result[0]);
+  assert.ok("GearAccuracy" in result[0]);
+  assert.strictEqual(result[14].GearAccuracy, 0); // 3000 / 37.5 = 80 -> 0% off ratio 80
+  assert.ok(result[4].GearAccuracy! > 0); // 3000 / 23 = 130.43 vs 130 -> >0% off
 });
 

@@ -26,6 +26,7 @@ export const LogFields = [
   "Speed",
   "SmoothedSpeed",
   "Gear",
+  "GearAccuracy",
   "MAPCalcs",
   "IMAPCalcs",
   "MAFCalcs",
@@ -70,6 +71,7 @@ export interface LogRecord {
   Speed?: number;
   SmoothedSpeed?: number;
   Gear?: number;
+  GearAccuracy?: number;
   Battery?: string;
   ECT?: string;
   MAT?: string;
@@ -753,23 +755,32 @@ export function smoothSpeedAndCalculateGear(
     const rpm = Number(record.RPM ?? 0);
 
     let gear = 0;
+    let gearAccuracy = 0;
     if (smoothedSpeed > 0 && rpm > 0) {
       const ratio = rpm / smoothedSpeed;
       let minDiff = Infinity;
+      let targetRatioForGear = 0;
       gears.forEach((g) => {
         const targetRatio = gearRatios[g];
         const diff = Math.abs(ratio - targetRatio);
         if (diff < minDiff) {
           minDiff = diff;
           gear = g;
+          targetRatioForGear = targetRatio;
         }
       });
+      if (targetRatioForGear > 0) {
+        gearAccuracy = Number(
+          ((Math.abs(ratio - targetRatioForGear) / targetRatioForGear) * 100).toFixed(2)
+        );
+      }
     }
 
     return {
       ...record,
       SmoothedSpeed: smoothedSpeed,
       Gear: gear,
+      GearAccuracy: gearAccuracy,
     };
   });
 }
