@@ -24,6 +24,9 @@ export const LogFields = [
   "APP",
   "WGDCCorr",
   "Speed",
+  "SmoothedSpeed",
+  "Gear",
+  "GearAccuracy",
   "MAPCalcs",
   "IMAPCalcs",
   "MAFCalcs",
@@ -66,6 +69,9 @@ export interface LogRecord {
   IAT?: string;
   WGDCCorr?: number;
   Speed?: number;
+  SmoothedSpeed?: number;
+  Gear?: number;
+  GearAccuracy?: number;
   Battery?: string;
   ECT?: string;
   MAT?: string;
@@ -672,4 +678,189 @@ export function processSteadyStateFilter(
   }
 
   return records;
+}
+
+function isSameSpeed(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.05;
+}
+
+/**
+ * Smooths transitions between value changes.
+ * - Flat run <= lookahead: Smooths ALL records between changes.
+ * - Flat run > lookahead: Starts ramp retroactively (lookahead / 2) before the change.
+ * 
+ * @param arr - Input numerical array
+ * @param lookahead - Max lookahead window size (default 20)
+ * @returns Smoothed array
+ */
+export function smoothUpcomingChanges(arr: number[], lookahead = 20): number[] {
+  if (!Array.isArray(arr) || arr.length === 0) return [];
+
+  const result = [...arr];
+  const halfLookahead = Math.floor(lookahead / 2);
+
+  for (let i = 0; i < arr.length - 1; i++) {
+    if (!isSameSpeed(arr[i], arr[i + 1])) {
+      const startVal = arr[i];
+      const endVal = arr[i + 1];
+
+      // Measure the flat run leading up to this change
+      let flatStart = i;
+      while (flatStart > 0 && isSameSpeed(arr[flatStart - 1], startVal)) {
+        flatStart--;
+      }
+
+      const flatLength = i - flatStart + 1;
+      const rampStart = (flatLength <= lookahead) 
+        ? flatStart 
+        : i - halfLookahead + 1;
+
+      const totalSteps = i + 1 - rampStart;
+      for (let j = rampStart; j <= i; j++) {
+        const step = j - rampStart;
+        result[j] = Number((startVal + (endVal - startVal) * (step / totalSteps)).toFixed(2));
+      }
+    }
+  }
+
+  return result;
+}
+
+export interface GearRatios {
+  1: number;
+  2: number;
+  3: number;
+  4: number;
+  5: number;
+}
+
+export const DefaultGearRatios: GearRatios = {
+  1: 130,
+  2: 80,
+  3: 57,
+  4: 42,
+  5: 30,
+};
+
+export interface GearFilterOptions {
+  enableFilter?: boolean;
+  invertFilter?: boolean;
+  maxAccuracy?: number;
+  filterWindowSeconds?: number;
+}
+
+export function smoothSpeedAndCalculateGear(
+  logRecords: LogRecord[],
+  gearRatios: GearRatios = DefaultGearRatios,
+  lookahead: number = 20,
+  filterOptions: GearFilterOptions = {}
+): LogRecord[] {
+  if (!logRecords || logRecords.length === 0) return [];
+
+  const {
+    enableFilter = false,
+    invertFilter = false,
+    maxAccuracy = 10,
+    filterWindowSeconds = 0.5,
+  } = filterOptions;
+
+  const speeds = logRecords.map((r) => Number(r.Speed ?? 0));
+  const smoothedSpeeds = smoothUpcomingChanges(speeds, lookahead);
+
+  const gears = [1, 2, 3, 4, 5] as const;
+  let currentGear = 0;
+
+  const calculatedRecords: LogRecord[] = logRecords.map((record, index) => {
+    const smoothedSpeed = smoothedSpeeds[index];
+    const rpm = Number(record.RPM ?? 0);
+
+    let gear = 0;
+    let gearAccuracy = 0;
+
+    if (smoothedSpeed > 0 && rpm > 0) {
+      const ratio = rpm / smoothedSpeed;
+
+      // Find best candidate gear
+      let bestCandidateGear = 1;
+      let minCandidateErr = Infinity;
+
+      gears.forEach((g) => {
+        const targetRatio = gearRatios[g];
+        const err = Math.abs(ratio - targetRatio) / targetRatio;
+        if (err < minCandidateErr) {
+          minCandidateErr = err;
+          bestCandidateGear = g;
+        }
+      });
+
+      // Apply hysteresis to prevent gear flapping near boundaries
+      if (currentGear === 0) {
+        currentGear = bestCandidateGear;
+      } else {
+        const currentTargetRatio = gearRatios[currentGear as keyof GearRatios];
+        const currentErr = Math.abs(ratio - currentTargetRatio) / currentTargetRatio;
+
+        // Only switch gears if best candidate is significantly better (>12% better fit)
+        if (minCandidateErr < currentErr - 0.12) {
+          currentGear = bestCandidateGear;
+        }
+      }
+
+      gear = currentGear;
+      const targetRatioForGear = gearRatios[gear as keyof GearRatios];
+      gearAccuracy = Number(
+        ((Math.abs(ratio - targetRatioForGear) / targetRatioForGear) * 100).toFixed(2)
+      );
+    } else {
+      currentGear = 0;
+    }
+
+    return {
+      ...record,
+      SmoothedSpeed: smoothedSpeed,
+      Gear: gear,
+      GearAccuracy: gearAccuracy,
+    };
+  });
+
+  if (!enableFilter) {
+    return calculatedRecords;
+  }
+
+  // Backward pass rolling filter in O(N) time
+  const n = calculatedRecords.length;
+  const isBad = new Array<boolean>(n).fill(false);
+  let lastSeenBadTime: number | null = null;
+
+  for (let i = n - 1; i >= 0; i--) {
+    const record = calculatedRecords[i];
+    const acc = record.GearAccuracy ?? 0;
+    const time = record.LogEntrySeconds ?? i * 0.05;
+
+    if (acc > maxAccuracy) {
+      isBad[i] = true;
+      lastSeenBadTime = time;
+    } else if (
+      lastSeenBadTime !== null &&
+      lastSeenBadTime - time <= filterWindowSeconds
+    ) {
+      isBad[i] = true;
+    }
+  }
+
+  return calculatedRecords.map((record, index) => {
+    const bad = isBad[index];
+    const shouldDelete = invertFilter ? !bad : bad;
+
+    if (shouldDelete) {
+      return {
+        ...record,
+        delete: true,
+        deleteReason: invertFilter
+          ? "Inverted gear accuracy filter"
+          : `Gear accuracy > ${maxAccuracy}% or within ${filterWindowSeconds}s before inaccuracy`,
+      };
+    }
+    return record;
+  });
 }

@@ -23,6 +23,7 @@ import { TableLookupButton } from "./TableLookupButton";
 import { RomSelectorButton } from "./RomSelectorButton"
 import { LogSelectorButton } from "./LogSelectorButton";
 import { AfrMlShifterButton } from "./AfrMlShifterButton"
+import GearButton from "./GearButton";
 import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
 import { SteadyStateFilterData, SteadyStateFilterNodeType, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes"
 
@@ -110,6 +111,7 @@ const NodeSelector = () => {
             TPS AFR Delete
           </NodeSelectorButton>
           <AfrMlShifterButton />
+          <GearButton />
           <AccelFilter />
           <NodeSelectorButton
             onClick={() => {

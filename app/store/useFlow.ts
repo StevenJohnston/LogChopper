@@ -47,6 +47,7 @@ import {
   AfrMlShifterNodeType,
 } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterTypes";
 import { TpsAfrDeleteNodeType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes";
+import { GearNodeType } from "@/app/_components/FlowNodes/Gear/GearTypes";
 import {
   TableLookupData,
   TableLookupNodeType,
@@ -85,6 +86,7 @@ export type MyNode =
   | LogSelectorNodeType
   | AfrMlShifterNodeType
   | TpsAfrDeleteNodeType
+  | GearNodeType
   | TableLookupNodeType
   | SteadyStateFilterNodeType;
 
