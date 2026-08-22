@@ -541,3 +541,18 @@ test("smoothSpeedAndCalculateGear calculates gear based on ratio", () => {
   assert.ok(result[4].GearAccuracy! > 0); // 3000 / 23 = 130.43 vs 130 -> >0% off
 });
 
+test("gear calculation remains stable with hysteresis near ratio boundaries", () => {
+  const records: LogRecord[] = [
+    { RPM: 3000, Speed: 52.6 }, // Gear 3 (~57)
+    { RPM: 3000, Speed: 44.5 }, // Ratio 67.4 (near 57 and 80 boundary)
+    { RPM: 3000, Speed: 44.0 }, // Ratio 68.2
+    { RPM: 3000, Speed: 52.6 }, // Gear 3 (~57)
+  ];
+  const result = smoothSpeedAndCalculateGear(records, DefaultGearRatios, 1);
+  // All records stay in Gear 3 without erratic flipping
+  assert.strictEqual(result[0].Gear, 3);
+  assert.strictEqual(result[1].Gear, 3);
+  assert.strictEqual(result[2].Gear, 3);
+  assert.strictEqual(result[3].Gear, 3);
+});
+

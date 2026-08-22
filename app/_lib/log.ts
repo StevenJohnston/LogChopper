@@ -680,6 +680,10 @@ export function processSteadyStateFilter(
   return records;
 }
 
+function isSameSpeed(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.05;
+}
+
 /**
  * Smooths transitions between value changes.
  * - Flat run <= lookahead: Smooths ALL records between changes.
@@ -696,13 +700,13 @@ export function smoothUpcomingChanges(arr: number[], lookahead = 20): number[] {
   const halfLookahead = Math.floor(lookahead / 2);
 
   for (let i = 0; i < arr.length - 1; i++) {
-    if (arr[i] !== arr[i + 1]) {
+    if (!isSameSpeed(arr[i], arr[i + 1])) {
       const startVal = arr[i];
       const endVal = arr[i + 1];
 
       // Measure the flat run leading up to this change
       let flatStart = i;
-      while (flatStart > 0 && arr[flatStart - 1] === startVal) {
+      while (flatStart > 0 && isSameSpeed(arr[flatStart - 1], startVal)) {
         flatStart--;
       }
 
@@ -749,6 +753,7 @@ export function smoothSpeedAndCalculateGear(
   const smoothedSpeeds = smoothUpcomingChanges(speeds, lookahead);
 
   const gears = [1, 2, 3, 4, 5] as const;
+  let currentGear = 0;
 
   return logRecords.map((record, index) => {
     const smoothedSpeed = smoothedSpeeds[index];
@@ -756,24 +761,43 @@ export function smoothSpeedAndCalculateGear(
 
     let gear = 0;
     let gearAccuracy = 0;
+
     if (smoothedSpeed > 0 && rpm > 0) {
       const ratio = rpm / smoothedSpeed;
-      let minDiff = Infinity;
-      let targetRatioForGear = 0;
+
+      // Find best candidate gear
+      let bestCandidateGear = 1;
+      let minCandidateErr = Infinity;
+
       gears.forEach((g) => {
         const targetRatio = gearRatios[g];
-        const diff = Math.abs(ratio - targetRatio);
-        if (diff < minDiff) {
-          minDiff = diff;
-          gear = g;
-          targetRatioForGear = targetRatio;
+        const err = Math.abs(ratio - targetRatio) / targetRatio;
+        if (err < minCandidateErr) {
+          minCandidateErr = err;
+          bestCandidateGear = g;
         }
       });
-      if (targetRatioForGear > 0) {
-        gearAccuracy = Number(
-          ((Math.abs(ratio - targetRatioForGear) / targetRatioForGear) * 100).toFixed(2)
-        );
+
+      // Apply hysteresis to prevent gear flapping near boundaries
+      if (currentGear === 0) {
+        currentGear = bestCandidateGear;
+      } else {
+        const currentTargetRatio = gearRatios[currentGear as keyof GearRatios];
+        const currentErr = Math.abs(ratio - currentTargetRatio) / currentTargetRatio;
+
+        // Only switch gears if best candidate is significantly better (>12% better fit)
+        if (minCandidateErr < currentErr - 0.12) {
+          currentGear = bestCandidateGear;
+        }
       }
+
+      gear = currentGear;
+      const targetRatioForGear = gearRatios[gear as keyof GearRatios];
+      gearAccuracy = Number(
+        ((Math.abs(ratio - targetRatioForGear) / targetRatioForGear) * 100).toFixed(2)
+      );
+    } else {
+      currentGear = 0;
     }
 
     return {
