@@ -3,7 +3,7 @@ import {
   TableLookupWorkerOutput,
 } from "./TableLookupWorkerTypes";
 import { LogRecord } from "@/app/_lib/log";
-import { Table, Table3D } from "@/app/_lib/rom-metadata";
+import { Table, Table3D, Table2DX, isTable2DX } from "@/app/_lib/rom-metadata";
 
 // Functions copied from app/_lib/rom.ts
 
@@ -81,8 +81,15 @@ function getInterpolatedValue(
   y: number,
   x: number
 ): number | null {
+  if (table.type === "2D" && isTable2DX(table)) {
+    const lowXIndex = Math.floor(x);
+    const highXIndex = Math.ceil(x);
+    const q1 = Number(table.values[0][lowXIndex]);
+    const q2 = Number(table.values[0][highXIndex]);
+    return (1 - (x % 1)) * q1 + (x % 1) * q2;
+  }
   if (table.type != "3D") {
-    postMessage({ error: "getInterpolatedValue only supports 3d tables" });
+    postMessage({ error: "getInterpolatedValue only supports 3d and 2d horizontal tables" });
     return null;
   }
   const lowXIndex = Math.floor(x);
@@ -106,6 +113,50 @@ function getInterpolatedXAxisValue(
   yIndex: number,
   targetValue: number
 ): number | null {
+  if (table.type === "2D" && isTable2DX(table)) {
+    const row = table.values[0];
+    if (!row || !table.xAxis?.values) {
+      return null;
+    }
+    let xIndexFloat = -1;
+    for (let i = 0; i < row.length - 1; i++) {
+      const val1 = Number(row[i]);
+      const val2 = Number(row[i + 1]);
+      if (
+        (targetValue >= val1 && targetValue <= val2) ||
+        (targetValue <= val1 && targetValue >= val2)
+      ) {
+        if (val2 - val1 === 0) {
+          xIndexFloat = i;
+          break;
+        }
+        const frac = (targetValue - val1) / (val2 - val1);
+        xIndexFloat = i + frac;
+        break;
+      }
+    }
+
+    if (xIndexFloat === -1) {
+      const firstVal = Number(row[0]);
+      const lastVal = Number(row[row.length - 1]);
+      if (
+        (targetValue <= firstVal && firstVal <= lastVal) ||
+        (targetValue >= firstVal && firstVal >= lastVal)
+      ) {
+        xIndexFloat = 0;
+      } else if (
+        (targetValue >= lastVal && lastVal >= firstVal) ||
+        (targetValue <= lastVal && lastVal <= firstVal)
+      ) {
+        xIndexFloat = row.length - 1;
+      } else {
+        return null;
+      }
+    }
+
+    return getValueFromIndexFloat(table.xAxis.values as number[], xIndexFloat);
+  }
+
   if (table.type !== "3D") {
     return null;
   }
@@ -188,9 +239,12 @@ self.onmessage = (
       lookupMode,
       targetValueColumnName,
     } = event.data.data;
-    const t3d = table as Table3D<any>;
-    if (t3d.type !== "3D" || !t3d.xAxis || !t3d.yAxis) {
-      postMessage({ error: "Table is missing xaxis or yaxis or is not 3D" });
+
+    const is3D = table?.type === "3D" && (table as Table3D<any>).xAxis && (table as Table3D<any>).yAxis;
+    const is2DX = table?.type === "2D" && isTable2DX(table as any) && (table as Table2DX<any>).xAxis;
+
+    if (!is3D && !is2DX) {
+      postMessage({ error: "Table is missing axis or is not 3D/2D horizontal" });
       return;
     }
 
@@ -199,7 +253,8 @@ self.onmessage = (
       return;
     }
 
-
+    const t3d = table as Table3D<any>;
+    const t2dx = table as Table2DX<any>;
 
     const newLogs: LogRecord[] = logs.map((record) => {
       if (lookupMode === "xAxis") {
@@ -209,47 +264,83 @@ self.onmessage = (
             [newColumnName]: "targetValueColumnName not set",
           };
         }
-        const yValue = record[t3d.yAxis!.name];
         const targetValue = record[targetValueColumnName];
-
-        if (yValue === undefined || targetValue === undefined) {
+        if (targetValue === undefined) {
           return {
             ...record,
             [newColumnName]: undefined,
           };
         }
 
-        const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
-        const interpolatedValue = getInterpolatedXAxisValue(
-          table,
-          yIndex,
-          targetValue as number
-        );
+        if (is2DX) {
+          const interpolatedValue = getInterpolatedXAxisValue(
+            table,
+            0,
+            targetValue as number
+          );
+          return {
+            ...record,
+            [newColumnName]: interpolatedValue,
+          };
+        } else {
+          const yValue = record[t3d.yAxis!.name];
+          if (yValue === undefined) {
+            return {
+              ...record,
+              [newColumnName]: undefined,
+            };
+          }
 
-        return {
-          ...record,
-          [newColumnName]: interpolatedValue,
-        };
+          const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
+          const interpolatedValue = getInterpolatedXAxisValue(
+            table,
+            yIndex,
+            targetValue as number
+          );
+
+          return {
+            ...record,
+            [newColumnName]: interpolatedValue,
+          };
+        }
       } else {
-        const xValue = record[t3d.xAxis!.name];
-        const yValue = record[t3d.yAxis!.name];
+        if (is2DX) {
+          const xValue = record[t2dx.xAxis!.name];
+          if (xValue === undefined) {
+            return {
+              ...record,
+              [newColumnName]: undefined,
+            };
+          }
 
-        if (xValue === undefined || yValue === undefined) {
+          const xIndex = getIndexFloat(t2dx.xAxis!.values as number[], xValue as number);
+          const interpolatedValue = getInterpolatedValue(table, 0, xIndex);
+
           return {
             ...record,
-            [newColumnName]: undefined,
+            [newColumnName]: interpolatedValue,
+          };
+        } else {
+          const xValue = record[t3d.xAxis!.name];
+          const yValue = record[t3d.yAxis!.name];
+
+          if (xValue === undefined || yValue === undefined) {
+            return {
+              ...record,
+              [newColumnName]: undefined,
+            };
+          }
+
+          const xIndex = getIndexFloat(t3d.xAxis!.values as number[], xValue as number);
+          const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
+
+          const interpolatedValue = getInterpolatedValue(table, yIndex, xIndex);
+
+          return {
+            ...record,
+            [newColumnName]: interpolatedValue,
           };
         }
-
-        const xIndex = getIndexFloat(t3d.xAxis!.values as number[], xValue as number);
-        const yIndex = getIndexFloat(t3d.yAxis!.values as number[], yValue as number);
-
-        const interpolatedValue = getInterpolatedValue(table, yIndex, xIndex);
-
-        return {
-          ...record,
-          [newColumnName]: interpolatedValue,
-        };
       }
     });
 

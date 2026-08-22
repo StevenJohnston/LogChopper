@@ -129,8 +129,16 @@ const Flow: React.FC = () => {
   }, [reactFlowInstance, realReactFlowInstance, setReactFlowInstance])
 
   const isValidConnection = useCallback((c: Connection): boolean => {
-    if (c.sourceHandle?.split("#")[0] != c.targetHandle?.split("#")[0]) {
-      return false
+    const sourcePrefix = c.sourceHandle?.split("#")[0];
+    const targetPrefix = c.targetHandle?.split("#")[0];
+
+    const isTableType = (type?: string) =>
+      type === "3D" || type === "2D" || type === "1D" || type === "Table";
+
+    if (sourcePrefix !== targetPrefix) {
+      if (!(isTableType(sourcePrefix) && isTableType(targetPrefix))) {
+        return false;
+      }
     }
     // Don't allow duplicate connections
     if (edges.find(e => e.target == c.target && e.targetHandle == c.targetHandle)) {

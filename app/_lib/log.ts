@@ -58,7 +58,7 @@ export interface LogRecord {
   MAP?: number;
   Boost?: number;
   WGDC_Active?: number;
-  MAF?: string;
+  MAF?: string | number;
   IDC?: string;
   ExVVTtarget?: string;
   InVVTtarget?: string;
@@ -651,7 +651,7 @@ export function processSteadyStateFilter(
       continue;
     }
 
-    const mafStr = row.MAF || "0";
+    const mafStr = String(row.MAF ?? "0");
     let maf = parseFloat(mafStr);
     if (isNaN(maf)) {
         // MAF might be MAFCalcs or another field, try falling back
