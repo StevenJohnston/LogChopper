@@ -11,6 +11,7 @@ import { shallow } from 'zustand/shallow';
 import { Aggregator } from '@/app/_lib/consts';
 import { Scaling, isTable2DX } from '@/app/_lib/rom-metadata';
 import useCellSelectionStore from '@/app/store/useCellSelection';
+import { getRecordsForCellSelection } from '@/app/_lib/rom';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -18,21 +19,10 @@ const selector = (state: RFState) => ({
   softUpdateNode: state.softUpdateNode
 });
 
-const sortCellPos = (cell1: [number, number], cell2: [number, number]): [[number, number], [number, number]] => {
-  const startCell: [number, number] = [
-    cell1[0] < cell2[0] ? cell1[0] : cell2[0],
-    cell1[1] < cell2[1] ? cell1[1] : cell2[1],
-  ]
-  const endCell: [number, number] = [
-    cell1[0] > cell2[0] ? cell1[0] : cell2[0],
-    cell1[1] > cell2[1] ? cell1[1] : cell2[1],
-  ]
-  return [startCell, endCell]
-}
-
 function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   const { nodes, updateNode, softUpdateNode } = useFlow(selector, shallow);
   const [distributionData, setDistributionData] = useState<number[] | null>(null);
+  const [selectedRecords, setSelectedRecords] = useState<LogRecord[] | null>(null);
   const { tableName, startCell, endCell } = useCellSelectionStore();
 
 
@@ -54,29 +44,25 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       tableName === thisTableName &&
       startCell &&
       endCell &&
-      data.sourceTable &&
-      (data.sourceTable.type === '3D' || (data.sourceTable.type === '2D' && isTable2DX(data.sourceTable))) &&
-      data.logField
+      data.sourceTable
     ) {
-      const allValues: number[] = [];
-      const [min, max] = sortCellPos(startCell, endCell);
+      const records = getRecordsForCellSelection(data.sourceTable, startCell, endCell);
+      setSelectedRecords(records);
 
-      for (let row = min[0]; row <= max[0]; row++) {
-        for (let col = min[1]; col <= max[1]; col++) {
-          const logRecords = (data.sourceTable as any).values[row]?.[col];
-          if (logRecords) {
-            const values = logRecords
-              .map((record: LogRecord) => Number(record[data.logField!]))
-              .filter((n: number) => !isNaN(n));
-            allValues.push(...values);
-          }
-        }
+      if (data.logField && records.length > 0) {
+        const allValues = records
+          .map((record: LogRecord) => Number(record[data.logField!]))
+          .filter((n: number) => !isNaN(n));
+        setDistributionData(allValues);
+      } else {
+        setDistributionData(null);
       }
-      setDistributionData(allValues);
     } else {
+      setSelectedRecords(null);
       setDistributionData(null);
     }
   }, [tableName, startCell, endCell, data.sourceTable, data.logField, data.table, id]);
+
 
 
   const onFieldSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
@@ -214,10 +200,12 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
               && <RomModuleUI
                 ref={childRef}
                 table={data.table}
+                tableName={data.table?.name || id}
                 scalingMap={data.scalingMap}
                 scalingValue={data.scalingValue}
                 setScalingValue={setScalingValue}
                 distributionData={distributionData}
+                records={selectedRecords}
               />
             }
           </div>

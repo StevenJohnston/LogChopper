@@ -3,11 +3,13 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Position, NodeProps, useUpdateNodeInternals } from 'reactflow';
 
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
-import { duplicateTable } from '@/app/_lib/rom';
-import ModuleUI from '@/app/_components/Module';
+import { duplicateTable, getRecordsForCellSelection } from '@/app/_lib/rom';
+import RomModuleUI from '@/app/_components/RomModuleUI';
 import { FillLogTableData, FillLogTableNodeType, FillLogTableType, sourceLogHandleId, sourceTableHandleId } from '@/app/_components/FlowNodes/FillLogTable/FillLogTableTypes';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
+import useCellSelectionStore from '@/app/store/useCellSelection';
+import { LogRecord } from '@/app/_lib/log';
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -15,7 +17,9 @@ const selector = (state: RFState) => ({
 });
 function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableData>) {
   const [expanded, setExpanded] = useState<boolean>(false)
+  const [selectedRecords, setSelectedRecords] = useState<LogRecord[] | null>(null);
   const { nodes, updateNode } = useFlow(selector, shallow);
+  const { tableName, startCell, endCell } = useCellSelectionStore();
 
   const updateNodeInternals = useUpdateNodeInternals()
 
@@ -34,6 +38,20 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
     return recordCountTable
   }, [data])
 
+  useEffect(() => {
+    const thisTableName = table?.name || data.table?.name || id;
+    if (
+      tableName === thisTableName &&
+      startCell &&
+      endCell &&
+      data.table
+    ) {
+      const records = getRecordsForCellSelection(data.table, startCell, endCell);
+      setSelectedRecords(records);
+    } else {
+      setSelectedRecords(null);
+    }
+  }, [tableName, startCell, endCell, data.table, table, id]);
 
   const node: FillLogTableNodeType | undefined = useMemo(() => {
     for (const n of nodes) {
@@ -87,8 +105,10 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
         && <div>
           {
             expanded
-            && <ModuleUI
-              module={{ type: 'base', table }}
+            && <RomModuleUI
+              table={table}
+              tableName={table.name || data.table?.name || id}
+              records={selectedRecords}
             />
           }
         </div>
@@ -100,3 +120,4 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
 }
 
 export default FillLogTableNode
+
