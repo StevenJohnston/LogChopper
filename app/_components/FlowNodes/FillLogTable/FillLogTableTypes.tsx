@@ -12,6 +12,8 @@ import { FillLogTableWorker } from '@/app/_components/FlowNodes/FillLogTable/Fil
 export interface FillLogTableDataProps extends Partial<RefreshableNode<FillLogTableData>>, Partial<TableNode> {
   weighted: boolean
   table: LogTable | null
+  enableWeightFilter?: boolean
+  minWeight?: number
 }
 
 export const FillLogTableType = "FillLogTableNode";
@@ -29,12 +31,16 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
   public scalingMap: Record<string, Scaling> | null;
   public selectedRomFile: File | null;
   public weighted: boolean = false
+  public enableWeightFilter: boolean = false
+  public minWeight: number = 0
   public scalingValue: Scaling | undefined | null
   public loading: boolean = false;
 
   constructor({
     table = null,
     weighted = false,
+    enableWeightFilter = false,
+    minWeight = 0,
     tableType = undefined,
     tableMap = null,
     scalingMap = null,
@@ -45,6 +51,8 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
   }: FillLogTableDataProps) {
     super()
     this.weighted = weighted
+    this.enableWeightFilter = enableWeightFilter
+    this.minWeight = minWeight
     this.table = table
     this.tableType = tableType
     this.loading = loading
@@ -158,7 +166,9 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
         data: {
           weighted: this.weighted,
           sourceTable: updatedSourceTable.table,
-          sourceLogs: updatedSourceLogs.logs
+          sourceLogs: updatedSourceLogs.logs,
+          enableWeightFilter: this.enableWeightFilter,
+          minWeight: this.minWeight,
         }
       })
     })
@@ -177,6 +187,8 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
   public getLoadable() {
     return {
       weighted: this.weighted,
+      enableWeightFilter: this.enableWeightFilter,
+      minWeight: this.minWeight,
       scalingValue: this.scalingValue
     }
   }
@@ -184,6 +196,8 @@ export class FillLogTableData extends RefreshableNode<FillLogTableData> implemen
     return new FillLogTableData({
       tableType: this.tableType,
       weighted: this.weighted,
+      enableWeightFilter: this.enableWeightFilter,
+      minWeight: this.minWeight,
       loading: this.loading,
       activeUpdate: this.activeUpdate,
       table: this.table,

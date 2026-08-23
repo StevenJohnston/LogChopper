@@ -244,7 +244,9 @@ function fillTable(
 export function FillTableFromLog(
   table: BasicTable,
   logs: LogRecord[],
-  weighted: boolean = true
+  weighted: boolean = true,
+  enableWeightFilter: boolean = false,
+  minWeight: number = 0
 ): Table<LogRecord[]> | void {
   const newTable = duplicateTable<LogRecord[], string | number>(
     table,
@@ -307,32 +309,47 @@ export function FillTableFromLog(
           const floorY = Math.floor(y);
           const ceilY = Math.ceil(y);
 
-          newTable.values[floorY][floorX].push({
-            ...l,
-            weight: (1 - (y % 1)) * (1 - (x % 1)),
-          });
-
-          if (floorX != ceilX) {
-            newTable.values[floorY][ceilX].push({
+          const w1 = (1 - (y % 1)) * (1 - (x % 1));
+          if (!enableWeightFilter || w1 >= minWeight) {
+            newTable.values[floorY][floorX].push({
               ...l,
-              weight: (1 - (y % 1)) * (x % 1),
+              weight: w1,
             });
           }
+
+          if (floorX != ceilX) {
+            const w2 = (1 - (y % 1)) * (x % 1);
+            if (!enableWeightFilter || w2 >= minWeight) {
+              newTable.values[floorY][ceilX].push({
+                ...l,
+                weight: w2,
+              });
+            }
+          }
           if (floorY != ceilY) {
-            newTable.values[ceilY][floorX].push({
-              ...l,
-              weight: (y % 1) * (1 - (x % 1)),
-            });
+            const w3 = (y % 1) * (1 - (x % 1));
+            if (!enableWeightFilter || w3 >= minWeight) {
+              newTable.values[ceilY][floorX].push({
+                ...l,
+                weight: w3,
+              });
+            }
           }
 
           if (floorX != ceilX && floorY != ceilY) {
-            newTable.values[ceilY][ceilX].push({
-              ...l,
-              weight: (y % 1) * (x % 1),
-            });
+            const w4 = (y % 1) * (x % 1);
+            if (!enableWeightFilter || w4 >= minWeight) {
+              newTable.values[ceilY][ceilX].push({
+                ...l,
+                weight: w4,
+              });
+            }
           }
         } else {
-          newTable.values[y][x].push(l);
+          const recordWeight = l.weight !== undefined ? l.weight : 1;
+          if (!enableWeightFilter || recordWeight >= minWeight) {
+            newTable.values[y][x].push(l);
+          }
         }
         break;
       }
@@ -364,20 +381,29 @@ export function FillTableFromLog(
             const floorX = Math.floor(x);
             const ceilX = Math.ceil(x);
 
-            newTable.values[0][floorX].push({
-              ...l,
-              weight: 1 - (x % 1),
-            });
+            const w1 = 1 - (x % 1);
+            if (!enableWeightFilter || w1 >= minWeight) {
+              newTable.values[0][floorX].push({
+                ...l,
+                weight: w1,
+              });
+            }
 
             if (floorX != ceilX) {
-              newTable.values[0][ceilX].push({
-                ...l,
-                weight: x % 1,
-              });
+              const w2 = x % 1;
+              if (!enableWeightFilter || w2 >= minWeight) {
+                newTable.values[0][ceilX].push({
+                  ...l,
+                  weight: w2,
+                });
+              }
             }
           } else {
             x = nearestIndex(xAxis.values, xAxisLogValue);
-            newTable.values[0][x].push(l);
+            const recordWeight = l.weight !== undefined ? l.weight : 1;
+            if (!enableWeightFilter || recordWeight >= minWeight) {
+              newTable.values[0][x].push(l);
+            }
           }
         }
         break;
@@ -490,12 +516,22 @@ function calculateFloatBetween(
 export function FillLogTable(
   table: LogTable,
   field: keyof LogRecord,
-  aggregator: Aggregator
+  aggregator: Aggregator,
+  enableWeightFilter: boolean = false,
+  minWeight: number = 0
 ): BasicTable | void {
   let newTable: BasicTable | null = null;
   if (!table.scalingValue?.name) {
     return console.log("FillLogTable scalingValue.name missing on table");
   }
+
+  const filterRecords = (records: LogRecord[]): LogRecord[] => {
+    if (!enableWeightFilter) return records;
+    return records.filter((r) => {
+      const weight = r.weight !== undefined ? r.weight : 1;
+      return weight >= minWeight;
+    });
+  };
 
   switch (aggregator) {
     case Aggregator.AVG:
@@ -503,8 +539,8 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          // return (
-          const [mSum, wSum] = logRecords.reduce(
+          const records = filterRecords(logRecords);
+          const [mSum, wSum] = records.reduce(
             ([mSum, wSum], logRecord) => {
               //TODO better number
               const n = Number(logRecord[field]);
@@ -528,7 +564,8 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          return logRecords.length;
+          const records = filterRecords(logRecords);
+          return records.length;
         }
       );
       break;
@@ -536,7 +573,8 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          return logRecords.reduce((min, logRecord) => {
+          const records = filterRecords(logRecords);
+          return records.reduce((min, logRecord) => {
             const fieldValue = Number(logRecord[field]);
             return min < fieldValue ? min : fieldValue;
           }, Infinity);
@@ -547,7 +585,8 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          return logRecords.reduce((max, logRecord) => {
+          const records = filterRecords(logRecords);
+          return records.reduce((max, logRecord) => {
             const fieldValue = Number(logRecord[field]);
             return max > fieldValue ? max : fieldValue;
           }, -Infinity);
@@ -558,7 +597,8 @@ export function FillLogTable(
       newTable = duplicateTable<string | number, LogRecord[]>(
         table,
         (logRecords) => {
-          return logRecords.reduce((sum, logRecord) => {
+          const records = filterRecords(logRecords);
+          return records.reduce((sum, logRecord) => {
             const fieldValue = Number(logRecord[field]);
             return sum + fieldValue;
           }, 0);

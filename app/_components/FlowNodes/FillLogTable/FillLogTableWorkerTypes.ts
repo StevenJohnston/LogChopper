@@ -13,6 +13,8 @@ interface WorkerRequest {
   weighted: boolean;
   sourceTable: BasicTable;
   sourceLogs: LogRecord[];
+  enableWeightFilter?: boolean;
+  minWeight?: number;
 }
 
 export const FillLogTableWorkerType = "FillLogTableWorker";

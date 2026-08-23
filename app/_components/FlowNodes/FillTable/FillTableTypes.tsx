@@ -17,6 +17,8 @@ export interface FillTableDataProps extends Partial<RefreshableNode<FillTableDat
   tableType?: HandleTypes
   table?: BasicTable | null
   sourceTable?: LogTable | null
+  enableWeightFilter?: boolean
+  minWeight?: number
 }
 
 export const FillTableType = "FillTableNode";
@@ -35,12 +37,16 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
   public logField: keyof LogRecord
   public aggregator: Aggregator
   public sourceTable: LogTable | null
+  public enableWeightFilter: boolean = false
+  public minWeight: number = 0
   public scalingValue: Scaling | undefined | null
   public loading: boolean = false;
 
   constructor({
     logField = "",
     aggregator = Aggregator.AVG,
+    enableWeightFilter = false,
+    minWeight = 0,
     table = null,
     tableType = undefined,
     tableMap = null,
@@ -55,6 +61,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
     super()
     this.logField = logField
     this.aggregator = aggregator
+    this.enableWeightFilter = enableWeightFilter
+    this.minWeight = minWeight
     this.table = table
     this.tableType = tableType
     this.loading = loading
@@ -166,6 +174,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
           aggregator: this.aggregator,
           logField: this.logField,
           sourceTable: updatedSourceTable.table,
+          enableWeightFilter: this.enableWeightFilter,
+          minWeight: this.minWeight,
         }
       })
     })
@@ -186,6 +196,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
       logField: this.logField,
       aggregator: this.aggregator,
       tableType: this.tableType,
+      enableWeightFilter: this.enableWeightFilter,
+      minWeight: this.minWeight,
       scalingValue: this.scalingValue
     }
   }
@@ -196,6 +208,8 @@ export class FillTableData extends RefreshableNode<FillTableData> implements Tab
       aggregator: this.aggregator,
       sourceTable: this.sourceTable,
       table: this.table,
+      enableWeightFilter: this.enableWeightFilter,
+      minWeight: this.minWeight,
 
       loading: this.loading,
       activeUpdate: this.activeUpdate,
