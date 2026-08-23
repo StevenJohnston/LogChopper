@@ -348,3 +348,148 @@ test("getRecordsForCellSelection extracts records from 2DX horizontal log table"
   assert.deepEqual(cellRange, [recA, recB]);
 });
 
+test("Table2DX FillTableFromLog with weight filter excludes logs below threshold", () => {
+  const table2d: Table2DX<number> = {
+    type: "2D",
+    name: "MAF Scaling Horizontal",
+    scaling: "GramsPerSecond",
+    address: "5757a",
+    scalingValue: {
+      name: "GramsPerSecond",
+    },
+    xAxis: {
+      name: "Volts",
+      type: "X Axis",
+      elements: 5,
+      address: "61fd0",
+      scaling: "VoltsADC1023",
+      values: [1.0, 2.0, 3.0, 4.0, 5.0],
+    },
+    values: [[10, 20, 30, 40, 50]],
+  };
+
+  const logs: LogRecord[] = [
+    { LogID: 1, MAF: 1.0, AFR: 14.7 }, // exact -> index 0, weight 1.0
+    { LogID: 2, MAF: 2.2, AFR: 12.0 }, // 2.2V -> index 1 (weight 0.8), index 2 (weight 0.2)
+    { LogID: 3, MAF: 5.0, AFR: 11.5 }, // exact -> index 4, weight 1.0
+  ];
+
+  // Weight filter with minWeight = 0.5:
+  // LogID 2's allocation to index 2 (weight 0.2) should be excluded (< 0.5), but index 1 (weight 0.8) should be kept.
+  const logTableFiltered = FillTableFromLog(table2d, logs, true, true, 0.5);
+  assert(logTableFiltered !== undefined && logTableFiltered !== null);
+  assert(isTable2DX(logTableFiltered));
+
+  // Index 0: 1 record (LogID 1, weight 1.0)
+  assert.equal(logTableFiltered.values[0][0].length, 1);
+  assert.equal(logTableFiltered.values[0][0][0].LogID, 1);
+
+  // Index 1: 1 record (LogID 2, weight 0.8)
+  assert.equal(logTableFiltered.values[0][1].length, 1);
+  assert.equal(logTableFiltered.values[0][1][0].LogID, 2);
+  assert.ok(Math.abs((logTableFiltered.values[0][1][0].weight ?? 0) - 0.8) < 1e-6);
+
+  // Index 2: 0 records (weight 0.2 was filtered out)
+  assert.equal(logTableFiltered.values[0][2].length, 0);
+
+  // Index 4: 1 record (LogID 3, weight 1.0)
+  assert.equal(logTableFiltered.values[0][4].length, 1);
+});
+
+test("Table 3D FillTableFromLog with weight filter", () => {
+  const table3d: Table3D<number> = {
+    type: "3D",
+    name: "Base Fuel Map",
+    scaling: "AFR",
+    address: "5000",
+    scalingValue: { name: "AFR" },
+    xAxis: {
+      name: "RPM",
+      type: "X Axis",
+      elements: 3,
+      address: "6000",
+      scaling: "RPM",
+      values: [1000, 2000, 3000],
+    },
+    yAxis: {
+      name: "Load",
+      type: "Y Axis",
+      elements: 3,
+      address: "7000",
+      scaling: "Load",
+      values: [1.0, 2.0, 3.0],
+    },
+    values: [
+      [14.7, 14.7, 14.7],
+      [13.0, 13.0, 13.0],
+      [11.5, 11.5, 11.5],
+    ],
+  };
+
+  const logs: LogRecord[] = [
+    // RPM 1200 (x = 0.2), Load 1.1 (y = 0.1)
+    // w(0,0) = (1 - 0.1) * (1 - 0.2) = 0.9 * 0.8 = 0.72
+    // w(0,1) = (1 - 0.1) * 0.2 = 0.9 * 0.2 = 0.18
+    // w(1,0) = 0.1 * 0.8 = 0.08
+    // w(1,1) = 0.1 * 0.2 = 0.02
+    { LogID: 100, RPM: 1200, Load: 1.1, AFR: 14.0 },
+  ];
+
+  // With minWeight = 0.20: only w(0,0) (0.72) is >= 0.20; the other 3 are filtered out
+  const logTable = FillTableFromLog(table3d, logs, true, true, 0.2);
+  assert(logTable !== undefined && logTable !== null);
+  assert.equal(logTable.type, "3D");
+
+  assert.equal(logTable.values[0][0].length, 1);
+  assert.ok(Math.abs((logTable.values[0][0][0].weight ?? 0) - 0.72) < 1e-6);
+  assert.equal(logTable.values[0][1].length, 0);
+  assert.equal(logTable.values[1][0].length, 0);
+  assert.equal(logTable.values[1][1].length, 0);
+});
+
+test("FillLogTable with enableWeightFilter filters records in aggregators", () => {
+  const mockTable: Table2DX<LogRecord[]> = {
+    type: "2D",
+    name: "MAF Scaling",
+    scaling: "AFR",
+    address: "1000",
+    scalingValue: { name: "AFR" },
+    xAxis: {
+      name: "Volts",
+      type: "X Axis",
+      elements: 2,
+      address: "2000",
+      scaling: "Volts",
+      values: [1.0, 2.0],
+    },
+    values: [
+      [
+        [
+          { LogID: 1, AFR: 10.0, weight: 0.1 },
+          { LogID: 2, AFR: 20.0, weight: 0.9 },
+        ],
+        [
+          { LogID: 3, AFR: 12.0, weight: 0.3 },
+        ],
+      ],
+    ],
+  };
+
+  // With minWeight = 0.5:
+  // Cell 0: LogID 1 (0.1) filtered out, only LogID 2 (20.0, weight 0.9) remains
+  // Cell 1: LogID 3 (0.3) filtered out, cell is empty (AVG -> 0, COUNT -> 0, SUM -> 0)
+  const avgTable = FillLogTable(mockTable, "AFR", Aggregator.AVG, true, 0.5);
+  assert(avgTable !== undefined && avgTable !== null);
+  assert.equal(avgTable.values[0][0], 20.0);
+  assert.equal(avgTable.values[0][1], 0);
+
+  const countTable = FillLogTable(mockTable, "AFR", Aggregator.COUNT, true, 0.5);
+  assert(countTable !== undefined && countTable !== null);
+  assert.deepEqual(countTable.values[0], [1, 0]);
+
+  const sumTable = FillLogTable(mockTable, "AFR", Aggregator.SUM, true, 0.5);
+  assert(sumTable !== undefined && sumTable !== null);
+  assert.deepEqual(sumTable.values[0], [20.0, 0]);
+});
+
+

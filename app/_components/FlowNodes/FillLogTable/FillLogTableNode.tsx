@@ -72,6 +72,29 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
     })
   }, [node, updateNode])
 
+  const onWeightFilterToggle = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        enableWeightFilter: event.target.checked
+      })
+    })
+  }, [node, updateNode])
+
+  const onMinWeightChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return
+    const minWeight = parseFloat(event.target.value) || 0
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        minWeight
+      })
+    })
+  }, [node, updateNode])
+
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-violet-300/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />
@@ -90,15 +113,46 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
 
       </div>
 
-      <div>
-        <div className="max-w-sm">
-          Weighted
-          <input
-            type='checkbox'
-            className='m-2'
-            checked={data.weighted}
-            onChange={onWeightedChanged}
-          />
+      <div className="max-w-sm flex flex-col gap-2 my-1">
+        <div className="flex items-center">
+          <label className="flex items-center text-sm font-medium text-gray-900 cursor-pointer">
+            <input
+              type='checkbox'
+              className='mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500'
+              checked={data.weighted}
+              onChange={onWeightedChanged}
+            />
+            Weighted
+          </label>
+        </div>
+
+        <div className="flex flex-col gap-1 border-t border-black/20 pt-1">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center text-sm font-medium text-gray-900 cursor-pointer">
+              <input
+                type='checkbox'
+                className='mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500'
+                checked={data.enableWeightFilter ?? false}
+                onChange={onWeightFilterToggle}
+              />
+              Weight Filter
+            </label>
+            <span className={`text-xs font-mono ${(data.enableWeightFilter ?? false) ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
+              {(data.minWeight ?? 0).toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="0.0"
+              max="1.0"
+              step="0.05"
+              disabled={!(data.enableWeightFilter ?? false)}
+              value={data.minWeight ?? 0}
+              onChange={onMinWeightChange}
+              className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 ${!(data.enableWeightFilter ?? false) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+          </div>
         </div>
       </div>
       {!!table

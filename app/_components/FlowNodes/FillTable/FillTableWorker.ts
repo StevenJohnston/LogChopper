@@ -18,7 +18,9 @@ ctx.onmessage = async (
       const table = FillLogTable(
         event.data.data.sourceTable,
         event.data.data.logField,
-        event.data.data.aggregator
+        event.data.data.aggregator,
+        event.data.data.enableWeightFilter,
+        event.data.data.minWeight
       );
 
       if (!table) {

@@ -46,7 +46,12 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       endCell &&
       data.sourceTable
     ) {
-      const records = getRecordsForCellSelection(data.sourceTable, startCell, endCell);
+      let records = getRecordsForCellSelection(data.sourceTable, startCell, endCell);
+      if (data.enableWeightFilter) {
+        records = records.filter(
+          (r: LogRecord) => (r.weight !== undefined ? r.weight : 1) >= (data.minWeight ?? 0)
+        );
+      }
       setSelectedRecords(records);
 
       if (data.logField && records.length > 0) {
@@ -61,7 +66,7 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       setSelectedRecords(null);
       setDistributionData(null);
     }
-  }, [tableName, startCell, endCell, data.sourceTable, data.logField, data.table, id]);
+  }, [tableName, startCell, endCell, data.sourceTable, data.logField, data.table, id, data.enableWeightFilter, data.minWeight]);
 
 
 
@@ -85,6 +90,29 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
       data: node.data.clone({
         ...node.data,
         aggregator
+      })
+    })
+  }, [node, updateNode])
+
+  const onWeightFilterToggle = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return console.log('FillTableNode failed to find self node')
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        enableWeightFilter: event.target.checked
+      })
+    })
+  }, [node, updateNode])
+
+  const onMinWeightChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    if (!node) return console.log('FillTableNode failed to find self node')
+    const minWeight = parseFloat(event.target.value) || 0
+    updateNode({
+      ...node,
+      data: node.data.clone({
+        ...node.data,
+        minWeight
       })
     })
   }, [node, updateNode])
@@ -188,6 +216,34 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
                   })
                 }
               </select>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 mt-2 pt-1 border-t border-black/20">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center text-sm font-medium text-gray-900 cursor-pointer">
+                <input
+                  type='checkbox'
+                  className='mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500'
+                  checked={data.enableWeightFilter ?? false}
+                  onChange={onWeightFilterToggle}
+                />
+                Weight Filter
+              </label>
+              <span className={`text-xs font-mono ${(data.enableWeightFilter ?? false) ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
+                {(data.minWeight ?? 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min="0.0"
+                max="1.0"
+                step="0.05"
+                disabled={!(data.enableWeightFilter ?? false)}
+                value={data.minWeight ?? 0}
+                onChange={onMinWeightChange}
+                className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 ${!(data.enableWeightFilter ?? false) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
             </div>
           </div>
         </div>

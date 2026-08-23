@@ -14,6 +14,8 @@ interface WorkerRequest {
   logField: keyof LogRecord;
   aggregator: Aggregator;
   sourceTable: LogTable;
+  enableWeightFilter?: boolean;
+  minWeight?: number;
 }
 
 export const FillTableWorkerType = "FillTableWorker";
