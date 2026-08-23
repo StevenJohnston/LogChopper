@@ -37,7 +37,20 @@ export async function getFilledTable(
       newTable.yAxis = yAxis;
       break;
     }
-    //TODO handle 2DX 2DY probably going to need some type guard functions
+    case "2D": {
+      if (isTable2DX(newTable)) {
+        const xAxis = fillAxis(romDataArray, scalingMap, newTable.xAxis);
+        if (!xAxis)
+          return console.log("Failed to get xAxis when getFilledTable");
+        newTable.xAxis = xAxis;
+      } else if (isTable2DY(newTable)) {
+        const yAxis = fillAxis(romDataArray, scalingMap, newTable.yAxis);
+        if (!yAxis)
+          return console.log("Failed to get yAxis when getFilledTable");
+        newTable.yAxis = yAxis;
+      }
+      break;
+    }
     default:
       return console.log(
         `Failed to getFilledTable due unhandled type ${newTable.type}`
@@ -108,17 +121,18 @@ function fillTable(
 ): Table<string | number> | void {
   const newTable: BasicTable | void = { ...table };
   const { address, scaling, swapxy } = table;
-  if (!address || !scaling || !swapxy) {
-    return console.log(
-      "error fillTable missing one of address, scaling, swapxy"
-    );
+  if (!address || !scaling) {
+    return console.log("error fillTable missing address or scaling");
+  }
+  if (newTable.type === "3D" && swapxy === undefined) {
+    return console.log("error fillTable 3D missing swapxy");
   }
   newTable.scalingValue = scalingMap[scaling];
   const { storageType, endian, toExpr, format } = scalingMap[scaling];
 
   if (!storageType || !endian || !toExpr || !format) {
     return console.log(
-      "error fillTable missing one of  storageType, endian, toExpr, format"
+      "error fillTable missing one of storageType, endian, toExpr, format"
     );
   }
   if (storageType == "bloblist") {
@@ -211,7 +225,8 @@ function fillTable(
       case "2D":
         if (isTable2DX(newTable)) {
           if (!newTable.values) newTable.values = [[]];
-          newTable.values[i] = [displayValue];
+          if (!newTable.values[0]) newTable.values[0] = [];
+          newTable.values[0][i] = displayValue;
         } else if (isTable2DY(newTable)) {
           if (!newTable.values) newTable.values = [];
           newTable.values[i] = displayValue;
@@ -272,10 +287,10 @@ export function FillTableFromLog(
         if (!xAxisLogValue) {
           // TODO hit this if somehow
           const parser = new exprParser();
-          const { insteadUse, expr } = scalingAliases[xScaling];
-          if (!l[insteadUse]) return;
+          const alias = (scalingAliases as Record<string, any>)[xScaling];
+          if (!alias || !l[alias.insteadUse]) return;
 
-          xAxisLogValue = parser.evaluate(expr, l as Record<string, any>);
+          xAxisLogValue = parser.evaluate(alias.expr, l as Record<string, any>);
         }
 
         let x = 0;
@@ -321,8 +336,52 @@ export function FillTableFromLog(
         }
         break;
       }
-      case "2D":
+      case "2D": {
+        if (isTable2DX(table)) {
+          if (newTable.type != "2D" || !isTable2DX(newTable)) {
+            return console.log("Error: duplicated table has different type");
+          }
+          const { xAxis } = table;
+          const xScaling = xAxis.scaling;
+          let xAxisLogValue = l[xScaling];
+          if (xAxisLogValue === undefined || typeof xAxisLogValue !== "number") {
+            const alias =
+              scalingAliases[xScaling as keyof typeof scalingAliases];
+            if (alias && l[alias.insteadUse] !== undefined) {
+              const parser = new exprParser();
+              xAxisLogValue = parser.evaluate(
+                alias.expr,
+                l as Record<string, any>
+              );
+            }
+          }
+          if (typeof xAxisLogValue !== "number" || isNaN(xAxisLogValue)) {
+            return;
+          }
+          let x = 0;
+          if (weighted) {
+            x = getIndexFloat(xAxis.values, xAxisLogValue);
+            const floorX = Math.floor(x);
+            const ceilX = Math.ceil(x);
+
+            newTable.values[0][floorX].push({
+              ...l,
+              weight: 1 - (x % 1),
+            });
+
+            if (floorX != ceilX) {
+              newTable.values[0][ceilX].push({
+                ...l,
+                weight: x % 1,
+              });
+            }
+          } else {
+            x = nearestIndex(xAxis.values, xAxisLogValue);
+            newTable.values[0][x].push(l);
+          }
+        }
         break;
+      }
       case "1D":
         break;
       default:
@@ -355,13 +414,17 @@ export function duplicateTable<T, U>(
       return {
         ...table,
         type: "2D",
-        values: [table.values[0].map(defaultValue)],
+        values: table.values?.[0]
+          ? [table.values[0].map(defaultValue)]
+          : [[]],
       };
     } else if (isTable2DY(table)) {
       return {
         ...table,
         type: "2D",
-        values: table.values.map(defaultValue),
+        values: Array.isArray(table.values)
+          ? table.values.map(defaultValue)
+          : [],
       };
     }
   } else if (table.type == "1D") {
@@ -546,8 +609,35 @@ export function MapCombine(
         }
       });
     });
+  } else if (
+    newTable.type == "2D" &&
+    isTable2DX(newTable) &&
+    sourceTable.type == "2D" &&
+    isTable2DX(sourceTable) &&
+    joinTable.type == "2D" &&
+    isTable2DX(joinTable)
+  ) {
+    const parser = new exprParser();
+
+    newTable.values[0].forEach((cell, x) => {
+      try {
+        const newValue = parser.evaluate(func, {
+          sourceTable: sourceTable.values,
+          joinTable: joinTable.values,
+          sourceAxis: sourceTable.xAxis.values,
+          joinAxis: joinTable.xAxis.values,
+          y: 0,
+          x,
+        });
+        if (typeof newValue != "number")
+          return console.log("MapCombine eval returned non number");
+        newTable.values[0][x] = newValue;
+      } catch (error) {
+        return console.log("MapCombine func failed to evaluate");
+      }
+    });
   } else {
-    console.log("TODO MapCombine only works on 3D tables");
+    console.log("TODO MapCombine only works on 3D or 2D horizontal tables");
   }
   return newTable;
 }

@@ -9,7 +9,7 @@ import { LogRecord } from '@/app/_lib/log';
 import useFlow, { RFState } from '@/app/store/useFlow';
 import { shallow } from 'zustand/shallow';
 import { Aggregator } from '@/app/_lib/consts';
-import { Scaling } from '@/app/_lib/rom-metadata';
+import { Scaling, isTable2DX } from '@/app/_lib/rom-metadata';
 import useCellSelectionStore from '@/app/store/useCellSelection';
 
 const selector = (state: RFState) => ({
@@ -50,15 +50,24 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
 
   useEffect(() => {
     const thisTableName = data.table?.name || id;
-    if (tableName === thisTableName && startCell && endCell && data.sourceTable && data.sourceTable.type === '3D' && data.logField) {
+    if (
+      tableName === thisTableName &&
+      startCell &&
+      endCell &&
+      data.sourceTable &&
+      (data.sourceTable.type === '3D' || (data.sourceTable.type === '2D' && isTable2DX(data.sourceTable))) &&
+      data.logField
+    ) {
       const allValues: number[] = [];
       const [min, max] = sortCellPos(startCell, endCell);
 
       for (let row = min[0]; row <= max[0]; row++) {
         for (let col = min[1]; col <= max[1]; col++) {
-          const logRecords = data.sourceTable.values[row]?.[col];
+          const logRecords = (data.sourceTable as any).values[row]?.[col];
           if (logRecords) {
-            const values = logRecords.map(record => Number(record[data.logField!])).filter(n => !isNaN(n));
+            const values = logRecords
+              .map((record: LogRecord) => Number(record[data.logField!]))
+              .filter((n: number) => !isNaN(n));
             allValues.push(...values);
           }
         }
@@ -103,15 +112,24 @@ function FillTableNode({ id, data, isConnectable }: NodeProps<FillTableData>) {
   }, [id, data.tableType, updateNodeInternals])
 
   const fields: string[] | void = useMemo(() => {
-    if (node?.data.sourceTable?.type != "3D") {
-      return console.log("FillTableNode only handels 3d tables")
-    }
-    for (let y = 0; y < node.data.sourceTable.values.length; y++) {
-      for (let x = 0; x < node.data.sourceTable.values[y].length; x++) {
-        const logRecords = node.data.sourceTable.values[y][x]
-        if (logRecords.length != 0)
-          return Object.keys(logRecords[0])
+    if (!node?.data.sourceTable) return;
+    if (node.data.sourceTable.type === "3D") {
+      for (let y = 0; y < node.data.sourceTable.values.length; y++) {
+        for (let x = 0; x < node.data.sourceTable.values[y].length; x++) {
+          const logRecords = node.data.sourceTable.values[y][x];
+          if (logRecords.length != 0) return Object.keys(logRecords[0]);
+        }
       }
+    } else if (node.data.sourceTable.type === "2D" && isTable2DX(node.data.sourceTable)) {
+      const row = node.data.sourceTable.values[0];
+      if (Array.isArray(row)) {
+        for (let x = 0; x < row.length; x++) {
+          const logRecords = row[x];
+          if (logRecords && logRecords.length != 0) return Object.keys(logRecords[0]);
+        }
+      }
+    } else {
+      return console.log("FillTableNode only handles 3D and 2D horizontal tables");
     }
   }, [node?.data.sourceTable])
 

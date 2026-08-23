@@ -41,7 +41,11 @@ export interface Scaling {
     | "CurrentLTFT"
     | "CruiseLTFT"
     | "STFT"
-    | "LFSTFTAFR";
+    | "LFSTFTAFR"
+    | "VoltsADC1023"
+    | "Volts"
+    | "GramsPerSecond"
+    | (string & {});
 
   storageType?: keyof typeof typeToReader;
   units?: string;
@@ -84,33 +88,33 @@ export interface Table3D<T> extends BaseTable {
   yAxis: Axis;
   values: T[][];
 }
-interface Table2DX<T> extends BaseTable {
+export interface Table2DX<T> extends BaseTable {
   type: "2D";
   xAxis: Axis;
   values: T[][];
 }
-interface Table2DY<T> extends BaseTable {
+export interface Table2DY<T> extends BaseTable {
   type: "2D";
   yAxis: Axis;
   values: T[];
 }
 
-type Table2D<T> = Table2DY<T> | Table2DX<T>;
+export type Table2D<T> = Table2DY<T> | Table2DX<T>;
 function hasProperty<O extends object, K extends PropertyKey>(
   obj: O,
   prop: K
 ): obj is O & Record<K, unknown> {
   return prop in obj;
 }
-export function isTable2DX(
-  table: Table2D<unknown>
-): table is Table2DX<unknown> {
-  return hasProperty(table, "xAxis");
+export function isTable2DX<T = unknown>(
+  table: Table<unknown>
+): table is Table2DX<T> {
+  return table.type === "2D" && hasProperty(table, "xAxis");
 }
-export function isTable2DY(
-  table: Table2D<unknown>
-): table is Table2DY<unknown> {
-  return hasProperty(table, "yAxis");
+export function isTable2DY<T = unknown>(
+  table: Table<unknown>
+): table is Table2DY<T> {
+  return table.type === "2D" && hasProperty(table, "yAxis");
 }
 interface Table1D<T> extends BaseTable {
   type: "1D";
@@ -209,7 +213,7 @@ export interface Axis {
   // address?: string;
   address: string;
   // scaling?: string;
-  scaling: keyof LogRecord & keyof typeof scalingAliases;
+  scaling: (keyof LogRecord & keyof typeof scalingAliases) | keyof typeof scalingAliases | keyof LogRecord | (string & {});
   // elements?: number;
   elements: number;
   // values?: any[];

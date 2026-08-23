@@ -2,6 +2,7 @@
 
 import NodeSelector from "@/app/_components/NodeSelector/NodeSelector"
 import Flow from "./Flow"
+import ColumnSelector from "./ColumnSelector"
 import useRom, { useRomSelector } from "@/app/store/useRom"
 import { shallow } from "zustand/shallow"
 import { useEffect, useState } from "react"
@@ -29,13 +30,16 @@ export const ModuleDisplay: React.FC<ModuleDisplayProps> = ({ className }) => {
 
   return (
     <div
-      className={`flex flex-col ${className}`}
+      className={`flex flex-col h-full overflow-hidden ${className}`}
     >
-      <div className="text-sm">
+      <div className="text-sm px-2 py-0.5 bg-slate-200 border-b border-slate-300">
         Selected Rom: {selectedRom?.name} - {formatter.format(selectRomFileDate)}
       </div>
-      <Flow />
-      <NodeSelector />
+      <div className="grow relative w-full h-full overflow-hidden">
+        <Flow />
+        <NodeSelector />
+      </div>
+      <ColumnSelector />
     </div>
   )
 }

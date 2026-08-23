@@ -64,11 +64,23 @@ export const scalingAliases = {
     insteadUse: "STFT",
     expr: "(1 - (CurrentLTFT + STFT)/100) * AFR",
   },
+  VoltsADC1023: {
+    insteadUse: "MAF",
+    expr: "MAF",
+  },
+  Volts: {
+    insteadUse: "MAF",
+    expr: "MAF",
+  },
+  GramsPerSecond: {
+    insteadUse: "MAFCalcs",
+    expr: "MAFCalcs",
+  },
 } as const;
 
 export function getScalingAlias(scaling: Scaling | undefined): string {
   if (!scaling?.name) return "?";
-  return scalingAliases[scaling.name]?.["insteadUse"] || scaling?.name || "?";
+  return (scalingAliases as Record<string, any>)[scaling.name]?.["insteadUse"] || scaling?.name || "?";
 }
 
 // interface reader {

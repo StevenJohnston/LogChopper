@@ -7,6 +7,7 @@
 }
 
 
+/* Default scrollbar */
 /* width */
 ::-webkit-scrollbar {
   width: 5px;
@@ -28,6 +29,36 @@
 
 ::-webkit-scrollbar-corner {
   background-color: transparent; /* Choose your desired color */
+}
+
+/* Table scrollbars (2x thicker: 10px width/height) */
+.log-table-container::-webkit-scrollbar,
+table.overflow-auto::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.log-table-container::-webkit-scrollbar-track,
+table.overflow-auto::-webkit-scrollbar-track {
+  background: #e7e7e7;
+  border: 1px solid #cacaca;
+  border-radius: 8px;
+}
+
+.log-table-container::-webkit-scrollbar-thumb,
+table.overflow-auto::-webkit-scrollbar-thumb {
+  background-color: #5999d5;
+  border-radius: 8px;
+}
+
+.log-table-container::-webkit-scrollbar-thumb:hover,
+table.overflow-auto::-webkit-scrollbar-thumb:hover {
+  background-color: #3b82f6;
+}
+
+.log-table-container::-webkit-scrollbar-corner,
+table.overflow-auto::-webkit-scrollbar-corner {
+  background-color: #e7e7e7;
 }
 
 

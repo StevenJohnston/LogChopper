@@ -1,6 +1,6 @@
 'use client'
-import { ChangeEvent, useCallback, useMemo, useState } from 'react';
-import { Position, NodeProps } from 'reactflow';
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Position, NodeProps, useUpdateNodeInternals } from 'reactflow';
 
 import { CustomHandle } from '@/app/_components/FlowNodes/CustomHandle/CustomHandle';
 import { duplicateTable } from '@/app/_lib/rom';
@@ -16,6 +16,14 @@ const selector = (state: RFState) => ({
 function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableData>) {
   const [expanded, setExpanded] = useState<boolean>(false)
   const { nodes, updateNode } = useFlow(selector, shallow);
+
+  const updateNodeInternals = useUpdateNodeInternals()
+
+  useEffect(() => {
+    if (data.tableType && data.tableType != "Other") {
+      updateNodeInternals(id)
+    }
+  }, [id, data.tableType, updateNodeInternals])
 
   const table = useMemo(() => {
     const { table } = data
@@ -49,7 +57,7 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-violet-300/75 ${data.loading && 'animate-pulse'}`}>
       <CustomHandle dataType='Log' type="target" position={Position.Left} id={sourceLogHandleId} top="20px" isConnectable={isConnectable} />
-      <CustomHandle dataType='3D' type="target" position={Position.Left} id={sourceTableHandleId} top="60px" isConnectable={isConnectable} />
+      <CustomHandle dataType={data.tableType || '3D'} type="target" position={Position.Left} id={sourceTableHandleId} top="60px" isConnectable={isConnectable} />
 
       <div
         className='flex justify-between drag-handle'
@@ -86,7 +94,7 @@ function FillLogTableNode({ id, data, isConnectable }: NodeProps<FillLogTableDat
         </div>
       }
 
-      <CustomHandle dataType='3D' type="source" position={Position.Right} id="TableOut" top="60px" isConnectable={isConnectable} />
+      <CustomHandle dataType={data.tableType || '3D'} type="source" position={Position.Right} id="TableOut" top="60px" isConnectable={isConnectable} />
     </div>
   );
 }

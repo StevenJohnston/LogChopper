@@ -99,8 +99,8 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
     let csvText = ""
     for (let y = minRow; y <= maxRow; y++) {
       for (let x = minCol; x <= maxCol; x++) {
-        if (table.type != '3D') {
-          console.log("Attempted to highlight cells from non 3d table")
+        if (table.type != '3D' && !(table.type == '2D' && isTable2DX(table))) {
+          console.log("Attempted to highlight cells from unsupported table")
           continue
         }
         csvText += `${table.values[y][x]}`
@@ -274,7 +274,10 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
   if (!table) return <div>Loading Table</div>
 
   if (table.type == "Other") return <div>Other table tyoe not supported</div>
-  if (table.type != "3D") return <div>2D 1D not supported</div>
+  if (table.type != "3D" && !(table.type == "2D" && isTable2DX(table))) return <div>2D vertical / 1D not supported</div>
+  const xAxis = (table.type === "3D" || isTable2DX(table)) ? table.xAxis : undefined;
+  const yAxis = table.type === "3D" ? table.yAxis : undefined;
+
   return (
     <div className="flex flex-col items-center text-[12px] pr-2" onMouseUp={(event) => {
       if (!(event.target as HTMLElement).closest('td')) {
@@ -296,45 +299,50 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
       }
 
 
-      <div className="flex text-center flex-grow">{table?.xAxis?.name}</div>
+      <div className="flex text-center flex-grow">{xAxis?.name}</div>
       <div className="flex max-w-full">
-        <div className="inline text-center rotate-180" style={{ writingMode: "vertical-rl" }}>
-          {table?.yAxis?.name}
-        </div>
+        {yAxis && (
+          <div className="inline text-center rotate-180" style={{ writingMode: "vertical-rl" }}>
+            {yAxis.name}
+          </div>
+        )}
         <table className="table-auto block font-mono leading-none cursor-pointer overflow-auto max-w-full">
           <thead>
             <tr className="sticky">
-              <th>*</th>
+              {yAxis && <th>*</th>}
               {
-                table?.xAxis?.values?.map((value) => {
+                xAxis?.values?.map((value, idx) => {
                   return (
                     <th
-                      key={value}
-                      style={{ backgroundColor: getColor(table.xAxis?.scalingValue, value), width: `${maxWidth || 1 * 10}px` }}
+                      key={idx}
+                      style={{ backgroundColor: getColor(xAxis?.scalingValue, value), width: `${maxWidth || 1 * 10}px` }}
                       className="border border-gray-300"
                     >
-                      {sprintf(table?.xAxis?.scalingValue?.format || '', value)}
+                      {sprintf(xAxis?.scalingValue?.format || '', value)}
                     </th>
                   )
-                }) || <th>{table.scalingValue?.name}</th>
+                }) || (table.type == "3D" ? <th>{table.scalingValue?.name}</th> : null)
               }
             </tr>
           </thead>
           <tbody>
             {
               table?.values?.map((row, rowI) => {
-                const yAxisValue = table?.yAxis?.values?.[rowI]
+                const yAxisValue = yAxis?.values?.[rowI]
                 return (
                   <tr key={rowI}>
-                    {yAxisValue &&
-                      <th
-                        className="px-2 border border-gray-300 sticky"
-                        style={{ backgroundColor: getColor(table.yAxis?.scalingValue, yAxisValue) }}
-                      >
-                        {sprintf(table?.yAxis?.scalingValue?.format || '', yAxisValue)}
-                      </th> ||
-                      <th>{table.scalingValue?.name}</th>
-                    }
+                    {yAxis && (
+                      yAxisValue !== undefined ? (
+                        <th
+                          className="px-2 border border-gray-300 sticky"
+                          style={{ backgroundColor: getColor(yAxis?.scalingValue, yAxisValue) }}
+                        >
+                          {sprintf(yAxis?.scalingValue?.format || '', yAxisValue)}
+                        </th>
+                      ) : (
+                        <th>{table.scalingValue?.name}</th>
+                      )
+                    )}
                     {
 
                       Array.isArray(row) &&
