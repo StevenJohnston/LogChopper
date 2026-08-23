@@ -7,8 +7,10 @@ import {
   FillLogTable,
   duplicateTable,
   MapCombine,
+  sortCellPos,
+  getRecordsForCellSelection,
 } from "@/app/_lib/rom";
-import { Table2DX, isTable2DX, Scaling } from "@/app/_lib/rom-metadata";
+import { Table2DX, Table3D, isTable2DX, Scaling } from "@/app/_lib/rom-metadata";
 import { LogRecord } from "@/app/_lib/log";
 import { Aggregator } from "@/app/_lib/consts";
 
@@ -285,3 +287,64 @@ test("Table2DX getFilledTable with binary ROM data", async () => {
   assert.equal(filled.values[0][1], 20);
   assert.equal(filled.values[0][2], 30);
 });
+
+test("sortCellPos correctly orders coordinates", () => {
+  assert.deepEqual(sortCellPos([3, 5], [1, 2]), [[1, 2], [3, 5]]);
+  assert.deepEqual(sortCellPos([1, 2], [3, 5]), [[1, 2], [3, 5]]);
+  assert.deepEqual(sortCellPos([2, 5], [4, 1]), [[2, 1], [4, 5]]);
+});
+
+test("getRecordsForCellSelection extracts records from 3D log table", () => {
+  const recA = { LogID: "1", AFR: 14.7 } as unknown as LogRecord;
+  const recB = { LogID: "2", AFR: 12.5 } as unknown as LogRecord;
+  const recC = { LogID: "3", AFR: 11.8 } as unknown as LogRecord;
+  const recD = { LogID: "4", AFR: 13.0 } as unknown as LogRecord;
+
+  const mockLogTable: Table3D<LogRecord[]> = {
+    type: "3D",
+    name: "Fuel Table",
+    xAxis: { name: "RPM", type: "X Axis", elements: 2, values: [1000, 2000] },
+    yAxis: { name: "Load", type: "Y Axis", elements: 2, values: [10, 20] },
+    values: [
+      [[recA], [recB]],
+      [[recC, recD], []],
+    ],
+  };
+
+  // Single cell [0, 0]
+  const cell00 = getRecordsForCellSelection(mockLogTable, [0, 0], [0, 0]);
+  assert.deepEqual(cell00, [recA]);
+
+  // Single cell [1, 0] with multiple records
+  const cell10 = getRecordsForCellSelection(mockLogTable, [1, 0], [1, 0]);
+  assert.deepEqual(cell10, [recC, recD]);
+
+  // Multi-cell range [0, 0] to [1, 1]
+  const allCells = getRecordsForCellSelection(mockLogTable, [0, 0], [1, 1]);
+  assert.deepEqual(allCells, [recA, recB, recC, recD]);
+
+  // Reverse range [1, 1] to [0, 0]
+  const allCellsRev = getRecordsForCellSelection(mockLogTable, [1, 1], [0, 0]);
+  assert.deepEqual(allCellsRev, [recA, recB, recC, recD]);
+});
+
+test("getRecordsForCellSelection extracts records from 2DX horizontal log table", () => {
+  const recA = { LogID: "10", Volts: 1.0 } as unknown as LogRecord;
+  const recB = { LogID: "20", Volts: 2.0 } as unknown as LogRecord;
+
+  const mock2DXTable: Table2DX<LogRecord[]> = {
+    type: "2D",
+    name: "MAF Table",
+    xAxis: { name: "Volts", type: "X Axis", elements: 3, values: [1, 2, 3] },
+    values: [
+      [[recA], [recB], []],
+    ],
+  };
+
+  const cell01 = getRecordsForCellSelection(mock2DXTable, [0, 1], [0, 1]);
+  assert.deepEqual(cell01, [recB]);
+
+  const cellRange = getRecordsForCellSelection(mock2DXTable, [0, 0], [0, 2]);
+  assert.deepEqual(cellRange, [recA, recB]);
+});
+

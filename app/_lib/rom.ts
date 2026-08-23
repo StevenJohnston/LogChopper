@@ -734,3 +734,66 @@ function getInterpolatedValue(
 
   return (1 - (y % 1)) * R1 + (y % 1) * R2;
 }
+
+export const sortCellPos = (
+  cell1: [number, number],
+  cell2: [number, number]
+): [[number, number], [number, number]] => {
+  const startCell: [number, number] = [
+    cell1[0] < cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] < cell2[1] ? cell1[1] : cell2[1],
+  ];
+  const endCell: [number, number] = [
+    cell1[0] > cell2[0] ? cell1[0] : cell2[0],
+    cell1[1] > cell2[1] ? cell1[1] : cell2[1],
+  ];
+  return [startCell, endCell];
+};
+
+export function getRecordsForCellSelection(
+  sourceTable: LogTable,
+  startCell: [number, number],
+  endCell: [number, number]
+): LogRecord[] {
+  const [min, max] = sortCellPos(startCell, endCell);
+  const records: LogRecord[] = [];
+
+  if (sourceTable.type === "3D") {
+    for (let row = min[0]; row <= max[0]; row++) {
+      const rowValues = sourceTable.values[row];
+      if (!rowValues) continue;
+      for (let col = min[1]; col <= max[1]; col++) {
+        const cellRecords = rowValues[col];
+        if (cellRecords && Array.isArray(cellRecords)) {
+          records.push(...cellRecords);
+        }
+      }
+    }
+  } else if (sourceTable.type === "2D") {
+    if (isTable2DX(sourceTable)) {
+      const rowValues = sourceTable.values?.[0];
+      if (rowValues) {
+        for (let col = min[1]; col <= max[1]; col++) {
+          const cellRecords = rowValues[col];
+          if (cellRecords && Array.isArray(cellRecords)) {
+            records.push(...cellRecords);
+          }
+        }
+      }
+    } else if (isTable2DY(sourceTable)) {
+      for (let row = min[0]; row <= max[0]; row++) {
+        const cellRecords = sourceTable.values[row];
+        if (cellRecords && Array.isArray(cellRecords)) {
+          records.push(...cellRecords);
+        }
+      }
+    }
+  } else if (sourceTable.type === "1D") {
+    if (Array.isArray(sourceTable.values)) {
+      records.push(...(sourceTable.values as unknown as LogRecord[]));
+    }
+  }
+
+  return records;
+}
+

@@ -76,6 +76,7 @@ export const LogTable: React.FC<LogTableProps> = ({
 
     return sortedVisibleKeys.map((c) => {
       return columnHelper.accessor(c, {
+        size: Math.max(55, Math.min(130, c.length * 7 + 16)),
         cell: (info) => {
           const val = info.getValue();
           if (typeof val === 'number') {
@@ -125,6 +126,10 @@ export const LogTable: React.FC<LogTableProps> = ({
   const table = useReactTable({
     columns,
     data: tableData,
+    defaultColumn: {
+      size: 85,
+      minSize: 45,
+    },
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -133,7 +138,7 @@ export const LogTable: React.FC<LogTableProps> = ({
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: () => 33,
+    estimateSize: () => 22,
     getScrollElement: () => tableContainerRef.current,
     measureElement:
       typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1
@@ -156,13 +161,14 @@ export const LogTable: React.FC<LogTableProps> = ({
 
   return (
     <div
-      className={`container mt-2 bg-white log-table-container ${className}`}
+      className={`container mt-2 bg-white log-table-container text-[10px] ${className}`}
       ref={tableContainerRef}
       style={{
         overflow: 'auto',
         position: 'relative',
         height,
         border: '1px solid black',
+        fontSize: '10px',
       }}
     >
       <table style={{ display: 'grid' }}>
@@ -184,7 +190,7 @@ export const LogTable: React.FC<LogTableProps> = ({
                     style={{
                       display: 'flex',
                       width: header.getSize(),
-                      padding: '4px',
+                      padding: '2px 4px',
                       borderRight: '1px solid #e5e7eb',
                       borderBottom: '1px solid #e5e7eb',
                       whiteSpace: 'nowrap',
@@ -246,7 +252,7 @@ export const LogTable: React.FC<LogTableProps> = ({
                       style={{
                         display: 'flex',
                         width: cell.column.getSize(),
-                        padding: '4px',
+                        padding: '2px 4px',
                         borderRight: '1px solid #e5e7eb',
                         whiteSpace: 'nowrap',
                       }}
