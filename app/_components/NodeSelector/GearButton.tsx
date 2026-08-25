@@ -31,7 +31,7 @@ export const GearButton = () => {
           position: getViewportPosition(100, 100),
           id: uuid(),
           type: GearType,
-          data: new GearData({}),
+          data: new GearData({ enableFilter: true, maxAccuracy: 5 }),
           dragHandle: '.drag-handle',
         };
         updateNode(gearNode);

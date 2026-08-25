@@ -813,9 +813,9 @@ export function smoothSpeedAndCalculateGear(
   if (!logRecords || logRecords.length === 0) return [];
 
   const {
-    enableFilter = false,
+    enableFilter = true,
     invertFilter = false,
-    maxAccuracy = 10,
+    maxAccuracy = 5,
     filterWindowSeconds = 0.5,
   } = filterOptions;
 

@@ -62,8 +62,8 @@ function CombineNode({ id, data, isConnectable }: NodeProps<CombineData>) {
 
   return (
     <div className={`flex flex-col p-2 border border-black rounded bg-amber-400/75 ${data.loading && 'animate-pulse'}`}>
-      <CustomHandle dataType='3D' type="target" position={Position.Left} id={targetTableOneHandleID} top="20px" isConnectable={isConnectable} />
-      <CustomHandle dataType='3D' type="target" position={Position.Left} id={targetTableTwoHandleID} top="60px" isConnectable={isConnectable} />
+      <CustomHandle dataType={data.tableType || '3D'} type="target" position={Position.Left} id={targetTableOneHandleID} top="20px" isConnectable={isConnectable} />
+      <CustomHandle dataType={data.tableType || '3D'} type="target" position={Position.Left} id={targetTableTwoHandleID} top="60px" isConnectable={isConnectable} />
 
       <div
         className='flex justify-between drag-handle'

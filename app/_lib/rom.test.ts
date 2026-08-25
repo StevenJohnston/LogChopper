@@ -303,8 +303,8 @@ test("getRecordsForCellSelection extracts records from 3D log table", () => {
   const mockLogTable: Table3D<LogRecord[]> = {
     type: "3D",
     name: "Fuel Table",
-    xAxis: { name: "RPM", type: "X Axis", elements: 2, values: [1000, 2000] },
-    yAxis: { name: "Load", type: "Y Axis", elements: 2, values: [10, 20] },
+    xAxis: { name: "RPM", type: "X Axis", elements: 2, address: "0", scaling: "RPM", values: [1000, 2000] },
+    yAxis: { name: "Load", type: "Y Axis", elements: 2, address: "0", scaling: "Load", values: [10, 20] },
     values: [
       [[recA], [recB]],
       [[recC, recD], []],
@@ -335,7 +335,7 @@ test("getRecordsForCellSelection extracts records from 2DX horizontal log table"
   const mock2DXTable: Table2DX<LogRecord[]> = {
     type: "2D",
     name: "MAF Table",
-    xAxis: { name: "Volts", type: "X Axis", elements: 3, values: [1, 2, 3] },
+    xAxis: { name: "Volts", type: "X Axis", elements: 3, address: "0", scaling: "Volts", values: [1, 2, 3] },
     values: [
       [[recA], [recB], []],
     ],
@@ -436,7 +436,7 @@ test("Table 3D FillTableFromLog with weight filter", () => {
   ];
 
   // With minWeight = 0.20: only w(0,0) (0.72) is >= 0.20; the other 3 are filtered out
-  const logTable = FillTableFromLog(table3d, logs, true, true, 0.2);
+  const logTable = FillTableFromLog(table3d, logs, true, true, 0.2) as Table3D<LogRecord[]>;
   assert(logTable !== undefined && logTable !== null);
   assert.equal(logTable.type, "3D");
 
@@ -478,18 +478,101 @@ test("FillLogTable with enableWeightFilter filters records in aggregators", () =
   // With minWeight = 0.5:
   // Cell 0: LogID 1 (0.1) filtered out, only LogID 2 (20.0, weight 0.9) remains
   // Cell 1: LogID 3 (0.3) filtered out, cell is empty (AVG -> 0, COUNT -> 0, SUM -> 0)
-  const avgTable = FillLogTable(mockTable, "AFR", Aggregator.AVG, true, 0.5);
+  const avgTable = FillLogTable(mockTable, "AFR", Aggregator.AVG, true, 0.5) as Table2DX<number>;
   assert(avgTable !== undefined && avgTable !== null);
   assert.equal(avgTable.values[0][0], 20.0);
   assert.equal(avgTable.values[0][1], 0);
 
-  const countTable = FillLogTable(mockTable, "AFR", Aggregator.COUNT, true, 0.5);
+  const countTable = FillLogTable(mockTable, "AFR", Aggregator.COUNT, true, 0.5) as Table2DX<number>;
   assert(countTable !== undefined && countTable !== null);
   assert.deepEqual(countTable.values[0], [1, 0]);
 
-  const sumTable = FillLogTable(mockTable, "AFR", Aggregator.SUM, true, 0.5);
+  const sumTable = FillLogTable(mockTable, "AFR", Aggregator.SUM, true, 0.5) as Table2DX<number>;
   assert(sumTable !== undefined && sumTable !== null);
   assert.deepEqual(sumTable.values[0], [20.0, 0]);
 });
+
+test("MAF & MAP Balancer savedGroup structure and cloning", () => {
+  const { savedGroup } = require("@/app/_components/NodeSelector/MafMapBalancerGroup");
+  const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
+
+  assert.equal(savedGroup.groupName, "MAF & MAP Balancer");
+  assert.equal(savedGroup.nodes.length, 26);
+  assert.equal(savedGroup.edges.length, 31);
+
+  // Check GearNode configuration
+  const gearNode = savedGroup.nodes.find((n: any) => n.type === "GearNode");
+  assert(gearNode !== undefined, "GearNode must be present in savedGroup");
+  assert.equal(gearNode.data.enableFilter, true);
+  assert.equal(gearNode.data.maxAccuracy, 5);
+
+  const cloned = cloneSavedGroup(savedGroup);
+  assert.equal(cloned.groupName, "MAF & MAP Balancer");
+  assert.equal(cloned.nodes.length, 26);
+  assert.equal(cloned.edges.length, 31);
+
+  // Ensure all cloned node IDs are unique
+  const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
+  assert.equal(nodeIds.size, 26);
+
+  // Ensure all edges reference existing cloned nodes
+  for (const edge of cloned.edges) {
+    assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
+    assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+  }
+});
+
+test("MAF & MAP Balancer mathematical formulas", () => {
+  const { Parser } = require("expr-eval");
+  const parser = new Parser();
+
+  const ratioFunc = "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))";
+  const afrErrFunc = "AFRMAP / AFR";
+  const mafCorrFunc = "MAFCalcs < MAPCalcs ? AFR_ERR : (MAPCalcs / (TARGET_RATIO * MAFCalcs))";
+  const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs) / MAPCalcs)";
+
+  // 1. Target ratio curve
+  assert.equal(parser.evaluate(ratioFunc, { MAP: 40 }), 1.05);
+  assert.equal(parser.evaluate(ratioFunc, { MAP: 80 }), 1.05);
+  assert(Math.abs(parser.evaluate(ratioFunc, { MAP: 90 }) - 1.025) < 1e-6);
+  assert.equal(parser.evaluate(ratioFunc, { MAP: 100 }), 1.0);
+  assert(Math.abs(parser.evaluate(ratioFunc, { MAP: 110 }) - 0.975) < 1e-6);
+  assert.equal(parser.evaluate(ratioFunc, { MAP: 120 }), 0.95);
+  assert.equal(parser.evaluate(ratioFunc, { MAP: 200 }), 0.95);
+
+  // 2. AFR error direction (increasing table increases AFR)
+  // Rich reading (11.0 vs 11.5 target) -> multiplier > 1 to increase table
+  const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0 });
+  assert(richErr > 1.0);
+
+  // Lean reading (12.5 vs 11.5 target) -> multiplier < 1 to decrease table
+  const leanErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 12.5 });
+  assert(leanErr < 1.0);
+
+  // 3. Low MAP (e.g. 50 kPa, Target Ratio = 1.05):
+  // MAF is lower (40 < 45) -> MAF is active (gets AFR_ERR), MAP is higher (gets target ratio scaling)
+  const lowMapMafActive = {
+    MAPCalcs: 45,
+    MAFCalcs: 40,
+    TARGET_RATIO: 1.05,
+    AFR_ERR: 0.98,
+  };
+  assert.equal(parser.evaluate(mafCorrFunc, lowMapMafActive), 0.98);
+  // MAP target is 1.05 * 40 = 42, currently 45 -> correction is 42 / 45
+  assert.equal(parser.evaluate(mapCorrFunc, lowMapMafActive), 42 / 45);
+
+  // 4. High MAP (e.g. 180 kPa, Target Ratio = 0.95):
+  // MAP is lower (200 < 220) -> MAP is active (gets AFR_ERR), MAF is higher (gets target ratio scaling)
+  const highMapMapActive = {
+    MAPCalcs: 200,
+    MAFCalcs: 220,
+    TARGET_RATIO: 0.95,
+    AFR_ERR: 1.04,
+  };
+  assert.equal(parser.evaluate(mapCorrFunc, highMapMapActive), 1.04);
+  // MAF target is 200 / 0.95 = 210.526, currently 220 -> correction is 200 / (0.95 * 220)
+  assert.equal(parser.evaluate(mafCorrFunc, highMapMapActive), 200 / (0.95 * 220));
+});
+
 
 
