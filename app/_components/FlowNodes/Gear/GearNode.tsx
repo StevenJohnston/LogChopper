@@ -20,9 +20,9 @@ function GearNode({ id, data, isConnectable }: NodeProps<GearData>) {
   const [gear4Ratio, setGear4Ratio] = useState(data.gear4Ratio ?? 42);
   const [gear5Ratio, setGear5Ratio] = useState(data.gear5Ratio ?? 30);
   const [lookahead, setLookahead] = useState(data.lookahead ?? 20);
-  const [enableFilter, setEnableFilter] = useState(data.enableFilter ?? false);
+  const [enableFilter, setEnableFilter] = useState(data.enableFilter ?? true);
   const [invertFilter, setInvertFilter] = useState(data.invertFilter ?? false);
-  const [maxAccuracy, setMaxAccuracy] = useState(data.maxAccuracy ?? 10);
+  const [maxAccuracy, setMaxAccuracy] = useState(data.maxAccuracy ?? 5);
   const [filterWindowSeconds, setFilterWindowSeconds] = useState(data.filterWindowSeconds ?? 0.5);
 
   const { nodes, updateNode } = useFlow(selector, shallow);

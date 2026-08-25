@@ -606,3 +606,24 @@ test("inverted rolling gear accuracy filter keeps inaccurate records and deletes
   assert.strictEqual(result[0].delete, true);
 });
 
+test("gear calculation with 5% filter filters records with accuracy error > 5%", () => {
+  const records: LogRecord[] = [
+    { LogEntrySeconds: 0.0, RPM: 3000, Speed: 37.5 }, // 0% error (Gear 2 = 80) -> kept
+    { LogEntrySeconds: 0.2, RPM: 3000, Speed: 37.5 }, // 0% error -> within window of t=0.6 -> deleted
+    { LogEntrySeconds: 0.4, RPM: 3000, Speed: 37.5 }, // 0% error -> within window of t=0.6 -> deleted
+    { LogEntrySeconds: 0.6, RPM: 3000, Speed: 35.0 }, // 85.71 ratio -> 7.14% error (> 5%) -> deleted
+    { LogEntrySeconds: 1.5, RPM: 3000, Speed: 37.0 }, // 81.08 ratio -> 1.35% error (< 5%) -> kept
+  ];
+
+  // Default filter uses enableFilter: true and maxAccuracy: 5
+  const result = smoothSpeedAndCalculateGear(records, DefaultGearRatios, 1);
+
+  assert.notStrictEqual(result[0].delete, true);
+  assert.strictEqual(result[1].delete, true);
+  assert.strictEqual(result[2].delete, true);
+  assert.strictEqual(result[3].delete, true);
+  assert.notStrictEqual(result[4].delete, true);
+  assert.ok(result[3].deleteReason?.includes("Gear accuracy > 5%"));
+});
+
+

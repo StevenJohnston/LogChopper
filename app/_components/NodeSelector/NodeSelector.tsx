@@ -17,6 +17,7 @@ import MapAfrGroup from "@/app/_components/NodeSelector/MapAfrGroup"
 import AccelFilter from "@/app/_components/NodeSelector/AccelFilter"
 import SelectedRom from "@/app/_components/NodeSelector/SelectedRom"
 import AfrMapGroup from "@/app/_components/NodeSelector/AfrMapGroup"
+import MafMapBalancerGroup from "@/app/_components/NodeSelector/MafMapBalancerGroup"
 import AfrShifter from "@/app/_components/NodeSelector/AfrShifter"
 import { TableRemapper } from "./TableRemapper"
 import { TableLookupButton } from "./TableLookupButton";
@@ -149,6 +150,7 @@ const NodeSelector = () => {
           </NodeSelectorButton>
           <MapAfrGroup />
           <AfrMapGroup />
+          <MafMapBalancerGroup />
           <TableRemapper />
           <TableLookupButton />
           {savedGroups.length > 0 && (
