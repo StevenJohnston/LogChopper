@@ -42,6 +42,16 @@ const AfrMlShifterNode = ({ id }: NodeProps<AfrMlShifterData>) => {
     });
   }, [id, updateNode]);
 
+  const handleReplaceAfrChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const node = useFlow.getState().nodes.find(n => n.id === id) as AfrMlShifterNodeType;
+    if (!node) return;
+
+    updateNode({
+      ...node,
+      data: node.data.clone({ replaceAfr: event.target.checked })
+    });
+  }, [id, updateNode]);
+
   const isTraining = nodeData instanceof RefreshableNode ? nodeData.loading : false;
   const hasInput = nodeData instanceof RefreshableNode ? nodeData.activeUpdate !== null : false; // A better check for input connection
 
@@ -73,6 +83,19 @@ const AfrMlShifterNode = ({ id }: NodeProps<AfrMlShifterData>) => {
             <option value={AfrShiftMethod.PredictiveModelMAF}>Predictive Model (MAF)</option>
             <option value={AfrShiftMethod.OffsetRegression}>Offset Regression</option>
           </select>
+        </div>
+
+        <div className="flex items-center my-3">
+          <input
+            id={`replace-afr-${id}`}
+            type="checkbox"
+            checked={nodeData instanceof AfrMlShifterData ? nodeData.replaceAfr : false}
+            onChange={handleReplaceAfrChange}
+            className="nodrag nopan w-4 h-4 text-blue-600 bg-gray-700 border-gray-500 rounded focus:ring-blue-500 cursor-pointer"
+          />
+          <label htmlFor={`replace-afr-${id}`} className="ml-2 text-xs font-medium text-gray-300 cursor-pointer">
+            Replace original AFR column
+          </label>
         </div>
 
         <div className="my-2">

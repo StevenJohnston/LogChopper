@@ -497,8 +497,8 @@ test("MAF & MAP Balancer savedGroup structure and cloning", () => {
   const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
 
   assert.equal(savedGroup.groupName, "MAF & MAP Balancer");
-  assert.equal(savedGroup.nodes.length, 26);
-  assert.equal(savedGroup.edges.length, 31);
+  assert.equal(savedGroup.nodes.length, 27);
+  assert.equal(savedGroup.edges.length, 32);
 
   // Check GearNode configuration
   const gearNode = savedGroup.nodes.find((n: any) => n.type === "GearNode");
@@ -506,14 +506,31 @@ test("MAF & MAP Balancer savedGroup structure and cloning", () => {
   assert.equal(gearNode.data.enableFilter, true);
   assert.equal(gearNode.data.maxAccuracy, 5);
 
+  // Check AfrMlShifter configuration
+  const afrShifterNode = savedGroup.nodes.find((n: any) => n.type === "afrMlShifter");
+  assert(afrShifterNode !== undefined, "AfrMlShifter must be present in savedGroup");
+  assert.equal(afrShifterNode.data.method, "Steady State Monotonic DP");
+  assert.equal(afrShifterNode.data.replaceAfr, true);
+
+  // Check edge wiring for AfrMlShifter
+  const logToShifterEdge = savedGroup.edges.find((e: any) => e.target === afrShifterNode.id);
+  assert(logToShifterEdge !== undefined, "BaseLog must connect to AfrMlShifter");
+  assert.equal(logToShifterEdge.sourceHandle, "Log#LogOut");
+  assert.equal(logToShifterEdge.targetHandle, "Log#logInput");
+
+  const shifterToTpsEdge = savedGroup.edges.find((e: any) => e.source === afrShifterNode.id);
+  assert(shifterToTpsEdge !== undefined, "AfrMlShifter must connect to TpsAfrDeleteNode");
+  assert.equal(shifterToTpsEdge.sourceHandle, "Log#logOutput");
+  assert.equal(shifterToTpsEdge.targetHandle, "Log#LogTarget");
+
   const cloned = cloneSavedGroup(savedGroup);
   assert.equal(cloned.groupName, "MAF & MAP Balancer");
-  assert.equal(cloned.nodes.length, 26);
-  assert.equal(cloned.edges.length, 31);
+  assert.equal(cloned.nodes.length, 27);
+  assert.equal(cloned.edges.length, 32);
 
   // Ensure all cloned node IDs are unique
   const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
-  assert.equal(nodeIds.size, 26);
+  assert.equal(nodeIds.size, 27);
 
   // Ensure all edges reference existing cloned nodes
   for (const edge of cloned.edges) {
@@ -522,7 +539,7 @@ test("MAF & MAP Balancer savedGroup structure and cloning", () => {
   }
 });
 
-test("MAF & MAP Balancer mathematical formulas", () => {
+test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const { Parser } = require("expr-eval");
   const parser = new Parser();
 
@@ -530,6 +547,7 @@ test("MAF & MAP Balancer mathematical formulas", () => {
   const afrErrFunc = "AFRMAP / AFR";
   const mafCorrFunc = "MAFCalcs < MAPCalcs ? AFR_ERR : (MAPCalcs / (TARGET_RATIO * MAFCalcs))";
   const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs) / MAPCalcs)";
+  const mafSmoothFunc = "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (val < destTable[y][x - 1] ? destTable[y][x - 1] : val) : val";
 
   // 1. Target ratio curve
   assert.equal(parser.evaluate(ratioFunc, { MAP: 40 }), 1.05);
@@ -572,7 +590,46 @@ test("MAF & MAP Balancer mathematical formulas", () => {
   assert.equal(parser.evaluate(mapCorrFunc, highMapMapActive), 1.04);
   // MAF target is 200 / 0.95 = 210.526, currently 220 -> correction is 200 / (0.95 * 220)
   assert.equal(parser.evaluate(mafCorrFunc, highMapMapActive), 200 / (0.95 * 220));
+
+  // 5. MAF Scaling smooth rule: enforces monotonic non-decreasing / increasing table
+  const baseTable: Table2DX<number> = {
+    type: "2D",
+    name: "MAF Scaling Horizontal",
+    scaling: "GramsPerSecond",
+    address: "5757a",
+    xAxis: {
+      name: "Volts",
+      type: "X Axis",
+      elements: 5,
+      address: "61fd0",
+      scaling: "VoltsADC1023",
+      values: [1.0, 2.0, 3.0, 4.0, 5.0],
+    },
+    values: [[10, 20, 30, 40, 50]],
+  };
+
+  // Join table with a dip at index 2 (0.7 would yield 21 < 24)
+  const corrTable: Table2DX<number> = {
+    type: "2D",
+    name: "Correction Table",
+    scaling: "Multiplier",
+    address: "0",
+    xAxis: baseTable.xAxis,
+    values: [[1.0, 1.2, 0.7, 0.8, 1.0]],
+  };
+
+  const smoothed = MapCombine(baseTable, corrTable, mafSmoothFunc) as Table2DX<number>;
+  assert(smoothed !== undefined && smoothed !== null);
+  assert.equal(smoothed.type, "2D");
+  // Expected: [10, 24, 24, 32, 50] -> at index 2, 21 is clamped to 24 (previous cell value)
+  assert.deepEqual(smoothed.values[0], [10, 24, 24, 32, 50]);
+
+  // Verify all elements are monotonically non-decreasing
+  for (let i = 1; i < smoothed.values[0].length; i++) {
+    assert.ok(smoothed.values[0][i] >= smoothed.values[0][i - 1], `Cell ${i} (${smoothed.values[0][i]}) must be >= cell ${i-1} (${smoothed.values[0][i-1]})`);
+  }
 });
+
 
 
 
