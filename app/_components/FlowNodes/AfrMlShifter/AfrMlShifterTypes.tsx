@@ -12,6 +12,8 @@ import { AfrMlShifterWorker, AfrMlShifterWorkerMessage, AfrMlShifterWorkerResult
 export const AfrMlShifterType = "afrMlShifter";
 
 export enum AfrShiftMethod {
+  SteadyStateMonotonicDP = "Steady State Monotonic DP",
+  SteadyStateForwardSearch = "Steady State Forward Search",
   CrossCorrelation = "Cross-Correlation",
   FlowBasedVariableDelay = "Flow-Based Variable Delay",
   ThrottleTriggered = "Throttle-Triggered",
@@ -52,7 +54,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
     runCounter = 0,
     loading = false,
     activeUpdate = null,
-    method = AfrShiftMethod.CrossCorrelation,
+    method = AfrShiftMethod.SteadyStateMonotonicDP,
   }: AfrMlShifterDataProps) {
     super();
     this.logs = logs;
