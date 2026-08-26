@@ -636,6 +636,8 @@ export function MapCombine(
           const newValue = parser.evaluate(func, {
             sourceTable: sourceTable.values,
             joinTable: joinTable.values,
+            destTable: newTable.values,
+            newTable: newTable.values,
             sourceAxis: sourceTable.xAxis.values,
             joinAxis: joinTable.xAxis.values,
             y,
@@ -664,6 +666,8 @@ export function MapCombine(
         const newValue = parser.evaluate(func, {
           sourceTable: sourceTable.values,
           joinTable: joinTable.values,
+          destTable: newTable.values,
+          newTable: newTable.values,
           sourceAxis: sourceTable.xAxis.values,
           joinAxis: joinTable.xAxis.values,
           y: 0,

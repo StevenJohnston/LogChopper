@@ -23,7 +23,7 @@ import { GearData, GearType } from "@/app/_components/FlowNodes/Gear/GearTypes";
 import { Node } from "reactflow";
 import { LogNode, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType, GearType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType, GearType, AfrShiftType, AfrMlShifterType]
 export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType]
 
 

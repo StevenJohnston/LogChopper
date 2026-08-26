@@ -10,6 +10,7 @@ import { AfrShiftMethod } from "./AfrMlShifterTypes";
 interface WorkerRequest {
   logs: LogRecord[];
   method: AfrShiftMethod;
+  replaceAfr?: boolean;
 }
 
 // Data sent from worker to main thread

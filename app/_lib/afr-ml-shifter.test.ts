@@ -203,3 +203,23 @@ test("Real Log Integration Test: processes example log end-to-end with high corr
   }
   assert.strictEqual(violations, 0, "DP algorithm must have 0 non-monotonic steps");
 });
+
+test("replaceAfr toggle correctly replaces AFR and preserves AFR_ORIGINAL", () => {
+  const records: LogRecord[] = [
+    { LogID: 1, AFR: 14.7, RPM: 2000, MAP: 50, TPS: 15, IPW: 1.5 },
+    { LogID: 2, AFR: 13.0, RPM: 2000, MAP: 50, TPS: 15, IPW: 1.5 },
+    { LogID: 3, AFR: 12.0, RPM: 2000, MAP: 50, TPS: 15, IPW: 1.5 },
+  ];
+
+  // Default: replaceAfr = false
+  const withoutReplace = runSteadyStateMonotonicDP(records, false);
+  assert.strictEqual(withoutReplace[0].AFR, 14.7, "Original AFR should remain untouched when replaceAfr=false");
+  assert.strictEqual(withoutReplace[0].AFR_ORIGINAL, undefined, "AFR_ORIGINAL should not be set when replaceAfr=false");
+  assert.ok(withoutReplace[0]["Corrected AFR"] !== undefined, "Corrected AFR should be set");
+
+  // replaceAfr = true
+  const withReplace = runSteadyStateMonotonicDP(records, true);
+  assert.strictEqual(withReplace[0].AFR_ORIGINAL, 14.7, "AFR_ORIGINAL should store original unshifted AFR");
+  assert.strictEqual(withReplace[0].AFR, withReplace[0]["Corrected AFR"], "AFR should equal Corrected AFR when replaceAfr=true");
+});
+
