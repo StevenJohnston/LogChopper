@@ -119,7 +119,10 @@ export class SteadyStateCombustionModel {
     const ipw = r.IPW ?? 1.5;
     const tps = r.TPS ?? 15;
     const load = r.Load ?? 40;
-    const maf = typeof r.MAF === "number" ? r.MAF : parseFloat(r.MAF as string || "1.5");
+    const maf =
+      typeof r.MAF === "number"
+        ? r.MAF
+        : parseFloat((r.MAF as unknown as string) || "1.5");
 
     // Physical features:
     // f0: Load / IPW (direct air-to-fuel ratio proxy)
