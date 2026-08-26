@@ -58,10 +58,12 @@ const AfrMlShifterNode = ({ id }: NodeProps<AfrMlShifterData>) => {
         <div className="my-2">
           <label htmlFor="afr-method" className="block text-sm font-medium text-gray-300">Method</label>
           <select
-            value={nodeData instanceof AfrMlShifterData ? nodeData.method : AfrShiftMethod.CrossCorrelation}
+            value={nodeData instanceof AfrMlShifterData ? nodeData.method : AfrShiftMethod.SteadyStateMonotonicDP}
             onChange={handleMethodChange}
             className="nodrag nopan w-full rounded-md bg-gray-700 p-1" // Prevent dragging and panning when interacting with the select
           >
+            <option value={AfrShiftMethod.SteadyStateMonotonicDP}>Steady State Monotonic DP (Recommended)</option>
+            <option value={AfrShiftMethod.SteadyStateForwardSearch}>Steady State Forward Search</option>
             <option value={AfrShiftMethod.CrossCorrelation}>Cross-Correlation</option>
             <option value={AfrShiftMethod.FlowBasedVariableDelay}>Flow-Based Variable Delay</option>
             <option value={AfrShiftMethod.ThrottleTriggered}>Throttle-Triggered</option>
