@@ -54,11 +54,11 @@ export const savedGroup: SavedGroup = {
         locked: false,
       },
       style: {
-        width: 3000,
+        width: 3200,
         height: 1200,
         zIndex: -1,
       },
-      width: 3000,
+      width: 3200,
       height: 1200,
     },
     {
@@ -84,10 +84,24 @@ export const savedGroup: SavedGroup = {
       parentNode: "a1000000-0000-4000-8000-000000000001",
     },
     {
+      id: "a1000000-0000-4000-8000-000000000031",
+      type: "afrMlShifter",
+      position: {
+        x: 240,
+        y: 40,
+      },
+      data: {
+        method: "Steady State Monotonic DP",
+        replaceAfr: true,
+      },
+      dragHandle: ".drag-handle",
+      parentNode: "a1000000-0000-4000-8000-000000000001",
+    },
+    {
       id: "a1000000-0000-4000-8000-000000000004",
       type: "TpsAfrDeleteNode",
       position: {
-        x: 230,
+        x: 460,
         y: 40,
       },
       data: {},
@@ -98,7 +112,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000030",
       type: "GearNode",
       position: {
-        x: 450,
+        x: 680,
         y: 40,
       },
       data: {
@@ -120,7 +134,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000005",
       type: "LogFilterNode",
       position: {
-        x: 770,
+        x: 1000,
         y: 40,
       },
       data: {
@@ -133,7 +147,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000006",
       type: "LogAlterNode",
       position: {
-        x: 1200,
+        x: 1430,
         y: 40,
       },
       data: {
@@ -147,7 +161,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000007",
       type: "LogAlterNode",
       position: {
-        x: 1620,
+        x: 1850,
         y: 40,
       },
       data: {
@@ -161,7 +175,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000008",
       type: "LogAlterNode",
       position: {
-        x: 1890,
+        x: 2120,
         y: 40,
       },
       data: {
@@ -175,7 +189,7 @@ export const savedGroup: SavedGroup = {
       id: "a1000000-0000-4000-8000-000000000009",
       type: "LogAlterNode",
       position: {
-        x: 2340,
+        x: 2570,
         y: 40,
       },
       data: {
@@ -294,7 +308,7 @@ export const savedGroup: SavedGroup = {
         y: 300,
       },
       data: {
-        func: "sourceTable[y][x] * joinTable[y][x]",
+        func: "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (val < destTable[y][x - 1] ? destTable[y][x - 1] : val) : val",
         tableType: "2D",
       },
       dragHandle: ".drag-handle",
@@ -432,10 +446,17 @@ export const savedGroup: SavedGroup = {
       targetHandle: "Rom#RomIn",
     },
     {
-      id: "edge-log-to-tps-delete",
+      id: "edge-log-to-afr-ml-shifter",
       source: "a1000000-0000-4000-8000-000000000003",
-      target: "a1000000-0000-4000-8000-000000000004",
+      target: "a1000000-0000-4000-8000-000000000031",
       sourceHandle: "Log#LogOut",
+      targetHandle: "Log#logInput",
+    },
+    {
+      id: "edge-afr-ml-shifter-to-tps-delete",
+      source: "a1000000-0000-4000-8000-000000000031",
+      target: "a1000000-0000-4000-8000-000000000004",
+      sourceHandle: "Log#logOutput",
       targetHandle: "Log#LogTarget",
     },
     {

@@ -128,7 +128,7 @@ export interface LogRecord {
   Gear?: number;
   GearAccuracy?: number;
   Battery?: string;
-  ECT?: string;
+  ECT?: string | number;
   MAT?: string;
   MAPCalcs?: number;
   IMAPCalcs?: number;
@@ -685,7 +685,7 @@ export function processSteadyStateFilter(
       deleteReason = "IPW <= 0";
     }
     // RULE E: ECT Filter
-    else if (options.filterEctCold && (row.ECT !== undefined && parseFloat(row.ECT) < 80)) {
+    else if (options.filterEctCold && (row.ECT !== undefined && parseFloat(String(row.ECT)) < 80)) {
       is_steady = false;
       deleteReason = "ECT < 80";
     }

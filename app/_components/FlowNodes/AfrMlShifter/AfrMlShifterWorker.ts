@@ -83,7 +83,8 @@ function calculateBaselineOffsets(
 function applyAfrShift(
   logs: LogRecord[],
   offsets: number[],
-  direction: "forward" | "backward"
+  direction: "forward" | "backward",
+  replaceAfr: boolean = false
 ): LogRecord[] {
   const AFR_KEY = "AFR";
   return logs.map((row, i) => {
@@ -96,6 +97,10 @@ function applyAfrShift(
     newRow["Corrected AFR"] = shiftedAfr;
     newRow["AFR_SHIFTED"] = shiftedAfr;
     newRow["AFR Offset"] = offset;
+    if (replaceAfr) {
+      newRow["AFR_ORIGINAL"] = row[AFR_KEY];
+      newRow["AFR"] = shiftedAfr;
+    }
     return newRow;
   });
 }
@@ -308,7 +313,10 @@ export class SteadyStateCombustionModel {
 }
 
 // --- Method: Steady-State Monotonic Dynamic Programming ---
-export function runSteadyStateMonotonicDP(logs: LogRecord[]): LogRecord[] {
+export function runSteadyStateMonotonicDP(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const N = logs.length;
   if (N === 0) return [];
 
@@ -480,11 +488,14 @@ export function runSteadyStateMonotonicDP(logs: LogRecord[]): LogRecord[] {
     progress: 95,
   });
 
-  return applyAfrShift(logs, chosenOffsets, "forward");
+  return applyAfrShift(logs, chosenOffsets, "forward", replaceAfr);
 }
 
 // --- Method: Steady-State Forward Search (Greedy) ---
-export function runSteadyStateForwardSearch(logs: LogRecord[]): LogRecord[] {
+export function runSteadyStateForwardSearch(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const N = logs.length;
   if (N === 0) return [];
 
@@ -568,11 +579,14 @@ export function runSteadyStateForwardSearch(logs: LogRecord[]): LogRecord[] {
     progress: 95,
   });
 
-  return applyAfrShift(logs, offsets, "forward");
+  return applyAfrShift(logs, offsets, "forward", replaceAfr);
 }
 
 // --- Method 1: Cross-Correlation ---
-function runCrossCorrelation(logs: LogRecord[]): LogRecord[] {
+function runCrossCorrelation(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const IPW_KEY = "IPW";
   const AFR_KEY = "AFR";
   const WINDOW_SIZE = 50;
@@ -630,11 +644,14 @@ function runCrossCorrelation(logs: LogRecord[]): LogRecord[] {
     progress: 95,
   });
 
-  return applyAfrShift(logs, offsets, "forward");
+  return applyAfrShift(logs, offsets, "forward", replaceAfr);
 }
 
 // --- Method 2: Flow-Based Variable Delay ---
-function runFlowBasedDelay(logs: LogRecord[]): LogRecord[] {
+function runFlowBasedDelay(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const MIN_DELAY = 3;
   const MAX_DELAY = 15;
   const SMOOTHING_WINDOW = 7;
@@ -656,11 +673,14 @@ function runFlowBasedDelay(logs: LogRecord[]): LogRecord[] {
     status: "Applying corrections...",
     progress: 90,
   });
-  return applyAfrShift(logs, offsets, "backward");
+  return applyAfrShift(logs, offsets, "backward", replaceAfr);
 }
 
 // --- Method 3: Throttle-Triggered Shift ---
-function runThrottleTriggeredShift(logs: LogRecord[]): LogRecord[] {
+function runThrottleTriggeredShift(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const TPS_KEY = "TPS";
   const THROTTLE_THRESHOLD = 4;
   const TRANSIENT_OFFSET = 3;
@@ -701,13 +721,16 @@ function runThrottleTriggeredShift(logs: LogRecord[]): LogRecord[] {
     status: "Applying corrections...",
     progress: 90,
   });
-  return applyAfrShift(logs, finalOffsets, "forward");
+  return applyAfrShift(logs, finalOffsets, "forward", replaceAfr);
 }
 
 import savitzkyGolayLib from "ml-savitzky-golay";
 
 // --- Method 4: Savitzky-Golay ---
-function runSavitzkyGolayFilter(logs: LogRecord[]): LogRecord[] {
+function runSavitzkyGolayFilter(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): LogRecord[] {
   const AFR_KEY = "AFR";
   const afrSignal = logs.map((row) => row[AFR_KEY] || 0);
 
@@ -723,13 +746,21 @@ function runSavitzkyGolayFilter(logs: LogRecord[]): LogRecord[] {
   return logs.map((row, i) => {
     const newRow: LogRecord = { ...row };
     newRow["Corrected AFR"] = smoothedAfr[i];
+    newRow["AFR_SHIFTED"] = smoothedAfr[i];
     newRow["AFR Offset"] = 0; // Savitzky-Golay does not produce an offset
+    if (replaceAfr) {
+      newRow["AFR_ORIGINAL"] = row[AFR_KEY];
+      newRow["AFR"] = smoothedAfr[i];
+    }
     return newRow;
   });
 }
 
 // --- Method 5: Machine Learning ---
-async function runMachineLearning(logs: LogRecord[]): Promise<LogRecord[]> {
+async function runMachineLearning(
+  logs: LogRecord[],
+  replaceAfr: boolean = false
+): Promise<LogRecord[]> {
   const FEATURE_KEYS = ["IPW", "RPM", "MAP", "TPS"];
   const TARGET_KEY = "AFR";
   const WINDOW_SIZE = 20;
@@ -865,7 +896,7 @@ async function runMachineLearning(logs: LogRecord[]): Promise<LogRecord[]> {
     progress: 95,
   });
 
-  return applyAfrShift(logs, offsets, "forward");
+  return applyAfrShift(logs, offsets, "forward", replaceAfr);
 }
 
 // Helper function to group logs by logId
@@ -901,7 +932,7 @@ ctx.onmessage = async (
 
   if (event.data.type === "run") {
     try {
-      const { logs, method } = event.data.data;
+      const { logs, method, replaceAfr = false } = event.data.data;
 
       let correctedLogs: LogRecord[];
 
@@ -912,31 +943,33 @@ ctx.onmessage = async (
       if (method === AfrShiftMethod.SteadyStateMonotonicDP) {
         const logGroups = groupLogsById(logs);
         const correctedLogGroups = logGroups.map((group) =>
-          runSteadyStateMonotonicDP(group)
+          runSteadyStateMonotonicDP(group, replaceAfr)
         );
         correctedLogs = correctedLogGroups.flat();
       } else if (method === AfrShiftMethod.SteadyStateForwardSearch) {
         const logGroups = groupLogsById(logs);
         const correctedLogGroups = logGroups.map((group) =>
-          runSteadyStateForwardSearch(group)
+          runSteadyStateForwardSearch(group, replaceAfr)
         );
         correctedLogs = correctedLogGroups.flat();
       } else if (method === AfrShiftMethod.MachineLearning) {
         // For ML, use all logs to train, but be mindful of boundaries internally
 
-        correctedLogs = await runMachineLearning(logs);
+        correctedLogs = await runMachineLearning(logs, replaceAfr);
       } else if (method === AfrShiftMethod.PredictiveModel) {
         correctedLogs = await runPredictiveModelAnalysis(
           logs,
-          IPW_FEATURE_KEYS
+          IPW_FEATURE_KEYS,
+          replaceAfr
         );
       } else if (method === AfrShiftMethod.PredictiveModelMAF) {
         correctedLogs = await runPredictiveModelAnalysis(
           logs,
-          MAF_FEATURE_KEYS
+          MAF_FEATURE_KEYS,
+          replaceAfr
         );
       } else if (method === AfrShiftMethod.OffsetRegression) {
-        correctedLogs = await runOffsetRegressionAnalysis(logs);
+        correctedLogs = await runOffsetRegressionAnalysis(logs, replaceAfr);
       } else {
         // For other methods, process each log independently
 
@@ -949,22 +982,22 @@ ctx.onmessage = async (
 
           switch (method) {
             case AfrShiftMethod.CrossCorrelation:
-              correctedGroup = runCrossCorrelation(logGroup);
+              correctedGroup = runCrossCorrelation(logGroup, replaceAfr);
 
               break;
 
             case AfrShiftMethod.FlowBasedVariableDelay:
-              correctedGroup = runFlowBasedDelay(logGroup);
+              correctedGroup = runFlowBasedDelay(logGroup, replaceAfr);
 
               break;
 
             case AfrShiftMethod.ThrottleTriggered:
-              correctedGroup = runThrottleTriggeredShift(logGroup);
+              correctedGroup = runThrottleTriggeredShift(logGroup, replaceAfr);
 
               break;
 
             case AfrShiftMethod.SavitzkyGolay:
-              correctedGroup = runSavitzkyGolayFilter(logGroup);
+              correctedGroup = runSavitzkyGolayFilter(logGroup, replaceAfr);
 
               break;
 
@@ -991,7 +1024,8 @@ ctx.onmessage = async (
 
 async function runPredictiveModelAnalysis(
   logs: LogRecord[],
-  featureKeys: string[]
+  featureKeys: string[],
+  replaceAfr: boolean = false
 ): Promise<LogRecord[]> {
   const TARGET_KEY = "AFR";
   const WINDOW_SIZE = 30; // Larger window for more stable model training
@@ -1050,16 +1084,18 @@ async function runPredictiveModelAnalysis(
       features.push(currentFeatures);
     }
 
-    const featuresTensor = tf.tensor2d(features);
+    for (let offset = 0; offset <= MAX_OFFSET; offset++) {
+      const target = logs
+        .slice(i + offset, i + offset + WINDOW_SIZE)
+        .map((log) => log[TARGET_KEY] || 0);
 
-    for (let k = 0; k <= MAX_OFFSET; k++) {
-      const targetTensor = tf.tensor1d(
-        logs
-          .slice(i + k, i + k + WINDOW_SIZE)
-          .map((log) => log[TARGET_KEY] || 0)
-      );
+      if (target.length !== WINDOW_SIZE) {
+        continue;
+      }
 
-      // --- Train a linear regression model for this offset ---
+      const featureTensor = tf.tensor2d(features);
+      const targetTensor = tf.tensor1d(target);
+
       const model = tf.sequential();
       model.add(
         tf.layers.dense({
@@ -1068,21 +1104,19 @@ async function runPredictiveModelAnalysis(
         })
       );
       model.compile({
-        optimizer: tf.train.adam(0.1),
+        optimizer: tf.train.adam(0.01),
         loss: "meanSquaredError",
       });
 
-      const history = await model.fit(featuresTensor, targetTensor, {
+      const history = await model.fit(featureTensor, targetTensor, {
         epochs: 10,
         verbose: 0,
       });
-      const currentLoss = history.history.loss[
-        history.history.loss.length - 1
-      ] as number;
+      const loss = history.history.loss[0] as number;
 
-      if (currentLoss < minLoss) {
-        minLoss = currentLoss;
-        bestOffset = k;
+      if (loss < minLoss) {
+        minLoss = loss;
+        bestOffset = offset;
       }
     }
 
@@ -1105,11 +1139,12 @@ async function runPredictiveModelAnalysis(
     progress: 95,
   });
 
-  return applyAfrShift(logs, offsets, "forward");
+  return applyAfrShift(logs, offsets, "forward", replaceAfr);
 }
 
 async function runOffsetRegressionAnalysis(
-  logs: LogRecord[]
+  logs: LogRecord[],
+  replaceAfr: boolean = false
 ): Promise<LogRecord[]> {
   const AFR_TARGET_KEY = "AFR";
   const PREDICTIVE_MODEL_FEATURE_KEYS = ["IPW", "RPM", "MAP", "TPS"]; // Features for initial lag estimation
@@ -1323,5 +1358,5 @@ async function runOffsetRegressionAnalysis(
     progress: 95,
   });
 
-  return applyAfrShift(logs, finalOffsets, "forward");
+  return applyAfrShift(logs, finalOffsets, "forward", replaceAfr);
 }

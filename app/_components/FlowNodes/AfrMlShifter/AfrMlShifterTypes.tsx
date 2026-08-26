@@ -37,6 +37,7 @@ export interface AfrMlShifterDataProps {
   loading?: boolean;
   activeUpdate?: RefreshableNode<AfrMlShifterData>['activeUpdate'];
   method?: AfrShiftMethod;
+  replaceAfr?: boolean;
 }
 
 export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implements LogNode, SaveableNode {
@@ -46,6 +47,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
   public runCounter: number;
   public loading: boolean = false;
   public method: AfrShiftMethod;
+  public replaceAfr: boolean = false;
 
   constructor({
     logs = null,
@@ -55,6 +57,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
     loading = false,
     activeUpdate = null,
     method = AfrShiftMethod.SteadyStateMonotonicDP,
+    replaceAfr = false,
   }: AfrMlShifterDataProps) {
     super();
     this.logs = logs;
@@ -64,6 +67,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
     this.loading = loading;
     this.activeUpdate = activeUpdate;
     this.method = method;
+    this.replaceAfr = replaceAfr;
   }
 
   public addWorkerPromise(node: MyNode, nodes: MyNode[], edges: Edge[]): void {
@@ -126,6 +130,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
           data: {
             logs: parentData.logs,
             method: this.method,
+            replaceAfr: this.replaceAfr,
           }
         };
         worker.postMessage(workerMessage);
@@ -144,7 +149,11 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
   }
 
   public getLoadable() {
-    return { runCounter: this.runCounter, method: this.method };
+    return {
+      runCounter: this.runCounter,
+      method: this.method,
+      replaceAfr: this.replaceAfr,
+    };
   }
 
   public clone(updates: Partial<AfrMlShifterData>): AfrMlShifterData {
@@ -156,6 +165,7 @@ export class AfrMlShifterData extends RefreshableNode<AfrMlShifterData> implemen
       loading: this.loading,
       activeUpdate: this.activeUpdate,
       method: this.method,
+      replaceAfr: this.replaceAfr,
       ...updates
     });
   }
