@@ -3,12 +3,18 @@
   "name": "LogChopper",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "/LogChopper/icon.png",
       "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/LogChopper/icon.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ],
   "start_url": "/LogChopper/",
+  "scope": "/LogChopper/",
   "background_color": "#ffffff",
   "display": "standalone",
   "theme_color": "#000000"
