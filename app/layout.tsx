@@ -16,7 +16,8 @@ export const metadata: Metadata = {
     { name: "Steven Johnston" },
   ],
   icons: [
-    { rel: "icon", url: "icon.png" },
+    { rel: "icon", url: "/LogChopper/icon.png" },
+    { rel: "apple-touch-icon", url: "/LogChopper/icon.png" },
   ],
 };
 

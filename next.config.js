@@ -1,5 +1,8 @@
+const isDev = process.env.NODE_ENV === "development";
+const basePath = isDev ? "" : "/LogChopper";
+
 const nextConfig = {
-  basePath: process.env.NODE_ENV === "development" ? "" : "/LogChopper",
+  basePath,
   output: 'export',
   webpack(config) {
     // Grab the existing rule that handles SVG imports
@@ -32,10 +35,13 @@ const nextConfig = {
 
 const withPWA = require("next-pwa")({
   dest: "public", // Destination directory for the PWA files
-  disable: process.env.NODE_ENV === "development", // Disable PWA in development mode
+  disable: isDev, // Disable PWA in development mode
   register: true, // Register the PWA service worker
   skipWaiting: true, // Skip waiting for service worker activation
+  dynamicStartUrl: false,
+  navigateFallback: basePath || "/",
 });
 
 
 module.exports = withPWA(nextConfig)
+
