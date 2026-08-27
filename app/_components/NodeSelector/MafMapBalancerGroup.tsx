@@ -165,7 +165,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "AFRMAP / AFR",
+        func: "AFR / AFRMAP",
         newLogField: "AFR_ERR",
       },
       dragHandle: ".drag-handle",
