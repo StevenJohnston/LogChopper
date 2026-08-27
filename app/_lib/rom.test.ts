@@ -544,7 +544,7 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const parser = new Parser();
 
   const ratioFunc = "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))";
-  const afrErrFunc = "AFRMAP / AFR";
+  const afrErrFunc = "AFR / AFRMAP";
   const mafCorrFunc = "MAFCalcs < MAPCalcs ? AFR_ERR : (MAPCalcs / (TARGET_RATIO * MAFCalcs))";
   const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs) / MAPCalcs)";
   const mafSmoothFunc = "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (val < destTable[y][x - 1] ? destTable[y][x - 1] : val) : val";
@@ -558,14 +558,16 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   assert.equal(parser.evaluate(ratioFunc, { MAP: 120 }), 0.95);
   assert.equal(parser.evaluate(ratioFunc, { MAP: 200 }), 0.95);
 
-  // 2. AFR error direction (increasing table increases AFR)
-  // Rich reading (11.0 vs 11.5 target) -> multiplier > 1 to increase table
+  // 2. AFR error direction:
+  // Rich reading (11.0 vs 11.5 target) -> multiplier < 1 to decrease table / fuel (lean out)
   const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0 });
-  assert(richErr > 1.0);
+  assert(richErr < 1.0);
+  assert(Math.abs(richErr - 11.0 / 11.5) < 1e-6);
 
-  // Lean reading (12.5 vs 11.5 target) -> multiplier < 1 to decrease table
+  // Lean reading (12.5 vs 11.5 target) -> multiplier > 1 to increase table / fuel (richen up)
   const leanErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 12.5 });
-  assert(leanErr < 1.0);
+  assert(leanErr > 1.0);
+  assert(Math.abs(leanErr - 12.5 / 11.5) < 1e-6);
 
   // 3. Low MAP (e.g. 50 kPa, Target Ratio = 1.05):
   // MAF is lower (40 < 45) -> MAF is active (gets AFR_ERR), MAP is higher (gets target ratio scaling)
