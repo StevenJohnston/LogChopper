@@ -38,6 +38,7 @@ export default function Sidebar({
     setSelectedRom,
     selectedLogs,
     setSelectedLogs,
+    autoPopulateLogsForRom,
 
     scalingMap,
     tableMap,
@@ -146,7 +147,7 @@ export default function Sidebar({
     })()
   }, [selectedRom])
 
-  const addSelectedRom = useCallback((file: FileSystemFileHandle) => {
+  const addSelectedRom = useCallback(async (file: FileSystemFileHandle) => {
     setSelectedRom(file)
     const existingNode = nodes.find(n => n.type == BaseRomType) as BaseLogNodeType
     if (!existingNode) {
@@ -158,9 +159,21 @@ export default function Sidebar({
         dragHandle: '.drag-handle',
         // extent: 'parent',
       })
-      return
     }
-  }, [nodes, setSelectedRom, updateNode])
+    const populatedLogs = await autoPopulateLogsForRom(file)
+    if (populatedLogs && populatedLogs.length > 0) {
+      const existingLogNode = nodes.find(n => n.type == BaseLogType) as BaseLogNodeType
+      if (!existingLogNode) {
+        updateNode({
+          id: uuid(),
+          type: BaseLogType,
+          position: { x: 100, y: 100 },
+          data: new BaseLogData({}),
+          dragHandle: '.drag-handle',
+        })
+      }
+    }
+  }, [nodes, setSelectedRom, autoPopulateLogsForRom, updateNode])
 
   // Attempt to load the last directory
   useEffect(() => {

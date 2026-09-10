@@ -4,6 +4,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 import { BasicTable, LoadRomMetadata, Scaling } from "@/app/_lib/rom-metadata";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { findFileByName, getAllFileHandles } from "@/app/_lib/utils";
+import { getLogsForLatestRom } from "@/app/_lib/rom-logs";
 
 export type RomState = {
   defaultXml: string | null;
@@ -38,6 +39,9 @@ export type RomState = {
   setScalingMap: (scalingMap: Record<string, Scaling>) => void;
   setTableMap: (tableMap: Record<string, BasicTable>) => void;
   setSelectedLogs: (selectedLogs: FileSystemFileHandle[]) => void;
+  autoPopulateLogsForRom: (
+    romHandle?: FileSystemFileHandle | null
+  ) => Promise<FileSystemFileHandle[]>;
 };
 
 export function useRomSelector(state: RomState) {
@@ -63,6 +67,7 @@ export function useRomSelector(state: RomState) {
     setScalingMap: state.setScalingMap,
     setTableMap: state.setTableMap,
     setSelectedLogs: state.setSelectedLogs,
+    autoPopulateLogsForRom: state.autoPopulateLogsForRom,
   };
 }
 
@@ -141,6 +146,9 @@ const useRom = createWithEqualityFn<RomState>()(
         if (logDirectoryHandle) {
           const logFiles = await getAllFileHandles(logDirectoryHandle);
           set({ logDirectoryHandle, logFiles });
+          if (get().selectedRom) {
+            await get().autoPopulateLogsForRom(get().selectedRom);
+          }
         } else {
           set({ logDirectoryHandle: null, logFiles: [] });
         }
@@ -159,6 +167,7 @@ const useRom = createWithEqualityFn<RomState>()(
           defaultRom: selectedRom.name,
           selectedRom,
         });
+        get().autoPopulateLogsForRom(selectedRom);
       },
       setScalingMap: (scalingMap: Record<string, Scaling>) => {
         set({ scalingMap });
@@ -168,6 +177,48 @@ const useRom = createWithEqualityFn<RomState>()(
       },
       setSelectedLogs: async (selectedLogs: FileSystemFileHandle[]) => {
         set({ selectedLogs });
+      },
+      autoPopulateLogsForRom: async (
+        romHandle?: FileSystemFileHandle | null
+      ) => {
+        const targetRom = romHandle || get().selectedRom;
+        if (!targetRom) return [];
+
+        const romDir = get().romDirectoryHandle;
+        let romHandles = get().romFiles;
+        if (romDir) {
+          try {
+            romHandles = await getAllFileHandles(romDir);
+            set({ romFiles: romHandles });
+          } catch (e) {
+            console.error("Failed to get rom file handles", e);
+          }
+        }
+
+        const logDir = get().logDirectoryHandle;
+        let logHandles = get().logFiles;
+        if (logDir) {
+          try {
+            logHandles = await getAllFileHandles(logDir);
+            set({ logFiles: logHandles });
+          } catch (e) {
+            console.error("Failed to get log file handles", e);
+          }
+        }
+
+        const result = await getLogsForLatestRom(
+          targetRom,
+          romHandles,
+          logHandles
+        );
+
+        if (result.isLatestRom) {
+          set({ selectedLogs: result.selectedLogs });
+          return result.selectedLogs;
+        } else {
+          set({ selectedLogs: [] });
+          return [];
+        }
       },
     }),
     {
