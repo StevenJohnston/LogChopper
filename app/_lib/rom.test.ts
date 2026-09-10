@@ -9,6 +9,8 @@ import {
   MapCombine,
   sortCellPos,
   getRecordsForCellSelection,
+  getCellRangeTSV,
+  getTableTSV,
 } from "@/app/_lib/rom";
 import { Table2DX, Table3D, isTable2DX, Scaling } from "@/app/_lib/rom-metadata";
 import { LogRecord } from "@/app/_lib/log";
@@ -630,6 +632,101 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   for (let i = 1; i < smoothed.values[0].length; i++) {
     assert.ok(smoothed.values[0][i] >= smoothed.values[0][i - 1], `Cell ${i} (${smoothed.values[0][i]}) must be >= cell ${i-1} (${smoothed.values[0][i-1]})`);
   }
+});
+
+test("getTableTSV extracts 3D table values in TSV format without axis", () => {
+  const table3d: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Map",
+    scaling: "AFR",
+    address: "1000",
+    xAxis: {
+      name: "Load",
+      type: "X Axis",
+      elements: 3,
+      address: "2000",
+      scaling: "Loadify",
+      values: [100, 120, 140],
+    },
+    yAxis: {
+      name: "RPM",
+      type: "Y Axis",
+      elements: 3,
+      address: "3000",
+      scaling: "RPMGain",
+      values: [2000, 3000, 4000],
+    },
+    values: [
+      [14.7, 14.2, 13.8],
+      [13.5, 12.8, 12.2],
+      [12.5, 11.9, 11.4],
+    ],
+  };
+
+  const tsv = getTableTSV(table3d);
+  assert.equal(
+    tsv,
+    "14.7\t14.2\t13.8\n13.5\t12.8\t12.2\n12.5\t11.9\t11.4"
+  );
+});
+
+test("getTableTSV extracts 2DX table values in TSV format without axis", () => {
+  const table2d: Table2DX<number> = {
+    type: "2D",
+    name: "MAF Scaling",
+    scaling: "GramsPerSecond",
+    address: "4000",
+    xAxis: {
+      name: "Volts",
+      type: "X Axis",
+      elements: 4,
+      address: "5000",
+      scaling: "Volts",
+      values: [1.0, 2.0, 3.0, 4.0],
+    },
+    values: [[10.5, 20.2, 35.8, 55.1]],
+  };
+
+  const tsv = getTableTSV(table2d);
+  assert.equal(tsv, "10.5\t20.2\t35.8\t55.1");
+});
+
+test("getCellRangeTSV extracts partial cell range matching highlight behavior", () => {
+  const table3d: Table3D<number> = {
+    type: "3D",
+    name: "Timing Map",
+    scaling: "Timing",
+    address: "1000",
+    xAxis: {
+      name: "Load",
+      type: "X Axis",
+      elements: 3,
+      address: "2000",
+      scaling: "Loadify",
+      values: [100, 120, 140],
+    },
+    yAxis: {
+      name: "RPM",
+      type: "Y Axis",
+      elements: 3,
+      address: "3000",
+      scaling: "RPMGain",
+      values: [2000, 3000, 4000],
+    },
+    values: [
+      [25, 22, 18],
+      [22, 19, 15],
+      [18, 15, 11],
+    ],
+  };
+
+  // Sub-rectangle from [1, 1] to [2, 2]
+  const partialTsv = getCellRangeTSV(table3d, [1, 1], [2, 2]);
+  assert.equal(partialTsv, "19\t15\n15\t11");
+
+  // Inverted range order ([2, 2] to [1, 1])
+  const invertedTsv = getCellRangeTSV(table3d, [2, 2], [1, 1]);
+  assert.equal(invertedTsv, "19\t15\n15\t11");
 });
 
 

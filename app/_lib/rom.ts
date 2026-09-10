@@ -841,3 +841,53 @@ export function getRecordsForCellSelection(
   return records;
 }
 
+export function getCellRangeTSV(
+  table: BasicTable,
+  startCell: [number, number],
+  endCell: [number, number]
+): string {
+  if (table.type !== "3D" && !(table.type === "2D" && isTable2DX(table))) {
+    return "";
+  }
+  if (!Array.isArray(table.values)) {
+    return "";
+  }
+
+  const [[minRow, minCol], [maxRow, maxCol]] = sortCellPos(startCell, endCell);
+  let csvText = "";
+  for (let y = minRow; y <= maxRow; y++) {
+    const row = table.values[y];
+    if (Array.isArray(row)) {
+      for (let x = minCol; x <= maxCol; x++) {
+        const val = row[x];
+        csvText += `${val !== undefined && val !== null ? val : ""}`;
+        if (x !== maxCol) {
+          csvText += "\t";
+        }
+      }
+    } else {
+      csvText += `${row !== undefined && row !== null ? row : ""}`;
+    }
+
+    if (y !== maxRow) {
+      csvText += "\n";
+    }
+  }
+
+  return csvText;
+}
+
+export function getTableTSV(table: BasicTable): string {
+  if (table.type !== "3D" && !(table.type === "2D" && isTable2DX(table))) {
+    return "";
+  }
+  if (!Array.isArray(table.values) || table.values.length === 0) {
+    return "";
+  }
+
+  const maxRow = table.values.length - 1;
+  const firstRow = table.values[0];
+  const maxCol = Array.isArray(firstRow) ? firstRow.length - 1 : 0;
+  return getCellRangeTSV(table, [0, 0], [maxRow, maxCol]);
+}
+

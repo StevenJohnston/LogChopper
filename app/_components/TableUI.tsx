@@ -1,8 +1,10 @@
 'use client'
 import { Axis, BasicTable, Scaling, isTable2DX, isTable2DY } from "../_lib/rom-metadata";
+import { getCellRangeTSV, getTableTSV } from "../_lib/rom";
+import CopySvg from "../icons/copy.svg";
 import { sprintf } from 'sprintf-js'
 import ColorScale from "color-scales";
-import { useCallback, useMemo, useState, MouseEvent, CSSProperties, forwardRef } from "react";
+import { useCallback, useMemo, useState, useRef, MouseEvent, CSSProperties, forwardRef } from "react";
 import ScalingSelector from "@/app/_components/ScalingSelector";
 import useCellSelectionStore from "@/app/store/useCellSelection";
 
@@ -76,8 +78,55 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
 
   const [selectStartCell, setSelectStartCell] = useState<CellPos>()
   const [selectEndCell, setSelectEndCell] = useState<CellPos>()
+  const [copied, setCopied] = useState<boolean>(false)
+
+  const innerTextAreaRef = useRef<HTMLTextAreaElement>(null)
+  const setTextAreaRef = useCallback((node: HTMLTextAreaElement | null) => {
+    (innerTextAreaRef as any).current = node;
+    if (typeof textAreaRef === 'function') {
+      textAreaRef(node);
+    } else if (textAreaRef) {
+      (textAreaRef as any).current = node;
+    }
+  }, [textAreaRef])
 
   const [mouseDown, setMouseDown] = useState<boolean>(false)
+
+  const handleCopyTable = useCallback(async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    event.preventDefault();
+    const csvText = getTableTSV(table);
+    if (!csvText) return;
+
+    const targetTextArea = innerTextAreaRef.current;
+    if (targetTextArea) {
+      selectText(targetTextArea, csvText);
+    }
+
+    let success = false;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(csvText);
+        success = true;
+      } catch (e) {
+        console.warn("navigator.clipboard.writeText failed, falling back to execCommand", e);
+      }
+    }
+
+    if (!success && targetTextArea) {
+      try {
+        targetTextArea.select();
+        success = document.execCommand('copy');
+      } catch (e) {
+        console.error("Copy fallback failed", e);
+      }
+    }
+
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+  }, [table])
 
   const cellOnMouseDown = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
     setMouseDown(true)
@@ -93,34 +142,13 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
     if (!selectStartCell) return console.log("No selectStartCell")
     if (!endCell) return console.log("Failed to get end cellpos from event")
 
-    const [[minRow, minCol], [maxRow, maxCol]] = sortCellPos(selectStartCell, endCell)
-    console.log(`start: [${minRow}, ${minCol}] end: [${maxRow}, ${maxCol}]`)
+    const csvText = getCellRangeTSV(table, selectStartCell, endCell);
 
-    let csvText = ""
-    for (let y = minRow; y <= maxRow; y++) {
-      for (let x = minCol; x <= maxCol; x++) {
-        if (table.type != '3D' && !(table.type == '2D' && isTable2DX(table))) {
-          console.log("Attempted to highlight cells from unsupported table")
-          continue
-        }
-        csvText += `${table.values[y][x]}`
-        if (x != maxCol) {
-          csvText += `\t`
-        }
-      }
-
-      if (y != maxRow) {
-        csvText += '\n'
-      }
+    const targetTextArea = innerTextAreaRef.current;
+    if (targetTextArea) {
+      selectText(targetTextArea, csvText);
     }
-
-    if (textAreaRef == null) return console.log("TextAreadRef missing")
-    if (typeof textAreaRef === 'function') {
-      return console.log("passed ref to TableUI is a function expect ref with .current")
-    }
-    if (textAreaRef.current == null) return console.log()
-    selectText(textAreaRef.current as HTMLTextAreaElement, csvText)
-  }, [textAreaRef, selectStartCell, table])
+  }, [selectStartCell, table])
 
   const cellOnMouseEnter = useCallback((event: MouseEvent<HTMLTableCellElement>) => {
     if (mouseDown) {
@@ -284,7 +312,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
         clearSelectedCell();
       }
     }}>
-      <textarea ref={textAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
+      <textarea ref={setTextAreaRef} style={{ position: "fixed", left: "-9999px", top: "-9999px" }} readOnly></textarea>
       {
         scalingMap
         && <div className="w-full mt-2 flex-col justify-end items-center">
@@ -309,7 +337,20 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
         <table className="table-auto block font-mono leading-none cursor-pointer overflow-auto max-w-full">
           <thead>
             <tr className="sticky">
-              {yAxis && <th>*</th>}
+              <th className="p-0 border border-gray-300 bg-gray-100 hover:bg-gray-200 text-center align-middle">
+                <button
+                  type="button"
+                  onClick={handleCopyTable}
+                  title={copied ? "Copied table contents to clipboard!" : "Copy table contents to clipboard"}
+                  className="nodrag w-full h-full min-w-[20px] min-h-[18px] flex items-center justify-center p-0.5 text-gray-700 hover:text-black transition-colors"
+                >
+                  {copied ? (
+                    <span className="text-[10px] font-bold text-green-600">✓</span>
+                  ) : (
+                    <CopySvg className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </th>
               {
                 xAxis?.values?.map((value, idx) => {
                   return (
@@ -331,7 +372,7 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
                 const yAxisValue = yAxis?.values?.[rowI]
                 return (
                   <tr key={rowI}>
-                    {yAxis && (
+                    {yAxis ? (
                       yAxisValue !== undefined ? (
                         <th
                           className="px-2 border border-gray-300 sticky"
@@ -342,6 +383,10 @@ const TableUI = forwardRef<HTMLTextAreaElement, TableUIProps>(({ table, tableNam
                       ) : (
                         <th>{table.scalingValue?.name}</th>
                       )
+                    ) : (
+                      <th className="px-1 border border-gray-300 bg-gray-100 text-[10px] text-gray-400">
+                        {rowI}
+                      </th>
                     )}
                     {
 
