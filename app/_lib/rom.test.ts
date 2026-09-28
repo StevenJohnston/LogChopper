@@ -761,6 +761,139 @@ test("getCellRangeTSV extracts partial cell range matching highlight behavior", 
   assert.equal(invertedTsv, "19\t15\n15\t11");
 });
 
+test("MAF & MAP Coherence Analyzer savedGroup structure and cloning", () => {
+  const { savedGroup } = require("@/app/_components/NodeSelector/MafMapCoherenceGroup");
+  const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
+
+  assert.equal(savedGroup.groupName, "MAF & MAP Coherence Analyzer");
+  assert.equal(savedGroup.nodes.length, 21);
+  assert.equal(savedGroup.edges.length, 21);
+
+  // Check GearNode configuration
+  const gearNode = savedGroup.nodes.find((n: any) => n.type === "GearNode");
+  assert(gearNode !== undefined, "GearNode must be present in savedGroup");
+  assert.equal(gearNode.data.enableFilter, true);
+  assert.equal(gearNode.data.maxAccuracy, 5);
+
+  // Check AfrMlShifter configuration
+  const afrShifterNode = savedGroup.nodes.find((n: any) => n.type === "afrMlShifter");
+  assert(afrShifterNode !== undefined, "AfrMlShifter must be present in savedGroup");
+  assert.equal(afrShifterNode.data.method, "Steady State Monotonic DP");
+  assert.equal(afrShifterNode.data.replaceAfr, true);
+
+  // Check 2D and 3D BaseTable nodes
+  const mafBaseTable = savedGroup.nodes.find((n: any) => n.data.tableKey === "MAF Scaling Horizontal");
+  assert(mafBaseTable !== undefined, "MAF Scaling Horizontal node must be present");
+  assert.equal(mafBaseTable.data.tableType, "2D");
+
+  const mapBaseTable = savedGroup.nodes.find((n: any) => n.data.tableKey === "MAP based Load Calc #2 - Cold/Interpolated");
+  assert(mapBaseTable !== undefined, "MAP based Load Calc #2 node must be present");
+  assert.equal(mapBaseTable.data.tableType, "3D");
+
+  // Check 2D CombineNode (Spread: MAX - MIN)
+  const combineNode = savedGroup.nodes.find((n: any) => n.type === "CombineNode");
+  assert(combineNode !== undefined, "CombineNode for MAF bin spread must be present");
+  assert.equal(combineNode.data.tableType, "2D");
+
+  // Check edge wiring for AfrMlShifter
+  const logToShifterEdge = savedGroup.edges.find((e: any) => e.target === afrShifterNode.id);
+  assert(logToShifterEdge !== undefined, "BaseLog must connect to AfrMlShifter");
+  assert.equal(logToShifterEdge.sourceHandle, "Log#LogOut");
+  assert.equal(logToShifterEdge.targetHandle, "Log#logInput");
+
+  // Check CombineNode wiring
+  const maxTableNode = savedGroup.nodes.find((n: any) => n.data.logField === "MAF_MAP_RATIO" && n.data.aggregator === "MAX");
+  const minTableNode = savedGroup.nodes.find((n: any) => n.data.logField === "MAF_MAP_RATIO" && n.data.aggregator === "MIN");
+  assert(maxTableNode !== undefined && minTableNode !== undefined);
+
+  const edgeMaxToCombine = savedGroup.edges.find((e: any) => e.source === maxTableNode.id && e.target === combineNode.id);
+  const edgeMinToCombine = savedGroup.edges.find((e: any) => e.source === minTableNode.id && e.target === combineNode.id);
+  assert(edgeMaxToCombine !== undefined, "MAX table must connect to Combine TableIn1");
+  assert.equal(edgeMaxToCombine.targetHandle, "2D#TableIn1");
+  assert(edgeMinToCombine !== undefined, "MIN table must connect to Combine TableIn2");
+  assert.equal(edgeMinToCombine.targetHandle, "2D#TableIn2");
+
+  const cloned = cloneSavedGroup(savedGroup);
+  assert.equal(cloned.groupName, "MAF & MAP Coherence Analyzer");
+  assert.equal(cloned.nodes.length, 21);
+  assert.equal(cloned.edges.length, 21);
+
+  // Ensure all cloned node IDs are unique
+  const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
+  assert.equal(nodeIds.size, 21);
+
+  // Ensure all edges reference existing cloned nodes
+  for (const edge of cloned.edges) {
+    assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
+    assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+  }
+});
+
+test("MAF & MAP Coherence Analyzer mathematical formulas", () => {
+  const { Parser } = require("expr-eval");
+  const parser = new Parser();
+
+  const ratioFunc = "MAFCalcs / MAPCalcs";
+  const discrepancyFunc = "((MAFCalcs - MAPCalcs) / MAPCalcs) * 100";
+  const spreadFunc = "sourceTable[y][x] > 0 and joinTable[y][x] > 0 ? (sourceTable[y][x] - joinTable[y][x]) : 0";
+
+  // Point A: 2000 RPM, 200 kPa -> MAFCalcs = 160, MAPCalcs = 200 (MAF is 20% lower)
+  const pointA = { MAFCalcs: 160, MAPCalcs: 200 };
+  assert.equal(parser.evaluate(ratioFunc, pointA), 0.80);
+  assert.equal(parser.evaluate(discrepancyFunc, pointA), -20);
+
+  // Point B: 4000 RPM, 100 kPa -> MAFCalcs = 60, MAPCalcs = 100 (MAF is 40% lower)
+  const pointB = { MAFCalcs: 60, MAPCalcs: 100 };
+  assert.equal(parser.evaluate(ratioFunc, pointB), 0.60);
+  assert.equal(parser.evaluate(discrepancyFunc, pointB), -40);
+
+  // Perfectly coherent point (MAFCalcs == MAPCalcs)
+  const pointCoherent = { MAFCalcs: 150, MAPCalcs: 150 };
+  assert.equal(parser.evaluate(ratioFunc, pointCoherent), 1.0);
+  assert.equal(parser.evaluate(discrepancyFunc, pointCoherent), 0);
+
+  // Over-reading MAF point (+15%)
+  const pointOver = { MAFCalcs: 115, MAPCalcs: 100 };
+  assert.equal(parser.evaluate(ratioFunc, pointOver), 1.15);
+  assert.equal(parser.evaluate(discrepancyFunc, pointOver), 15);
+
+  // Spread calculation in 2D MAF bin:
+  // Cell with 25% spread across log records (MAX = 0.85, MIN = 0.60)
+  assert.equal(
+    parser.evaluate(spreadFunc, {
+      sourceTable: [[0.85]],
+      joinTable: [[0.60]],
+      y: 0,
+      x: 0,
+    }),
+    0.25
+  );
+
+  // Coherent cell with tight spread (MAX = 1.02, MIN = 0.98 -> 0.04 spread)
+  assert(
+    Math.abs(
+      parser.evaluate(spreadFunc, {
+        sourceTable: [[1.02]],
+        joinTable: [[0.98]],
+        y: 0,
+        x: 0,
+      }) - 0.04
+    ) < 1e-6
+  );
+
+  // Unpopulated cell
+  assert.equal(
+    parser.evaluate(spreadFunc, {
+      sourceTable: [[0]],
+      joinTable: [[0]],
+      y: 0,
+      x: 0,
+    }),
+    0
+  );
+});
+
+
 
 
 
