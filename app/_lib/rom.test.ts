@@ -549,7 +549,8 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const afrErrFunc = "AFR / AFRMAP";
   const mafCorrFunc = "MAFCalcs < MAPCalcs ? AFR_ERR : (MAPCalcs / (TARGET_RATIO * MAFCalcs))";
   const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs) / MAPCalcs)";
-  const mafSmoothFunc = "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (val < destTable[y][x - 1] ? destTable[y][x - 1] : val) : val";
+  const mafSmoothFunc =
+    "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (baseStep = sourceTable[y][x] - sourceTable[y][x - 1]; minVal = destTable[y][x - 1] + (baseStep > 0 ? baseStep * 0.25 : 0.01); val < minVal ? minVal : val) : val";
 
   // 1. Target ratio curve
   assert.equal(parser.evaluate(ratioFunc, { MAP: 40 }), 1.05);
@@ -595,7 +596,7 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   // MAF target is 200 / 0.95 = 210.526, currently 220 -> correction is 200 / (0.95 * 220)
   assert.equal(parser.evaluate(mafCorrFunc, highMapMapActive), 200 / (0.95 * 220));
 
-  // 5. MAF Scaling smooth rule: enforces monotonic non-decreasing / increasing table
+  // 5. MAF Scaling smooth rule: enforces strictly monotonic increasing table without flat plateaus
   const baseTable: Table2DX<number> = {
     type: "2D",
     name: "MAF Scaling Horizontal",
@@ -625,13 +626,44 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const smoothed = MapCombine(baseTable, corrTable, mafSmoothFunc) as Table2DX<number>;
   assert(smoothed !== undefined && smoothed !== null);
   assert.equal(smoothed.type, "2D");
-  // Expected: [10, 24, 24, 32, 50] -> at index 2, 21 is clamped to 24 (previous cell value)
-  assert.deepEqual(smoothed.values[0], [10, 24, 24, 32, 50]);
+  // Expected: [10, 24, 26.5, 32, 50] -> at index 2, 21 is lifted to 26.5 (preserving 25% of baseline step: 24 + 0.25 * (30 - 20))
+  assert.deepEqual(smoothed.values[0], [10, 24, 26.5, 32, 50]);
 
-  // Verify all elements are monotonically non-decreasing
+  // Verify all elements are strictly monotonically increasing
   for (let i = 1; i < smoothed.values[0].length; i++) {
-    assert.ok(smoothed.values[0][i] >= smoothed.values[0][i - 1], `Cell ${i} (${smoothed.values[0][i]}) must be >= cell ${i-1} (${smoothed.values[0][i-1]})`);
+    assert.ok(
+      smoothed.values[0][i] > smoothed.values[0][i - 1],
+      `Cell ${i} (${smoothed.values[0][i]}) must be > cell ${i - 1} (${smoothed.values[0][i - 1]})`
+    );
   }
+
+  // 6. Total weight confidence damping (Hill equation):
+  const dampFunc =
+    "diff = 1 - joinTable[y][x];\nw = sourceTable[y][x];\nconf = w <= 0 ? 0 : (w^2 / (w^2 + 225));\nnewDiff = 1 - conf * diff;\nnewDiff = newDiff < 0.85 ? 0.85 : (newDiff > 1.15 ? 1.15 : newDiff);\n(newDiff - 1) / 3 + 1";
+
+  // No samples -> multiplier is exactly 1.0 (no change)
+  assert.equal(
+    parser.evaluate(dampFunc, { sourceTable: [[0]], joinTable: [[1.1]], y: 0, x: 0 }),
+    1.0
+  );
+
+  // High samples (w=100) -> strong confidence (~98%), applies ~1/3 of the 10% delta
+  const highConf = parser.evaluate(dampFunc, {
+    sourceTable: [[100]],
+    joinTable: [[1.1]],
+    y: 0,
+    x: 0,
+  });
+  assert(Math.abs(highConf - 1.0326) < 0.001);
+
+  // Large delta (1.50) is clamped to 1.15 -> max applied is (1.15 - 1)/3 + 1 = 1.05
+  const clampedConf = parser.evaluate(dampFunc, {
+    sourceTable: [[100]],
+    joinTable: [[1.5]],
+    y: 0,
+    x: 0,
+  });
+  assert.equal(clampedConf, 1.05);
 });
 
 test("getTableTSV extracts 3D table values in TSV format without axis", () => {
