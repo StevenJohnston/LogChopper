@@ -280,7 +280,7 @@ export const savedGroup: SavedGroup = {
         y: 440,
       },
       data: {
-        func: "sourceTable[y][x] > 5 ? joinTable[y][x] : 0",
+        func: "sourceTable[y][x] > 5 ? (sourceTable[y][x] * joinTable[y][x]) : 0",
         tableType: "2D",
       },
       dragHandle: ".drag-handle",
@@ -294,7 +294,7 @@ export const savedGroup: SavedGroup = {
         y: 260,
       },
       data: {
-        func: "diff = 1 - joinTable[y][x];\nweight = sourceTable[y][x];\nk = 20;\nnewWeight = weight / (1 + exp(-k * (weight - 0.1)));\nsuperWeight = 1 - (1 - newWeight)^10;\nnewDiff = 1 - superWeight * diff;\nnewDiff = newDiff < 0.85 ? 0.85 : (newDiff > 1.15 ? 1.15 : newDiff);\n(newDiff - 1) / 3 + 1",
+        func: "diff = 1 - joinTable[y][x];\nw = sourceTable[y][x];\nconf = w <= 0 ? 0 : (w^2 / (w^2 + 225));\nnewDiff = 1 - conf * diff;\nnewDiff = newDiff < 0.85 ? 0.85 : (newDiff > 1.15 ? 1.15 : newDiff);\n(newDiff - 1) / 3 + 1",
         tableType: "2D",
       },
       dragHandle: ".drag-handle",
@@ -308,7 +308,7 @@ export const savedGroup: SavedGroup = {
         y: 300,
       },
       data: {
-        func: "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (val < destTable[y][x - 1] ? destTable[y][x - 1] : val) : val",
+        func: "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (baseStep = sourceTable[y][x] - sourceTable[y][x - 1]; minVal = destTable[y][x - 1] + (baseStep > 0 ? baseStep * 0.25 : 0.01); val < minVal ? minVal : val) : val",
         tableType: "2D",
       },
       dragHandle: ".drag-handle",
@@ -395,7 +395,7 @@ export const savedGroup: SavedGroup = {
         y: 930,
       },
       data: {
-        func: "sourceTable[y][x] > 5 ? joinTable[y][x] : 0",
+        func: "sourceTable[y][x] > 5 ? (sourceTable[y][x] * joinTable[y][x]) : 0",
         tableType: "3D",
       },
       dragHandle: ".drag-handle",
@@ -409,7 +409,7 @@ export const savedGroup: SavedGroup = {
         y: 750,
       },
       data: {
-        func: "diff = 1 - joinTable[y][x];\nweight = sourceTable[y][x];\nk = 20;\nnewWeight = weight / (1 + exp(-k * (weight - 0.1)));\nsuperWeight = 1 - (1 - newWeight)^10;\nnewDiff = 1 - superWeight * diff;\nnewDiff = newDiff < 0.85 ? 0.85 : (newDiff > 1.15 ? 1.15 : newDiff);\n(newDiff - 1) / 3 + 1",
+        func: "diff = 1 - joinTable[y][x];\nw = sourceTable[y][x];\nconf = w <= 0 ? 0 : (w^2 / (w^2 + 225));\nnewDiff = 1 - conf * diff;\nnewDiff = newDiff < 0.85 ? 0.85 : (newDiff > 1.15 ? 1.15 : newDiff);\n(newDiff - 1) / 3 + 1",
         tableType: "3D",
       },
       dragHandle: ".drag-handle",
