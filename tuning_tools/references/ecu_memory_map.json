@@ -1,0 +1,145 @@
+{
+  "ecu_info": {
+    "platform": "Mitsubishi Lancer Evolution X (4B11T)",
+    "market": "USDM",
+    "year": 2013,
+    "transmission": "5MT",
+    "internal_id_stock": "59580004",
+    "internal_id_tephra": "59580304",
+    "internal_id_address": "0x5002a",
+    "mcu_model": "Renesas M32186F8 (M32R)",
+    "file_headers": {
+      ".srf": 328,
+      ".bin": 0
+    }
+  },
+  "load_calculation_physics": {
+    "engine_displacement_cc": 1998,
+    "cylinders": 4,
+    "strokes_per_rev": 2,
+    "standard_air_density_g_per_cc": 0.001204,
+    "stp_cylinder_air_mass_g": 0.601398,
+    "theoretical_k_constant": 4988.38,
+    "empirical_k_constant": 4964.28,
+    "load_formula": "MAFCalcs = (K * MAF_g_per_s) / RPM",
+    "table_linearity": "strictly linear (1:1 with MAF Scaling table lookup)"
+  },
+  "balancer_target_ratio_curve": {
+    "low_map_cutoff_kpa": 80.0,
+    "low_map_target_ratio": 1.05,
+    "high_map_cutoff_kpa": 120.0,
+    "high_map_target_ratio": 0.95,
+    "formula": "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))"
+  },
+  "tables": {
+    "MAF Scaling Horizontal": {
+      "address": "0x5757a",
+      "type": "2D",
+      "elements": 130,
+      "element_bytes": 2,
+      "storage_type": "uint16",
+      "endian": "big",
+      "scaling_name": "GramsPerSecond",
+      "to_expr": "x / 100.0",
+      "from_expr": "x * 100.0",
+      "units": "g/s",
+      "x_axis": {
+        "name": "Volts",
+        "address": "0x61fd0",
+        "elements": 130,
+        "storage_type": "uint16",
+        "endian": "big",
+        "scaling_name": "VoltsADC1023",
+        "to_expr": "x * 5.0 / 1023.0",
+        "units": "V"
+      }
+    },
+    "MAP based Load Calc #1 - Hot/Interpolated": {
+      "address": "0x608ae",
+      "type": "3D",
+      "swapxy": true,
+      "scaling_name": "Loadify",
+      "to_expr": "(x * 10.0 / 512.0) * 10.0 / 32.0",
+      "from_expr": "(x * 32.0 / 10.0) * 512.0 / 10.0",
+      "units": "Load %",
+      "storage_type": "uint16",
+      "endian": "big",
+      "x_axis": {
+        "name": "MAP",
+        "address": "0x6344a",
+        "elements": 20,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "((x * 2556.0 / 3800.0) + 0.5) / 2.0",
+        "units": "kPa"
+      },
+      "y_axis": {
+        "name": "RPM",
+        "address": "0x6341e",
+        "elements": 19,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 1000.0 / 256.0",
+        "units": "RPM"
+      }
+    },
+    "MAP based Load Calc #2 - Cold/Interpolated": {
+      "address": "0x605ac",
+      "type": "3D",
+      "swapxy": true,
+      "scaling_name": "Loadify",
+      "to_expr": "(x * 10.0 / 512.0) * 10.0 / 32.0",
+      "from_expr": "(x * 32.0 / 10.0) * 512.0 / 10.0",
+      "units": "Load %",
+      "storage_type": "uint16",
+      "endian": "big",
+      "x_axis": {
+        "name": "MAP",
+        "address": "0x6344a",
+        "elements": 20,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "((x * 2556.0 / 3800.0) + 0.5) / 2.0",
+        "units": "kPa"
+      },
+      "y_axis": {
+        "name": "RPM",
+        "address": "0x6341e",
+        "elements": 19,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 1000.0 / 256.0",
+        "units": "RPM"
+      }
+    },
+    "MAP based Load Calc #3": {
+      "address": "0x602aa",
+      "type": "3D",
+      "swapxy": true,
+      "scaling_name": "Loadify",
+      "to_expr": "(x * 10.0 / 512.0) * 10.0 / 32.0",
+      "from_expr": "(x * 32.0 / 10.0) * 512.0 / 10.0",
+      "units": "Load %",
+      "storage_type": "uint16",
+      "endian": "big",
+      "x_axis": {
+        "name": "MAP",
+        "address": "0x6344a",
+        "elements": 20,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "((x * 2556.0 / 3800.0) + 0.5) / 2.0",
+        "units": "kPa"
+      },
+      "y_axis": {
+        "name": "RPM",
+        "address": "0x6341e",
+        "elements": 19,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 1000.0 / 256.0",
+        "units": "RPM"
+      }
+    }
+  }
+}
