@@ -65,16 +65,16 @@ def simulate(rom_path, log_path, feed_forward=False, soft_blend=False, damping_f
                 
                 # MAF Correction Calculation
                 if not soft_blend:
-                    # Stock Balancer ternary logic
-                    if mafc < mapc:
+                    # Active-sensor load tracking logic
+                    if mafc <= mapc:
                         c_maf = afr_err
                     else:
-                        c_maf = 1.0 if kpa <= 80.0 else (mapc / (tgt_r * mafc))
+                        c_maf = (mapc * afr_err) / (tgt_r * mafc)
                 else:
-                    # Soft sigmoid blend around delta
+                    # Soft blend around delta
                     delta_norm = (mapc - mafc) / max(1.0, (mapc + mafc) / 2.0) * 10.0 # scale
                     w_afr = sigmoid(delta_norm)
-                    alt_corr = 1.0 if kpa <= 80.0 else (mapc / (tgt_r * mafc))
+                    alt_corr = (mapc * afr_err) / (tgt_r * mafc)
                     c_maf = w_afr * afr_err + (1.0 - w_afr) * alt_corr
                     
                 v_idx = min(range(len(volts)), key=lambda i: abs(volts[i] - maf_v))
