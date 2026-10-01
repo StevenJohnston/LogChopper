@@ -179,7 +179,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "MAFCalcs < MAPCalcs ? AFR_ERR : (MAP <= 80 ? 1.0 : (MAPCalcs / (TARGET_RATIO * MAFCalcs)))",
+        func: "MAFCalcs <= MAPCalcs ? AFR_ERR : ((MAPCalcs * AFR_ERR) / (TARGET_RATIO * MAFCalcs))",
         newLogField: "MAF_CORR",
       },
       dragHandle: ".drag-handle",
@@ -193,7 +193,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "MAPCalcs < MAFCalcs ? AFR_ERR : (MAP >= 120 ? 1.0 : ((TARGET_RATIO * MAFCalcs) / MAPCalcs))",
+        func: "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs * AFR_ERR) / MAPCalcs)",
         newLogField: "MAP_CORR",
       },
       dragHandle: ".drag-handle",
