@@ -106,9 +106,85 @@ python3 tools/balancer_simulator.py "rom.srf" "log.csv" --feed-forward
 python3 tools/balancer_simulator.py "rom.srf" "log.csv" --soft-blend --damping 0.25
 ```
 
+### 6. `m32r_inspector.py`
+Inspects internal MCU interrupt vectors, traces cross-references to tables/RAM, and disassembles M32R firmware instructions with annotated symbol names.
+```bash
+# Dump MCU vector table (Interrupts, ADC, Timers, CAN Bus)
+python3 tools/m32r_inspector.py vectors "path/to/rom.hex.bin"
+
+# Find all code routines referencing a calibration table (e.g. MAF Scaling 0x5757A)
+python3 tools/m32r_inspector.py xref 0x5757A "path/to/rom.hex.bin"
+
+# Disassemble a range of instructions in the ROM
+python3 tools/m32r_inspector.py disasm 0x0FB060 "path/to/rom.hex.bin" -n 20
+```
+
+### 7. `export_ghidra_symbols.py`
+Parses all EcuFlash XML definitions (`evo10base.xml`, `59580004.xml`, `RAX`, `TephraMOD`) and generates symbol maps for reverse engineering.
+```bash
+python3 tools/export_ghidra_symbols.py
+```
+Outputs:
+- `references/GhidraImportEvo10Symbols.java` (Native Ghidra script to auto-label all 402+ tables and memory locations)
+- `references/evo10_symbols.csv` (CSV symbol table for scripts and CLI disassemblers)
+
+### 8. `scan_rom_tables.py`
+Scans the entire ROM for 2D and 3D table metadata descriptors, identifies input sensor axes (RPM, Load, ECT, TPS, IAT), detects all unmapped tables, and exports an EcuFlash XML extension.
+```bash
+python3 tools/scan_rom_tables.py "path/to/rom.hex.bin"
+```
+Output:
+- `references/discovered_unmapped_tables.xml` (EcuFlash XML extension defining 399 newly discovered maps)
+
+### 9. `decompile_ecu.py`
+Batch decompiles ECU machine code into clean, readable C source code using Ghidra's headless decompiler engine.
+```bash
+# Decompile all core engine subsystems (Fuel, Interpolation, MIVEC, TephraMOD) to C
+python3 tools/decompile_ecu.py "path/to/rom.hex.bin"
+
+# Decompile a specific function address to C
+python3 tools/decompile_ecu.py "path/to/rom.hex.bin" --func 0x022A80 --name fuel_calc
+```
+Decompiled C source files are saved to `decompiled_c/`:
+- `fuel_calculate_pulse_width.c`: Fuel injection pulse width & target AFR pipeline
+- `table_interpolate_2d_and_3d.c`: Core 2D and 3D bilinear surface interpolator
+- `tephramod_v3_map_dispatcher.c`: Live tuning map selector and memory structure
+- `coolant_temp_axis_evaluator.c`: Coolant temperature axis binary search & lookup
+
+
 ---
 
-## 4. Agentic LLM Workflow Protocol
+## 4. Decompilation & Reverse Engineering with Ghidra
+
+The Mitsubishi Lancer Evolution X uses a **Renesas M32186F8** microcontroller running the **M32R (32-bit RISC)** instruction set.
+
+### Installed Reverse Engineering Environment:
+- **Ghidra**: Software Reverse Engineering Suite (installed at `/opt/homebrew/bin/ghidraRun`)
+- **JDK 21**: OpenJDK 21 runtime (`/opt/homebrew/opt/openjdk@21`)
+- **M32R Processor Module**: Compiled and installed in Ghidra (`m32r:2:default`) with full MCU register mapping, peripherals, and interrupt vectors.
+
+### Workflow to Reverse Engineer Any Evo X ROM in Ghidra:
+1. **Launch Ghidra**:
+   ```bash
+   ghidraRun
+   ```
+2. **Create or Open a Project** (`File -> New Project`).
+3. **Import ROM**:
+   - Select raw `.hex.bin` file (or `.srf` stripped of its 328-byte header).
+   - In the Import Options window:
+     - **Format**: Raw Binary
+     - **Language**: `M32R:default:32:default` (`M32R`)
+     - **Base Address**: `0x00000000` (or leave default `0`)
+4. **Auto-Label 402+ Calibration Tables**:
+   - Open the ROM in CodeBrowser.
+   - Go to `Window -> Script Manager`.
+   - Add script directory: `.../Evoman/tuning_tools/references`.
+   - Select `GhidraImportEvo10Symbols.java` and click **Run**.
+   - All fuel tables, MAF curves, boost PID parameters, and RAM locations will instantly be labeled in both the Disassembly and Decompiler views!
+
+---
+
+## 5. Agentic LLM Workflow Protocol
 
 When tasked with investigating ROMs or datalogs in future pairing sessions, follow this step-by-step protocol:
 
@@ -140,3 +216,4 @@ flowchart TD
    - Check if $MAFCalcs$ changed as predicted by $C_{\text{MAF}}$ and evaluate the empirical response gain.
 5. **Synthesize Findings**:
    - Determine if the vehicle is running better, worse, or indecisive based on steady-state convergence.
+

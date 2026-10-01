@@ -17,10 +17,8 @@ A specialized agentic skill and tool suite for analyzing, diffing, simulating, a
 - **Induction**: Precision 8474 turbocharger, Full Race 3.5" intake pipe
 - **Fuel System**: Injector Dynamics ID1300x, 94 octane pump gas
 - **Valvetrain**: GSC S2 camshafts with upgraded valve springs
-- **Workspace Paths**:
-  - LogChopper Repo: `/Users/steven/go/github.com/LogChopper/`
-  - Evoman Drive: `/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/`
-  - Toolkit: `tuning_tools/` (available in both workspaces)
+- **Workspace Root**: `/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/`
+- **Toolkit Root**: `/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/`
 
 ---
 
@@ -99,6 +97,67 @@ python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.
   "rom.srf" "log.csv" [--feed-forward] [--soft-blend] [--damping 0.33]
 ```
 
+### Tool 6: `m32r_inspector.py`
+CLI inspector and disassembler for the Renesas M32R ECU microcontroller.
+```bash
+# Dump MCU vector table (Interrupts, ADC, Timers, CAN Bus)
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/m32r_inspector.py" \
+  vectors "path/to/rom.hex.bin"
+
+# Cross-reference all code referencing a calibration table (e.g. MAF Scaling 0x5757A)
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/m32r_inspector.py" \
+  xref 0x5757A "path/to/rom.hex.bin"
+
+# Disassemble a range of instructions in the ROM
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/m32r_inspector.py" \
+  disasm 0x0FB060 "path/to/rom.hex.bin" -n 20
+```
+
+### Tool 7: `export_ghidra_symbols.py`
+Generates Ghidra scripts (`GhidraImportEvo10Symbols.java`) and CSV symbol maps from EcuFlash XML definitions to auto-label 402+ tables and memory locations.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/export_ghidra_symbols.py"
+```
+
+### Tool 8: `scan_rom_tables.py`
+Scans the raw ROM binary for all 2D and 3D table metadata descriptors, detects unmapped calibration maps, and exports an EcuFlash XML patch.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/scan_rom_tables.py" \
+  "rom.hex.bin"
+```
+
+### Tool 9: `decompile_ecu.py`
+Batch decompiles ECU firmware into human-readable C source files saved to `decompiled_c/`.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/decompile_ecu.py" \
+  "rom.hex.bin" [--func 0x022A80 --name fuel_calc]
+```
+
+### Tool 10: `load_envelope_analyzer.py`
+Diagnoses ECU engine load clamping and determines whether the engine is running on MAF or Speed Density (MAP envelope).
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/load_envelope_analyzer.py" \
+  "EvoScanDataLog.csv" [--ect 70]
+```
+- Quantifies percent of time spent in Pure MAF Control vs Clamped to MAP vs Clamped to IMAP.
+- Generates 2D RPM vs MAP (kPa) load truncation heatmaps.
+- Warns if MAF Scaling is over-scaled relative to `MAP based Load Calc` tables.
+
+### Tool 11: `match_roms_and_logs.py`
+Automatically scans `roms/` and `scans/`, sorting by timestamp and pairing the latest ROMs with their corresponding datalogs according to the chronological association rule.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/match_roms_and_logs.py" [limit]
+```
+
+---
+
+## 2.1 Ghidra Decompiler & Firmware Analysis Environment
+
+- **Decompiler**: Ghidra 12 (`/opt/homebrew/bin/ghidraRun`)
+- **Runtime**: OpenJDK 21 (`/opt/homebrew/opt/openjdk@21`)
+- **Processor Architecture**: Renesas M32R (`m32r:2:default`) with full memory map, peripheral SFRs, and interrupt tables.
+- **Auto-Symbol Importer**: Run `GhidraImportEvo10Symbols.java` from Ghidra's Script Manager on imported ROMs to automatically label all calibration maps, lookup tables, and RAM registers in C pseudocode.
+
 ---
 
 ## 3. Mathematical Fundamentals & Calibrator Principles
@@ -127,6 +186,22 @@ When MAF scaling is updated by $C_{\text{MAF}}$, MAP Load Calc should target the
 $$Target\_MAPCalcs = TARGET\_RATIO \times (MAFCalcs \times C_{\text{MAF}})$$
 $$MAP\_CORR_{\text{projected}} = MAP\_CORR \times C_{\text{MAF}}$$
 
+### 5. Master Load Clamping & Speed Density Envelope Equation
+As proven by decompiled routines `0x04DC64` (`load_clamp_or_blend`) and `0x02FDC4` (`map_load_calc_and_blend_engine`):
+$$\text{Lower} = \min(MAPCalcs, IMAPCalcs)$$
+$$\text{Upper} = \max(MAPCalcs, IMAPCalcs)$$
+$$\text{ChosenCalc} = \text{clamp}(MAFCalcs_{\text{filtered}}, \text{Lower}, \text{Upper})$$
+- **Steady-State Ceiling Rule**: During steady cruise and idle ($\Delta TPS \le 1.0\%$), `IMAPCalcs = 0.0` (baseline register `0x00808810` loaded from ROM `0x053CAE = 0x0000`).
+  $$\text{Lower} = 0.0, \quad \text{Upper} = MAPCalcs \implies \mathbf{ChosenCalc = \min(MAFCalcs_{\text{filtered}}, MAPCalcs)}$$
+  **`MAPCalcs` is an UPPER CEILING, not a bilateral lock.** When $MAFCalcs \le MAPCalcs$, the car runs on pure filtered MAF. When $MAFCalcs > MAPCalcs$, the ECU clips load down to `MAPCalcs`.
+- **Identical MAP Tables**: Even when `MAP based Load Calc #1 (Hot)`, `#2 (Cold)`, and `#3` are calibrated identically in the ROM, the clamping window does **not** collapse to zero width because the lower bound is governed by `IMAPCalcs` ($0.0$), not another table. Setting all 3 tables equal simply eliminates Coolant Temp (ECT) and cam overlap blending variations.
+- **Dynamic Transient Envelope**: On rapid throttle tip-in ($\Delta TPS > 1.0\%$), the transient state machine (`0x01A7D8`) ramps blend weight `0x0080A8F6` from $0 \to 256$, driving `IMAPCalcs` **above `MAPCalcs`**. This temporarily raises the ceiling to allow the turbocharger spool airflow spike to pass without truncation.
+- **The 5% MAP Adder ($269/256 = 1.05078$)**: Routine `0x02FDC4` multiplies the 3D table lookup by $(256 + 0x05494C)/256 = 269/256 = 1.05078$ ($+5.08\%$). This firmware adder is the exact physical origin of LogChopper's $1.05$ target ratio at vacuum.
+- **Transient Smoothing**: Raw MAF load is passed through a 1st-order discrete low-pass lag filter (`0x04E050`):
+  $$y[n] = \frac{\alpha \cdot y[n-1] + (256 - \alpha) \cdot x[n]}{256}$$
+  where $\alpha$ is dynamically retrieved from `Load Ramp Rate #1 (Load>70)` (`0x54AD0`, raw `0x00E6` = 89.8% lag) or boost error tables `0x5D68C`/`0x5D6EC`.
+- **Tuning Rule**: If `MAF Scaling` is increased without raising `MAP based Load Calc #1 (Hot)` (`0x608AE`), the ECU will **clamp engine load down to MAPCalcs**, causing fuel and ignition timing to hit an artificial ceiling.
+
 ---
 
 ## 4. Standard Agentic Investigation Workflow
@@ -142,9 +217,10 @@ flowchart TD
     E --> F["5. Synthesize Diagnosis & Tuning Action Plan"]
 ```
 
-1. **Step 1: Chronology & Association**:
-   - Inspect modification dates of `.srf` ROMs and `.csv` logs.
-   - Logs dated after ROM $N$ was written but before ROM $N+1$ belong to ROM $N$.
+1. **Step 1: Chronology & Association Rule (MANDATORY)**:
+   - **Always select the LATEST files**: Sort `roms/` and `scans/` by timestamp (`ls -lt`). Never pick older historical logs or ROMs unless explicitly asked.
+   - **The Chronological Rule**: Any log file whose creation timestamp falls between $ROM_N$ and $ROM_{N+1}$ **belongs to the older ROM ($ROM_N$)**. It records vehicle operation on $ROM_N$ prior to flashing $ROM_{N+1}$.
+   - Once $ROM_{N+1}$ is created/flashed, subsequent logs belong to $ROM_{N+1}$ until a newer ROM appears.
 2. **Step 2: Binary Differencing**:
    - Run `rom_differ.py` to identify changed addresses and compute $C_{\text{MAF}}$.
    - Verify that non-target tables (ignition, fuel, boost) were not unintentionally modified.
