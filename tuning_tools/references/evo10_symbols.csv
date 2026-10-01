@@ -1,0 +1,873 @@
+Address_Hex,Address_Int,Label,Raw_Name,Type,StorageType,Units
+0x01120C,70156,RAX_Fast_Logging_CALL_Subroutine,RAX Fast Logging: CALL Subroutine,Parameter/1D,bloblist,
+0x01A44E,107598,Omni4bar_1_0x03B6_0x02FF,Omni4bar #1 0x03B6 -> 0x02FF,Parameter/1D,bloblist,
+0x01A47E,107646,Omni4bar_2_0x0ED8_0x0BFC,Omni4bar #2 0x0ED8 -> 0x0BFC,Parameter/1D,bloblist,
+0x01A492,107666,Omni4bar_3_0x0ED8_0x0BFC,Omni4bar #3 0x0ED8 -> 0x0BFC,Parameter/1D,bloblist,
+0x01C7A8,116648,Boost_Limit_Rescale_Patch_F1_for_Help,Boost Limit Rescale Patch (F1 for Help),Parameter/1D,bloblist,
+0x021EB8,138936,RAX_Direct_Boost_Baro_Comp_CALL_Sub_1,RAX Direct Boost Baro Comp: CALL Sub #1,Parameter/1D,bloblist,
+0x021EC2,138946,OBTR_Variable_for_Boost_Control_0xC7C6_0xC76A,OBTR Variable for Boost Control 0xC7C6 -> 0xC76A,Parameter/1D,bloblist,
+0x021EC4,138948,OBTR_SHLR_SHLR2_0x5201_0x5202,OBTR SHLR->SHLR2 0x5201 -> 0x5202,Parameter/1D,bloblist,
+0x021EDA,138970,OBTR_Boost_Error_RAM_Address_0xC5D8_0xC5D6,OBTR Boost Error RAM Address 0xC5D8 -> 0xC5D6,Parameter/1D,bloblist,
+0x02BE60,179808,RAX_IAT_Adjusted_BWGDC_CALL_Subroutine,RAX IAT Adjusted BWGDC: CALL Subroutine,Parameter/1D,bloblist,
+0x02BF7E,180094,Variable_for_Boost_Control_0xC7C6_0xC76A,Variable for Boost Control 0xC7C6 -> 0xC76A,Parameter/1D,bloblist,
+0x02BF80,180096,SHLR_SHLR2_0x5101_0x5102,SHLR->SHLR2 0x5101 -> 0x5102,Parameter/1D,bloblist,
+0x02BF88,180104,RAX_Direct_Boost_Baro_Comp_CALL_Sub_2,RAX Direct Boost Baro Comp: CALL Sub #2,Parameter/1D,bloblist,
+0x02BFA6,180134,Boost_Error_RAM_Address_0xC5D8_0xC5D6_is_0x8085D6_for_logging,Boost Error RAM Address 0xC5D8 -> 0xC5D6 (is 0x8085D6 for logging),Parameter/1D,bloblist,
+0x02BFB8,180152,RAX_Smart_EC_CALL_Subroutine,RAX Smart EC: CALL Subroutine,Parameter/1D,bloblist,
+0x030B0E,199438,Minimum_IPW_SHLL0_modifier_2_0x5945_0x5940,Minimum IPW SHLL0 modifier #2 (0x5945 -> 0x5940),Parameter/1D,uint16,hex
+0x030CFC,199932,Minimum_IPW_Code_Path_modifier_1_0x7f09_0x7f06,Minimum IPW Code Path modifier #1 (0x7f09 -> 0x7f06),Parameter/1D,uint16,hex
+0x030D1A,199962,Minimum_IPW_SHLL0_modifier_1_0x5345_0x5340,Minimum IPW SHLL0 modifier #1 (0x5345 -> 0x5340),Parameter/1D,uint16,hex
+0x03E974,256372,MUT_Table,MUT Table,Parameter/1D,uint32,hex
+0x05002A,327722,ECU_ID,ECU ID,Parameter/1D,uint32,units
+0x050072,327794,ECU_Options_Set_1,ECU Options Set #1,Parameter/1D,bloblist,
+0x050082,327810,ECU_Options_Set_2,ECU Options Set #2,Parameter/1D,bloblist,
+0x050092,327826,ECU_Options_Set_3,ECU Options Set #3,Parameter/1D,bloblist,
+0x0500A2,327842,ECU_Options_Set_4,ECU Options Set #4,Parameter/1D,bloblist,
+0x0500B2,327858,ECU_Options_Set_5,ECU Options Set #5,Parameter/1D,bloblist,
+0x0500C2,327874,ECU_Options_Set_6,ECU Options Set #6,Parameter/1D,bloblist,
+0x0500D2,327890,ECU_Options_Set_7,ECU Options Set #7,Parameter/1D,bloblist,
+0x0503BB,328635,DTC_P0139_0x1_0x0_Oxygen_Sensor_Circuit_Slow_Response_Bank1_Sensor2,"DTC P0139 0x1 -> 0x0 Oxygen Sensor Circuit Slow Response (Bank1, Sensor2)",Parameter/1D,bloblist,
+0x0503F8,328696,Discovered_2D_Engine_RPM_0x503F8,Discovered 2D - Engine RPM (0x503F8),Parameter/1D,uint8,%
+0x050402,328706,Discovered_2D_Unknown_RAM_0xC5FC_0x50402,Discovered 2D - Unknown RAM 0xC5FC (0x50402),Parameter/1D,uint8,%
+0x05040E,328718,Discovered_2D_Engine_RPM_0x5040E,Discovered 2D - Engine RPM (0x5040E),Parameter/1D,uint8,%
+0x050429,328745,Discovered_3D_Engine_RPM_x_Engine_Load_0x50429,Discovered 3D - Engine RPM x Engine Load (0x50429),Parameter/1D,uint8,%
+0x05057A,329082,Discovered_2D_Engine_RPM_0x5057A,Discovered 2D - Engine RPM (0x5057A),Parameter/1D,uint8,%
+0x05058E,329102,Discovered_2D_Engine_RPM_0x5058E,Discovered 2D - Engine RPM (0x5058E),Parameter/1D,uint8,%
+0x0505A9,329129,Discovered_3D_Engine_RPM_x_Engine_Load_0x505A9,Discovered 3D - Engine RPM x Engine Load (0x505A9),Parameter/1D,uint8,%
+0x050651,329297,Timing_Reduction_vs_Load_RPM,Timing Reduction vs Load/RPM,2D Map,int8,degrees
+0x0507AC,329644,Lower_Bound_Ignition_Timing,Lower Bound Ignition Timing,2D Map,int8,degrees
+0x050A67,330343,Discovered_3D_Engine_RPM_x_Engine_Load_0x50A67,Discovered 3D - Engine RPM x Engine Load (0x50A67),Parameter/1D,uint8,%
+0x050A81,330369,Discovered_3D_Engine_RPM_x_Engine_Load_0x50A81,Discovered 3D - Engine RPM x Engine Load (0x50A81),Parameter/1D,uint8,%
+0x050CC6,330950,Discovered_2D_Unknown_RAM_0xC5E2_0x50CC6,Discovered 2D - Unknown RAM 0xC5E2 (0x50CC6),Parameter/1D,uint8,%
+0x050CE4,330980,Throttle_Map_1,Throttle Map #1,2D Map,uint16,%
+0x05130E,332558,Throttle_Map_2,Throttle Map #2,2D Map,uint16,%
+0x051938,334136,Throttle_Map_3,Throttle Map #3,2D Map,uint16,%
+0x051F62,335714,Throttle_Map_4,Throttle Map #4,2D Map,uint16,%
+0x05258C,337292,Throttle_Map_5,Throttle Map #5,2D Map,uint16,%
+0x052BB3,338867,Discovered_3D_Engine_RPM_x_Engine_Load_0x52BB3,Discovered 3D - Engine RPM x Engine Load (0x52BB3),Parameter/1D,uint8,%
+0x052D08,339208,Lower_Bound_Ignition_Timing_Adder_vs_CTS,Lower Bound Ignition Timing Adder vs CTS,1D Map,int8,degrees
+0x053000,339968,Injector_Base_Latency,Injector Base Latency,Parameter/1D,uint8,ms
+0x053002,339970,Minimum_IPW_SHLL0,Minimum IPW SHLL0,Parameter/1D,uint16,ms
+0x053062,340066,Rev_Limiter,Rev Limiter,Parameter/1D,uint16,RPM
+0x053066,340070,Speed_Limiter_1,Speed Limiter #1,Parameter/1D,uint16,km/h
+0x05306C,340076,Boost_Cut_Delay_Timer,Boost Cut Delay Timer,Parameter/1D,uint16,ms
+0x0530DE,340190,Load_Accel_IPW_Enrichment_Countdown,Load Accel IPW Enrichment - Countdown,Parameter/1D,uint16,units
+0x05310E,340238,Asynchronous_Injection_TPS_Accel_Max_IPW_Limit,Asynchronous Injection - TPS Accel - Max IPW Limit,Parameter/1D,uint16,ms
+0x05312E,340270,Hysteresis,Hysteresis,Parameter/1D,uint16,Load
+0x053130,340272,Min_Temp,Min Temp,Parameter/1D,uint16,Fahrenheit
+0x053132,340274,Start_RPM,Start RPM,Parameter/1D,uint16,units
+0x053134,340276,AFR_Enable,AFR Enable,Parameter/1D,uint16,AFR
+0x053136,340278,Stop_RPM,Stop RPM,Parameter/1D,uint16,units
+0x053138,340280,AFR_Clip,AFR Clip,Parameter/1D,uint16,AFR
+0x0532DE,340702,Target_Idle_6,Target Idle #6,Parameter/1D,uint16,RPM
+0x0532E0,340704,Target_Idle_9,Target Idle #9,Parameter/1D,uint16,RPM
+0x0532E2,340706,Target_Idle_4,Target Idle #4,Parameter/1D,uint16,RPM
+0x0532E4,340708,Target_Idle_7,Target Idle #7,Parameter/1D,uint16,RPM
+0x0533CA,340938,Target_Idle_1,Target Idle #1,Parameter/1D,uint16,RPM
+0x0533D6,340950,Speed_Limiter_3,Speed Limiter #3,Parameter/1D,uint16,km/h
+0x05346E,341102,Reactive_Solenoid_WGDC_Correction_Interval_High_Gear_Range,Reactive Solenoid WGDC Correction Interval (High Gear Range),Parameter/1D,uint16,units
+0x053470,341104,Reactive_Solenoid_Max_Total_Downward_WGDC_Correction,Reactive Solenoid Max Total Downward WGDC Correction,Parameter/1D,uint16,%WGDC Change
+0x053488,341128,Atmospheric_Boost_Omni4bar,Atmospheric Boost (Omni4bar),Parameter/1D,uint16,psia
+0x05348C,341132,Fuel_Pump_Low_Full_Voltage_Hysteresis,Fuel Pump Low/Full Voltage Hysteresis,Parameter/1D,uint16,Load
+0x05354A,341322,IAT_to_switch_Load_from_Baro_Temp_to_Baro,IAT to switch Load from Baro+Temp to Baro,Parameter/1D,uint16,Fahrenheit
+0x0536D8,341720,Fuel_Injector_Scaling,Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0539BA,342458,DTC_P0140_1500_8000_0xygen_Sensor_Circuit_No_Activity_Detected_Bank_1_Sensor_2,DTC P0140 1500 -> 8000 0xygen Sensor Circuit No Activity Detected (Bank 1 Sensor 2),Parameter/1D,uint16,units
+0x053B04,342788,ASC_OFF_SST_OFF_Fix_0x00E9_0x0100,"ASC OFF, SST OFF Fix 0x00E9 -> 0x0100",Parameter/1D,bloblist,
+0x053C84,343172,Target_Idle_2,Target Idle #2,Parameter/1D,uint16,RPM
+0x053C86,343174,Target_Idle_3,Target Idle #3,Parameter/1D,uint16,RPM
+0x053D88,343432,Target_Idle_5,Target Idle #5,Parameter/1D,uint16,RPM
+0x053D8A,343434,Target_Idle_8,Target Idle #8,Parameter/1D,uint16,RPM
+0x053FD4,344020,Speed_Limiter_2,Speed Limiter #2,Parameter/1D,uint16,km/h
+0x05403A,344122,Target_Idle_10,Target Idle #10,Parameter/1D,uint16,RPM
+0x05403E,344126,Target_Idle_11,Target Idle #11,Parameter/1D,uint16,RPM
+0x05412E,344366,MPG_Display,MPG Display,Parameter/1D,uint16,%
+0x0546AC,345772,Boost_Control_RPM_Per_MPH_Xover_Gear_Based,Boost Control RPM Per MPH Xover (Gear Based),Parameter/1D,uint16,RPM/MPH
+0x0546B0,345776,Max_Speed_for_Stationary_Rev_Limit,Max Speed for Stationary Rev Limit,Parameter/1D,uint16,km/h
+0x0546B2,345778,Stationary_Rev_Limiter,Stationary Rev Limiter,Parameter/1D,uint16,units
+0x0546B4,345780,Stationary_Rev_Limit_Cross_Under_Max_Speed_Enable_Delay,Stationary Rev Limit Cross Under Max Speed Enable Delay,Parameter/1D,uint16,ms
+0x0546BC,345788,Reactive_Solenoid_WGDC_Correction_Interval_Low_Gear_Range,Reactive Solenoid WGDC Correction Interval (Low Gear Range),Parameter/1D,uint16,units
+0x0546D6,345814,Load_multiplier_end_when_TPS_decreased_by_hysteresis,Load multiplier end when TPS decreased by % (hysteresis),Parameter/1D,uint16,%
+0x0548DA,346330,Target_Idle_12,Target Idle #12,Parameter/1D,uint16,RPM
+0x0548DC,346332,Target_Idle_13,Target Idle #13,Parameter/1D,uint16,RPM
+0x054914,346388,DTC_P050B_0014_0000_Cold_Start_Ignition_Timing_Performance,DTC P050B 0014 -> 0000 Cold Start Ignition Timing Performance,Parameter/1D,bloblist,
+0x0549A4,346532,Throttle_Conditional_Switch,Throttle Conditional Switch,Parameter/1D,uint16,units
+0x054A16,346646,DTC_P1233_0x0028_0xFFFF_Throttle_position_sensor_main_plausibility,DTC P1233 0x0028 -> 0xFFFF Throttle position sensor (main) plausibility,Parameter/1D,bloblist,
+0x054A18,346648,DTC_P1234_0x0028_0xFFFF_Throttle_position_sensor_sub_plausibility,DTC P1234 0x0028 -> 0xFFFF Throttle position sensor (sub) plausibility,Parameter/1D,bloblist,
+0x054A1A,346650,DTC_P1235_0x0026_0xFFFF_Mass_airflow_sensor_plausibility,DTC P1235 0x0026 -> 0xFFFF Mass airflow sensor plausibility,Parameter/1D,bloblist,
+0x054AD0,346832,Load_Ramp_Rate_1_Load_70,Load Ramp Rate #1 (Load>70),Parameter/1D,uint16,%
+0x054B28,346920,Target_Idle_14,Target Idle #14,Parameter/1D,uint16,RPM
+0x055000,348160,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x55000,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x55000),Parameter/1D,uint8,%
+0x05500C,348172,Discovered_2D_Unknown_RAM_0xC5FC_0x5500C,Discovered 2D - Unknown RAM 0xC5FC (0x5500C),Parameter/1D,uint8,%
+0x055027,348199,High_Octane_Fuel_Map,High Octane Fuel Map,2D Map,uint8,AFR
+0x05517F,348543,Discovered_3D_Engine_RPM_x_Engine_Load_0x5517F,Discovered 3D - Engine RPM x Engine Load (0x5517F),Parameter/1D,uint8,%
+0x0552D7,348887,Low_Octane_Fuel_Map,Low Octane Fuel Map,2D Map,uint8,AFR
+0x05542F,349231,Discovered_3D_Engine_RPM_x_Engine_Load_0x5542F,Discovered 3D - Engine RPM x Engine Load (0x5542F),Parameter/1D,uint8,%
+0x05557F,349567,Closed_Loop_LT_Trim_Control,Closed Loop - LT Trim Control,Parameter/1D,uint8,Hz
+0x05558C,349580,Decel_Fuel_Cut_RPM_Offset_from_target_idle,Decel Fuel Cut RPM Offset (from target idle),1D Map,uint8,RPM
+0x0555B4,349620,Boost_Limit_Rescaled,Boost Limit - Rescaled,1D Map,uint8,%
+0x0555C2,349634,Open_Loop_Load_Low_Octane_2,Open Loop Load Low Octane #2,1D Map,uint8,Load
+0x0555DA,349658,Open_Loop_Load_Low_Octane_1,Open Loop Load Low Octane #1,1D Map,uint8,Load
+0x0555EE,349678,Discovered_2D_Engine_RPM_0x555EE,Discovered 2D - Engine RPM (0x555EE),Parameter/1D,uint8,%
+0x055606,349702,Discovered_2D_Engine_RPM_0x55606,Discovered 2D - Engine RPM (0x55606),Parameter/1D,uint8,%
+0x0556A4,349860,Discovered_2D_Unknown_RAM_0xC5FC_0x556A4,Discovered 2D - Unknown RAM 0xC5FC (0x556A4),Parameter/1D,uint8,%
+0x0556B0,349872,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x556B0,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x556B0),Parameter/1D,uint8,%
+0x0556BE,349886,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x556BE,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x556BE),Parameter/1D,uint8,%
+0x0556D0,349904,Injector_Battery_Voltage_Latency_Compensation,Injector Battery Voltage Latency Compensation,1D Map,uint8,ms
+0x0556D8,349912,Low_Pulse_Width_IPW_Adder,Low Pulse Width IPW Adder,Parameter/1D,uint8,ms
+0x05571A,349978,Discovered_2D_Engine_RPM_0x5571A,Discovered 2D - Engine RPM (0x5571A),Parameter/1D,uint8,%
+0x05578A,350090,Load_Accel_IPW_Enrichment_ECT_multi,Load Accel IPW Enrichment - ECT multi,1D Map,uint8,units
+0x055792,350098,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x55792,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x55792),Parameter/1D,uint8,%
+0x0557A2,350114,Load_Accel_IPW_Enrichment_Decay_Rate,Load Accel IPW Enrichment - Decay Rate,1D Map,uint8,%
+0x0557AE,350126,Load_Accel_IPW_Enrichment_ignore_Load_changes_smaller_than_this_1,Load Accel IPW Enrichment - ignore Load changes smaller than this #1,1D Map,uint8,%
+0x0557C8,350152,Load_Accel_IPW_Enrichment_ignore_Load_changes_smaller_than_this_2,Load Accel IPW Enrichment - ignore Load changes smaller than this #2,1D Map,uint8,%
+0x0557F7,350199,Asynchronous_Injection_TPS_Accel_IPW_per_change_in_TPS,Asynchronous Injection - TPS Accel - IPW per change in TPS,Parameter/1D,uint8,ms
+0x055804,350212,Asynchronous_Injection_TPS_Accel_Max_TPS_Threshold,Asynchronous Injection - TPS Accel - Max TPS Threshold,1D Map,uint8,%
+0x055818,350232,Asynchronous_Injection_TPS_Accel_Adder_ECT_based,Asynchronous Injection - TPS Accel - Adder ECT based,1D Map,uint8,units
+0x055820,350240,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x55820,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x55820),Parameter/1D,uint8,%
+0x055832,350258,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x55832,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x55832),Parameter/1D,uint8,%
+0x055842,350274,Load_Accel_Decel_IPW_Enrichment_Enleanment_Load_Limit,Load Accel/Decel IPW Enrichment/Enleanment Load Limit,1D Map,uint8,%
+0x055856,350294,Load_Decel_IPW_Enleanment_ECT_multi,Load Decel IPW Enleanment - ECT multi,1D Map,uint8,units
+0x055862,350306,Load_Decel_IPW_Enleanment_RPM_multi,Load Decel IPW Enleanment - RPM multi,1D Map,uint8,units
+0x055876,350326,Load_Decel_IPW_Enleanment_Load_multi,Load Decel IPW Enleanment - Load multi,1D Map,uint8,units
+0x055890,350352,Load_Decel_IPW_Enleanment_ignore_Load_changes_smaller_than_this_1,Load Decel IPW Enleanment - ignore Load changes smaller than this #1,1D Map,uint8,%
+0x0558AA,350378,Load_Decel_IPW_Enleanment_ignore_Load_changes_smaller_than_this_2,Load Decel IPW Enleanment - ignore Load changes smaller than this #2,1D Map,uint8,%
+0x0558C0,350400,Discovered_2D_Engine_RPM_0x558C0,Discovered 2D - Engine RPM (0x558C0),Parameter/1D,uint8,%
+0x0558D4,350420,Discovered_2D_Engine_RPM_0x558D4,Discovered 2D - Engine RPM (0x558D4),Parameter/1D,uint8,%
+0x0558E8,350440,Discovered_2D_Engine_RPM_0x558E8,Discovered 2D - Engine RPM (0x558E8),Parameter/1D,uint8,%
+0x055900,350464,LeanSpool_AFR_v_FuelMap_AFR,LeanSpool AFR v FuelMap AFR,1D Map,uint8,AFR
+0x055908,350472,Discovered_2D_Engine_RPM_0x55908,Discovered 2D - Engine RPM (0x55908),Parameter/1D,uint8,%
+0x05591A,350490,Discovered_2D_Engine_RPM_0x5591A,Discovered 2D - Engine RPM (0x5591A),Parameter/1D,uint8,%
+0x05592C,350508,Discovered_2D_Engine_RPM_0x5592C,Discovered 2D - Engine RPM (0x5592C),Parameter/1D,uint8,%
+0x05593E,350526,Discovered_2D_Engine_RPM_0x5593E,Discovered 2D - Engine RPM (0x5593E),Parameter/1D,uint8,%
+0x055957,350551,High_Octane_Timing_Map,High Octane Timing Map,2D Map,int8,degrees
+0x055B59,351065,Low_Octane_Timing_Map,Low Octane Timing Map,2D Map,int8,degrees
+0x055D5B,351579,Evap_Map_1,Evap Map #1,2D Map,uint8,%
+0x055F5D,352093,Evap_Map_2,Evap Map #2,2D Map,uint8,%
+0x056158,352600,Discovered_2D_Unknown_RAM_0xC5E2_0x56158,Discovered 2D - Unknown RAM 0xC5E2 (0x56158),Parameter/1D,uint8,%
+0x05616C,352620,Discovered_2D_Unknown_RAM_0xC5E2_0x5616C,Discovered 2D - Unknown RAM 0xC5E2 (0x5616C),Parameter/1D,uint8,%
+0x056184,352644,IAT_Ignition_Advance_Compensation,IAT Ignition Advance Compensation,1D Map,uint8,x
+0x056190,352656,Barometric_Ignition_Advance_Compensation,Barometric Ignition Advance Compensation,1D Map,uint8,x
+0x056196,352662,Discovered_2D_Unknown_RAM_0xC5E2_0x56196,Discovered 2D - Unknown RAM 0xC5E2 (0x56196),Parameter/1D,uint8,%
+0x0561AA,352682,Discovered_2D_Engine_RPM_0x561AA,Discovered 2D - Engine RPM (0x561AA),Parameter/1D,uint8,%
+0x0561BC,352700,Percent_Low_Temp_Timing_Trim_vs_Coolant_Temp,Percent Low Temp Timing Trim vs Coolant Temp,1D Map,uint8,%
+0x0561DA,352730,Discovered_2D_Engine_RPM_0x561DA,Discovered 2D - Engine RPM (0x561DA),Parameter/1D,uint8,%
+0x0561EC,352748,Knock_Sensitivity_Load_Threshold,Knock Sensitivity Load Threshold,1D Map,uint8,Load
+0x0561FC,352764,Discovered_2D_Engine_RPM_0x561FC,Discovered 2D - Engine RPM (0x561FC),Parameter/1D,uint8,%
+0x056210,352784,Discovered_2D_Engine_RPM_0x56210,Discovered 2D - Engine RPM (0x56210),Parameter/1D,uint8,%
+0x05621A,352794,Discovered_2D_Engine_RPM_0x5621A,Discovered 2D - Engine RPM (0x5621A),Parameter/1D,uint8,%
+0x056222,352802,Discovered_2D_Unknown_RAM_0xC5FC_0x56222,Discovered 2D - Unknown RAM 0xC5FC (0x56222),Parameter/1D,uint8,%
+0x056236,352822,Discovered_2D_Unknown_RAM_0xC5F8_0x56236,Discovered 2D - Unknown RAM 0xC5F8 (0x56236),Parameter/1D,uint8,%
+0x056248,352840,Idle_RPM_3_vs_Coolant_Temp,Idle RPM #3 vs Coolant Temp,1D Map,uint8,RPM
+0x056258,352856,Idle_RPM_5_vs_Coolant_Temp,Idle RPM #5 vs Coolant Temp,1D Map,uint8,RPM
+0x0563A4,353188,Discovered_2D_Unknown_RAM_0xFFFF_0x563A4,Discovered 2D - Unknown RAM 0xFFFF (0x563A4),Parameter/1D,uint8,%
+0x0563C6,353222,Discovered_2D_Engine_RPM_0x563C6,Discovered 2D - Engine RPM (0x563C6),Parameter/1D,uint8,%
+0x0563D0,353232,Discovered_2D_Engine_RPM_0x563D0,Discovered 2D - Engine RPM (0x563D0),Parameter/1D,uint8,%
+0x05647A,353402,Discovered_2D_Engine_RPM_0x5647A,Discovered 2D - Engine RPM (0x5647A),Parameter/1D,uint8,%
+0x056499,353433,Discovered_3D_Engine_RPM_x_Engine_Load_0x56499,Discovered 3D - Engine RPM x Engine Load (0x56499),Parameter/1D,uint8,%
+0x056520,353568,Discovered_2D_Engine_RPM_0x56520,Discovered 2D - Engine RPM (0x56520),Parameter/1D,uint8,%
+0x056534,353588,Discovered_2D_Engine_RPM_0x56534,Discovered 2D - Engine RPM (0x56534),Parameter/1D,uint8,%
+0x056549,353609,Discovered_3D_Engine_RPM_x_Engine_Load_0x56549,Discovered 3D - Engine RPM x Engine Load (0x56549),Parameter/1D,uint8,%
+0x0565BF,353727,Discovered_3D_Engine_RPM_x_Engine_Load_0x565BF,Discovered 3D - Engine RPM x Engine Load (0x565BF),Parameter/1D,uint8,%
+0x05662E,353838,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5662E,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5662E),Parameter/1D,uint8,%
+0x05663A,353850,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5663A,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5663A),Parameter/1D,uint8,%
+0x056646,353862,Discovered_2D_Unknown_RAM_0xC5E2_0x56646,Discovered 2D - Unknown RAM 0xC5E2 (0x56646),Parameter/1D,uint8,%
+0x05665C,353884,Discovered_2D_Engine_RPM_0x5665C,Discovered 2D - Engine RPM (0x5665C),Parameter/1D,uint8,%
+0x05666C,353900,Discovered_2D_Engine_RPM_0x5666C,Discovered 2D - Engine RPM (0x5666C),Parameter/1D,uint8,%
+0x05667C,353916,Discovered_2D_Engine_RPM_0x5667C,Discovered 2D - Engine RPM (0x5667C),Parameter/1D,uint8,%
+0x05668C,353932,Discovered_2D_Engine_RPM_0x5668C,Discovered 2D - Engine RPM (0x5668C),Parameter/1D,uint8,%
+0x05669C,353948,Discovered_2D_Engine_RPM_0x5669C,Discovered 2D - Engine RPM (0x5669C),Parameter/1D,uint8,%
+0x0566AC,353964,Discovered_2D_Unknown_RAM_0xC60A_0x566AC,Discovered 2D - Unknown RAM 0xC60A (0x566AC),Parameter/1D,uint8,%
+0x0566BC,353980,Discovered_2D_Unknown_RAM_0xC60A_0x566BC,Discovered 2D - Unknown RAM 0xC60A (0x566BC),Parameter/1D,uint8,%
+0x0566CC,353996,Discovered_2D_Unknown_RAM_0xC60A_0x566CC,Discovered 2D - Unknown RAM 0xC60A (0x566CC),Parameter/1D,uint8,%
+0x0566DC,354012,Discovered_2D_Unknown_RAM_0xC60A_0x566DC,Discovered 2D - Unknown RAM 0xC60A (0x566DC),Parameter/1D,uint8,%
+0x0566EC,354028,Discovered_2D_Engine_RPM_0x566EC,Discovered 2D - Engine RPM (0x566EC),Parameter/1D,uint8,%
+0x056703,354051,Discovered_3D_Engine_RPM_x_Engine_Load_0x56703,Discovered 3D - Engine RPM x Engine Load (0x56703),Parameter/1D,uint8,%
+0x0567BB,354235,Discovered_3D_Engine_RPM_x_Engine_Load_0x567BB,Discovered 3D - Engine RPM x Engine Load (0x567BB),Parameter/1D,uint8,%
+0x056873,354419,Discovered_3D_Engine_RPM_x_Engine_Load_0x56873,Discovered 3D - Engine RPM x Engine Load (0x56873),Parameter/1D,uint8,%
+0x05692B,354603,Discovered_3D_Engine_RPM_x_Engine_Load_0x5692B,Discovered 3D - Engine RPM x Engine Load (0x5692B),Parameter/1D,uint8,%
+0x0569E3,354787,Discovered_3D_Engine_RPM_x_Engine_Load_0x569E3,Discovered 3D - Engine RPM x Engine Load (0x569E3),Parameter/1D,uint8,%
+0x056A9B,354971,Discovered_3D_Engine_RPM_x_Engine_Load_0x56A9B,Discovered 3D - Engine RPM x Engine Load (0x56A9B),Parameter/1D,uint8,%
+0x056B4C,355148,Discovered_2D_Engine_RPM_0x56B4C,Discovered 2D - Engine RPM (0x56B4C),Parameter/1D,uint8,%
+0x056B79,355193,Discovered_3D_Engine_RPM_x_Engine_Load_0x56B79,Discovered 3D - Engine RPM x Engine Load (0x56B79),Parameter/1D,uint8,%
+0x056BBA,355258,Discovered_2D_Unknown_RAM_0xC5E2_0x56BBA,Discovered 2D - Unknown RAM 0xC5E2 (0x56BBA),Parameter/1D,uint8,%
+0x056BCE,355278,Discovered_2D_Engine_RPM_0x56BCE,Discovered 2D - Engine RPM (0x56BCE),Parameter/1D,uint8,%
+0x056BDC,355292,Discovered_2D_Engine_RPM_0x56BDC,Discovered 2D - Engine RPM (0x56BDC),Parameter/1D,uint8,%
+0x056BEA,355306,Discovered_2D_Engine_RPM_0x56BEA,Discovered 2D - Engine RPM (0x56BEA),Parameter/1D,uint8,%
+0x056BF8,355320,Discovered_2D_Engine_RPM_0x56BF8,Discovered 2D - Engine RPM (0x56BF8),Parameter/1D,uint8,%
+0x056C0D,355341,Discovered_3D_Engine_RPM_x_Engine_Load_0x56C0D,Discovered 3D - Engine RPM x Engine Load (0x56C0D),Parameter/1D,uint8,%
+0x056CC5,355525,Discovered_3D_Engine_RPM_x_Engine_Load_0x56CC5,Discovered 3D - Engine RPM x Engine Load (0x56CC5),Parameter/1D,uint8,%
+0x056D7D,355709,Discovered_3D_Engine_RPM_x_Engine_Load_0x56D7D,Discovered 3D - Engine RPM x Engine Load (0x56D7D),Parameter/1D,uint8,%
+0x056E35,355893,Discovered_3D_Engine_RPM_x_Engine_Load_0x56E35,Discovered 3D - Engine RPM x Engine Load (0x56E35),Parameter/1D,uint8,%
+0x056EED,356077,Discovered_3D_Engine_RPM_x_Engine_Load_0x56EED,Discovered 3D - Engine RPM x Engine Load (0x56EED),Parameter/1D,uint8,%
+0x056FA5,356261,Discovered_3D_Engine_RPM_x_Engine_Load_0x56FA5,Discovered 3D - Engine RPM x Engine Load (0x56FA5),Parameter/1D,uint8,%
+0x05705D,356445,Discovered_3D_Engine_RPM_x_Engine_Load_0x5705D,Discovered 3D - Engine RPM x Engine Load (0x5705D),Parameter/1D,uint8,%
+0x057065,356453,Discovered_3D_Engine_RPM_x_Engine_Load_0x57065,Discovered 3D - Engine RPM x Engine Load (0x57065),Parameter/1D,uint8,%
+0x057066,356454,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x57066,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x57066),Parameter/1D,uint8,%
+0x057072,356466,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x57072,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x57072),Parameter/1D,uint8,%
+0x057085,356485,Discovered_3D_Engine_RPM_x_Engine_Load_0x57085,Discovered 3D - Engine RPM x Engine Load (0x57085),Parameter/1D,uint8,%
+0x0570D3,356563,Discovered_3D_Engine_RPM_x_Engine_Load_0x570D3,Discovered 3D - Engine RPM x Engine Load (0x570D3),Parameter/1D,uint8,%
+0x057138,356664,Discovered_2D_Engine_RPM_0x57138,Discovered 2D - Engine RPM (0x57138),Parameter/1D,uint8,%
+0x05714C,356684,Discovered_2D_Engine_RPM_0x5714C,Discovered 2D - Engine RPM (0x5714C),Parameter/1D,uint8,%
+0x057162,356706,Discovered_2D_Engine_RPM_0x57162,Discovered 2D - Engine RPM (0x57162),Parameter/1D,uint8,%
+0x05719A,356762,Discovered_2D_Engine_RPM_0x5719A,Discovered 2D - Engine RPM (0x5719A),Parameter/1D,uint8,%
+0x0571AE,356782,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x571AE,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x571AE),Parameter/1D,uint8,%
+0x0571BC,356796,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x571BC,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x571BC),Parameter/1D,uint8,%
+0x0571CA,356810,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x571CA,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x571CA),Parameter/1D,uint8,%
+0x0571D8,356824,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x571D8,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x571D8),Parameter/1D,uint8,%
+0x0571E4,356836,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x571E4,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x571E4),Parameter/1D,uint8,%
+0x0571F9,356857,Discovered_3D_Engine_RPM_x_Engine_Load_0x571F9,Discovered 3D - Engine RPM x Engine Load (0x571F9),Parameter/1D,uint8,%
+0x057212,356882,Discovered_2D_Unknown_RAM_0xC5FC_0x57212,Discovered 2D - Unknown RAM 0xC5FC (0x57212),Parameter/1D,uint8,%
+0x05722E,356910,Discovered_2D_Engine_RPM_0x5722E,Discovered 2D - Engine RPM (0x5722E),Parameter/1D,uint8,%
+0x057246,356934,Discovered_2D_Engine_RPM_0x57246,Discovered 2D - Engine RPM (0x57246),Parameter/1D,uint8,%
+0x05725E,356958,Discovered_2D_Engine_RPM_0x5725E,Discovered 2D - Engine RPM (0x5725E),Parameter/1D,uint8,%
+0x057266,356966,Discovered_2D_Engine_RPM_0x57266,Discovered 2D - Engine RPM (0x57266),Parameter/1D,uint8,%
+0x057274,356980,Discovered_2D_Unknown_RAM_0xC612_0x57274,Discovered 2D - Unknown RAM 0xC612 (0x57274),Parameter/1D,uint8,%
+0x0572AF,357039,Discovered_3D_Engine_RPM_x_Engine_Load_0x572AF,Discovered 3D - Engine RPM x Engine Load (0x572AF),Parameter/1D,uint8,%
+0x0572F5,357109,EGR_Timing_Advance,EGR Timing Advance,2D Map,int8,degrees
+0x057350,357200,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x57350,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x57350),Parameter/1D,uint8,%
+0x057387,357255,Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x057431,357425,Boost_Target_2_Low_Gear_Range_Omni4bar,Boost Target #2 (Low Gear Range) (Omni4bar),2D Map,uint8,psia
+0x0574DA,357594,Cranking_Enrichment_IPW_Adder,Cranking Enrichment IPW Adder,1D Map,uint16,ms
+0x0574F0,357616,Open_Loop_Load_High_Octane_2,Open Loop Load High Octane #2,1D Map,uint8,Load
+0x057508,357640,Open_Loop_Load_High_Octane_1,Open Loop Load High Octane #1,1D Map,uint8,Load
+0x05757A,357754,MAF_Scaling_Part_1,MAF Scaling Part 1,1D Map,uint16,units
+0x0575D2,357842,MAF_Scaling_Part_2,MAF Scaling Part 2,1D Map,uint16,units
+0x05762A,357930,MAF_Scaling_Part_3,MAF Scaling Part 3,1D Map,uint16,units
+0x0576E6,358118,Discovered_2D_Engine_RPM_0x576E6,Discovered 2D - Engine RPM (0x576E6),Parameter/1D,uint8,%
+0x057702,358146,Discovered_2D_Engine_RPM_0x57702,Discovered 2D - Engine RPM (0x57702),Parameter/1D,uint8,%
+0x057713,358163,Calibration_Fuel_Map,Calibration Fuel Map,2D Map,uint8,%
+0x057A22,358946,Max_Lean_Oct_Avg_AFR_vs_Load,Max Lean Oct Avg AFR vs Load,1D Map,uint8,AFR
+0x057A2E,358958,Discovered_2D_Unknown_RAM_0xC5E2_0x57A2E,Discovered 2D - Unknown RAM 0xC5E2 (0x57A2E),Parameter/1D,uint8,%
+0x057A42,358978,Discovered_2D_Engine_RPM_0x57A42,Discovered 2D - Engine RPM (0x57A42),Parameter/1D,uint8,%
+0x057A59,359001,Discovered_3D_Engine_RPM_x_Engine_Load_0x57A59,Discovered 3D - Engine RPM x Engine Load (0x57A59),Parameter/1D,uint8,%
+0x057BAA,359338,Discovered_2D_Engine_RPM_0x57BAA,Discovered 2D - Engine RPM (0x57BAA),Parameter/1D,uint8,%
+0x057BB6,359350,Discovered_2D_Engine_RPM_0x57BB6,Discovered 2D - Engine RPM (0x57BB6),Parameter/1D,uint8,%
+0x057BC4,359364,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x57BC4,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x57BC4),Parameter/1D,uint8,%
+0x057BD6,359382,Cranking_IPW,Cranking IPW,1D Map,uint8,ms
+0x057C24,359460,Discovered_2D_Engine_RPM_0x57C24,Discovered 2D - Engine RPM (0x57C24),Parameter/1D,uint8,%
+0x057C33,359475,Discovered_3D_Engine_RPM_x_Engine_Load_0x57C33,Discovered 3D - Engine RPM x Engine Load (0x57C33),Parameter/1D,uint8,%
+0x057C4C,359500,Discovered_2D_Engine_RPM_0x57C4C,Discovered 2D - Engine RPM (0x57C4C),Parameter/1D,uint8,%
+0x057D48,359752,Discovered_2D_Unknown_RAM_0xC60E_0x57D48,Discovered 2D - Unknown RAM 0xC60E (0x57D48),Parameter/1D,uint8,%
+0x057D68,359784,Discovered_2D_Engine_RPM_0x57D68,Discovered 2D - Engine RPM (0x57D68),Parameter/1D,uint8,%
+0x057D7A,359802,Discovered_2D_Engine_RPM_0x57D7A,Discovered 2D - Engine RPM (0x57D7A),Parameter/1D,uint8,%
+0x057D8C,359820,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x57D8C,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x57D8C),Parameter/1D,uint8,%
+0x057DDC,359900,Discovered_2D_Engine_RPM_0x57DDC,Discovered 2D - Engine RPM (0x57DDC),Parameter/1D,uint8,%
+0x057E09,359945,Cylinder_Fuel_Trim_1,Cylinder Fuel Trim #1,2D Map,uint8,%
+0x057FF3,360435,Cylinder_Fuel_Trim_2,Cylinder Fuel Trim #2,2D Map,uint8,%
+0x0581DD,360925,Cylinder_Fuel_Trim_3,Cylinder Fuel Trim #3,2D Map,uint8,%
+0x0583C7,361415,Cylinder_Fuel_Trim_4,Cylinder Fuel Trim #4,2D Map,uint8,%
+0x0585B1,361905,Discovered_3D_Engine_RPM_x_Engine_Load_0x585B1,Discovered 3D - Engine RPM x Engine Load (0x585B1),Parameter/1D,uint8,%
+0x05863F,362047,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5863F,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5863F),Parameter/1D,uint8,%
+0x05878B,362379,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5878B,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5878B),Parameter/1D,uint8,%
+0x0588D7,362711,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x588D7,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x588D7),Parameter/1D,uint8,%
+0x058A23,363043,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x58A23,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x58A23),Parameter/1D,uint8,%
+0x058B6F,363375,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x58B6F,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x58B6F),Parameter/1D,uint8,%
+0x058CC8,363720,Discovered_2D_Engine_RPM_0x58CC8,Discovered 2D - Engine RPM (0x58CC8),Parameter/1D,uint8,%
+0x058D22,363810,Reactive_Solenoid_Max_Total_Upward_WGDC_Correction_vs_TPS,Reactive Solenoid Max Total Upward WGDC Correction vs TPS,1D Map,uint8,%WGDC Change
+0x058D30,363824,Target_Boost_Error_Correction_Omni4bar,Target Boost Error Correction  (Omni4bar),1D Map,uint8,%WGDC Change
+0x058D49,363849,Reactive_Solenoid_Base_WGDC_Map_1A_High_Gear_Range,Reactive Solenoid Base WGDC Map #1A (High Gear Range),2D Map,uint8,%
+0x058DF3,364019,Reactive_Solenoid_Base_WGDC_Map_1B_High_Gear_Range,Reactive Solenoid Base WGDC Map #1B (High Gear Range),2D Map,uint8,%
+0x058E9D,364189,Boost_Target_1A_High_Gear_Range_Omni4bar,Boost Target #1A (High Gear Range) (Omni4bar),2D Map,uint8,psia
+0x058F47,364359,Boost_Target_1B_High_Gear_Range_Omni4bar,Boost Target #1B (High Gear Range) (Omni4bar),2D Map,uint8,psia
+0x058FEE,364526,Min_Load_for_Fuel_Pump_High_Voltage,Min Load for Fuel Pump High Voltage,1D Map,uint8,Load
+0x059005,364549,Discovered_3D_Engine_RPM_x_Engine_Load_0x59005,Discovered 3D - Engine RPM x Engine Load (0x59005),Parameter/1D,uint8,%
+0x05915D,364893,Discovered_3D_Engine_RPM_x_Engine_Load_0x5915D,Discovered 3D - Engine RPM x Engine Load (0x5915D),Parameter/1D,uint8,%
+0x0592B5,365237,Discovered_3D_Engine_RPM_x_Engine_Load_0x592B5,Discovered 3D - Engine RPM x Engine Load (0x592B5),Parameter/1D,uint8,%
+0x0594E7,365799,Discovered_3D_Engine_RPM_x_Engine_Load_0x594E7,Discovered 3D - Engine RPM x Engine Load (0x594E7),Parameter/1D,uint8,%
+0x059A4C,367180,Discovered_2D_Unknown_RAM_0xC5F2_0x59A4C,Discovered 2D - Unknown RAM 0xC5F2 (0x59A4C),Parameter/1D,uint8,%
+0x059BC7,367559,Discovered_3D_Engine_RPM_x_Engine_Load_0x59BC7,Discovered 3D - Engine RPM x Engine Load (0x59BC7),Parameter/1D,uint8,%
+0x059C3D,367677,Discovered_3D_Engine_RPM_x_Engine_Load_0x59C3D,Discovered 3D - Engine RPM x Engine Load (0x59C3D),Parameter/1D,uint8,%
+0x059CB3,367795,Discovered_3D_Engine_RPM_x_Engine_Load_0x59CB3,Discovered 3D - Engine RPM x Engine Load (0x59CB3),Parameter/1D,uint8,%
+0x059D29,367913,Discovered_3D_Engine_RPM_x_Engine_Load_0x59D29,Discovered 3D - Engine RPM x Engine Load (0x59D29),Parameter/1D,uint8,%
+0x059D9F,368031,Discovered_3D_Engine_RPM_x_Engine_Load_0x59D9F,Discovered 3D - Engine RPM x Engine Load (0x59D9F),Parameter/1D,uint8,%
+0x059E15,368149,Discovered_3D_Engine_RPM_x_Engine_Load_0x59E15,Discovered 3D - Engine RPM x Engine Load (0x59E15),Parameter/1D,uint8,%
+0x059E84,368260,Discovered_2D_Engine_RPM_0x59E84,Discovered 2D - Engine RPM (0x59E84),Parameter/1D,uint8,%
+0x059E92,368274,Discovered_2D_Engine_RPM_0x59E92,Discovered 2D - Engine RPM (0x59E92),Parameter/1D,uint8,%
+0x059EA0,368288,Discovered_2D_Engine_RPM_0x59EA0,Discovered 2D - Engine RPM (0x59EA0),Parameter/1D,uint8,%
+0x059EAE,368302,Discovered_2D_Engine_RPM_0x59EAE,Discovered 2D - Engine RPM (0x59EAE),Parameter/1D,uint8,%
+0x059EBC,368316,Discovered_2D_Engine_RPM_0x59EBC,Discovered 2D - Engine RPM (0x59EBC),Parameter/1D,uint8,%
+0x059ECA,368330,Discovered_2D_Engine_RPM_0x59ECA,Discovered 2D - Engine RPM (0x59ECA),Parameter/1D,uint8,%
+0x059EEC,368364,Discovered_2D_Engine_RPM_0x59EEC,Discovered 2D - Engine RPM (0x59EEC),Parameter/1D,uint8,%
+0x059EF8,368376,Discovered_2D_Engine_RPM_0x59EF8,Discovered 2D - Engine RPM (0x59EF8),Parameter/1D,uint8,%
+0x05A024,368676,Knock_Background_Noise_Adder_SINGLE_GAIN_2,Knock Background Noise Adder (SINGLE GAIN) #2,1D Map,uint8,units
+0x05A038,368696,Knock_Background_Noise_Adder_TRIPLE_GAIN_2,Knock Background Noise Adder (TRIPLE GAIN) #2,1D Map,uint8,units
+0x05A04C,368716,Knock_Background_Noise_Multiplier,Knock Background Noise Multiplier,1D Map,uint8,units
+0x05A05C,368732,Discovered_2D_Engine_RPM_0x5A05C,Discovered 2D - Engine RPM (0x5A05C),Parameter/1D,uint8,%
+0x05A070,368752,Discovered_2D_Engine_RPM_0x5A070,Discovered 2D - Engine RPM (0x5A070),Parameter/1D,uint8,%
+0x05A088,368776,Idle_RPM_9_vs_Coolant_Temp,Idle RPM #9 vs Coolant Temp,1D Map,uint8,RPM
+0x05A094,368788,Idle_RPM_8_vs_Coolant_Temp,Idle RPM #8 vs Coolant Temp,1D Map,uint8,RPM
+0x05A203,369155,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A203,Discovered 3D - Engine RPM x Engine Load (0x5A203),Parameter/1D,uint8,%
+0x05A251,369233,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A251,Discovered 3D - Engine RPM x Engine Load (0x5A251),Parameter/1D,uint8,%
+0x05A2B6,369334,Discovered_2D_Engine_RPM_0x5A2B6,Discovered 2D - Engine RPM (0x5A2B6),Parameter/1D,uint8,%
+0x05A2C5,369349,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A2C5,Discovered 3D - Engine RPM x Engine Load (0x5A2C5),Parameter/1D,uint8,%
+0x05A30B,369419,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A30B,Discovered 3D - Engine RPM x Engine Load (0x5A30B),Parameter/1D,uint8,%
+0x05A34A,369482,Discovered_2D_Engine_RPM_0x5A34A,Discovered 2D - Engine RPM (0x5A34A),Parameter/1D,uint8,%
+0x05A35E,369502,Discovered_2D_Engine_RPM_0x5A35E,Discovered 2D - Engine RPM (0x5A35E),Parameter/1D,uint8,%
+0x05A36A,369514,Discovered_2D_Unknown_RAM_0xE3A8_0x5A36A,Discovered 2D - Unknown RAM 0xE3A8 (0x5A36A),Parameter/1D,uint8,%
+0x05A378,369528,Discovered_2D_Unknown_RAM_0xE3A8_0x5A378,Discovered 2D - Unknown RAM 0xE3A8 (0x5A378),Parameter/1D,uint8,%
+0x05A386,369542,Discovered_2D_Unknown_RAM_0xE3A8_0x5A386,Discovered 2D - Unknown RAM 0xE3A8 (0x5A386),Parameter/1D,uint8,%
+0x05A394,369556,Discovered_2D_Unknown_RAM_0xE3A8_0x5A394,Discovered 2D - Unknown RAM 0xE3A8 (0x5A394),Parameter/1D,uint8,%
+0x05A3A2,369570,Discovered_2D_Engine_RPM_0x5A3A2,Discovered 2D - Engine RPM (0x5A3A2),Parameter/1D,uint8,%
+0x05A3AC,369580,Discovered_2D_Unknown_RAM_0xE3A6_0x5A3AC,Discovered 2D - Unknown RAM 0xE3A6 (0x5A3AC),Parameter/1D,uint8,%
+0x05A3C2,369602,Discovered_2D_Engine_RPM_0x5A3C2,Discovered 2D - Engine RPM (0x5A3C2),Parameter/1D,uint8,%
+0x05A3D0,369616,Discovered_2D_Engine_RPM_0x5A3D0,Discovered 2D - Engine RPM (0x5A3D0),Parameter/1D,uint8,%
+0x05A3DE,369630,Discovered_2D_Unknown_RAM_0xE3A8_0x5A3DE,Discovered 2D - Unknown RAM 0xE3A8 (0x5A3DE),Parameter/1D,uint8,%
+0x05A434,369716,Max_Rich_AFR_Clip_vs_Coolant_Temp,Max Rich AFR Clip vs Coolant Temp,1D Map,uint8,AFR
+0x05A442,369730,Load_Accel_IPW_Enrichment_RPM_multi,Load Accel IPW Enrichment - RPM multi,1D Map,uint8,units
+0x05A456,369750,Asynchronous_Injection_TPS_Accel_Adder_RPM_based,Asynchronous Injection - TPS Accel - Adder RPM based,1D Map,uint8,units
+0x05A46A,369770,Passive_Solenoid_Base_WGDC_Map_1A_High_Gear_Range,Passive Solenoid Base WGDC Map #1A (High Gear Range),1D Map,uint8,%
+0x05A480,369792,Passive_Solenoid_Base_WGDC_Map_1B_High_Gear_Range,Passive Solenoid Base WGDC Map #1B (High Gear Range),1D Map,uint8,%
+0x05A496,369814,Passive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Passive Solenoid Base WGDC Map #2 (Low Gear Range),1D Map,uint8,%
+0x05A4AC,369836,Reactive_Solenoid_Max_WGDC_vs_CTS,Reactive Solenoid Max WGDC vs CTS,1D Map,uint8,%
+0x05A4B4,369844,Discovered_2D_Engine_RPM_0x5A4B4,Discovered 2D - Engine RPM (0x5A4B4),Parameter/1D,uint8,%
+0x05A4D3,369875,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A4D3,Discovered 3D - Engine RPM x Engine Load (0x5A4D3),Parameter/1D,uint8,%
+0x05A5E4,370148,Discovered_2D_Engine_RPM_0x5A5E4,Discovered 2D - Engine RPM (0x5A5E4),Parameter/1D,uint8,%
+0x05A5F5,370165,Discovered_3D_Engine_RPM_x_Engine_Load_0x5A5F5,Discovered 3D - Engine RPM x Engine Load (0x5A5F5),Parameter/1D,uint8,%
+0x05A6BF,370367,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5A6BF,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5A6BF),Parameter/1D,uint8,%
+0x05A80B,370699,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5A80B,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5A80B),Parameter/1D,uint8,%
+0x05A957,371031,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5A957,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5A957),Parameter/1D,uint8,%
+0x05AA9C,371356,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5AA9C,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5AA9C),Parameter/1D,uint8,%
+0x05AAB8,371384,Discovered_2D_Engine_RPM_0x5AAB8,Discovered 2D - Engine RPM (0x5AAB8),Parameter/1D,uint8,%
+0x05AACC,371404,Discovered_2D_Engine_RPM_0x5AACC,Discovered 2D - Engine RPM (0x5AACC),Parameter/1D,uint8,%
+0x05AAE0,371424,Discovered_2D_Engine_RPM_0x5AAE0,Discovered 2D - Engine RPM (0x5AAE0),Parameter/1D,uint8,%
+0x05AAF4,371444,Discovered_2D_Engine_RPM_0x5AAF4,Discovered 2D - Engine RPM (0x5AAF4),Parameter/1D,uint8,%
+0x05AB0C,371468,Octane_Related,Octane Related,1D Map,uint8,units
+0x05AB18,371480,Idle_RPM_4_vs_Coolant_Temp,Idle RPM #4 vs Coolant Temp,1D Map,uint8,RPM
+0x05AB3E,371518,Idle_RPM_7_vs_Coolant_Temp,Idle RPM #7 vs Coolant Temp,1D Map,uint8,RPM
+0x05AB4A,371530,Idle_RPM_6_vs_Coolant_Temp,Idle RPM #6 vs Coolant Temp,1D Map,uint8,RPM
+0x05AC32,371762,Discovered_2D_Engine_RPM_0x5AC32,Discovered 2D - Engine RPM (0x5AC32),Parameter/1D,uint8,%
+0x05AC51,371793,Discovered_3D_Engine_RPM_x_Engine_Load_0x5AC51,Discovered 3D - Engine RPM x Engine Load (0x5AC51),Parameter/1D,uint8,%
+0x05AC52,371794,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5AC52,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5AC52),Parameter/1D,uint8,%
+0x05ACC3,371907,Discovered_3D_Engine_RPM_x_Engine_Load_0x5ACC3,Discovered 3D - Engine RPM x Engine Load (0x5ACC3),Parameter/1D,uint8,%
+0x05ACE2,371938,Discovered_2D_Engine_RPM_0x5ACE2,Discovered 2D - Engine RPM (0x5ACE2),Parameter/1D,uint8,%
+0x05ACEE,371950,Discovered_2D_Engine_RPM_0x5ACEE,Discovered 2D - Engine RPM (0x5ACEE),Parameter/1D,uint8,%
+0x05ACFA,371962,Discovered_2D_Engine_RPM_0x5ACFA,Discovered 2D - Engine RPM (0x5ACFA),Parameter/1D,uint8,%
+0x05AD06,371974,Discovered_2D_Engine_RPM_0x5AD06,Discovered 2D - Engine RPM (0x5AD06),Parameter/1D,uint8,%
+0x05AD12,371986,Discovered_2D_Engine_RPM_0x5AD12,Discovered 2D - Engine RPM (0x5AD12),Parameter/1D,uint8,%
+0x05AD1E,371998,Discovered_2D_Engine_RPM_0x5AD1E,Discovered 2D - Engine RPM (0x5AD1E),Parameter/1D,uint8,%
+0x05AD2A,372010,Discovered_2D_Engine_RPM_0x5AD2A,Discovered 2D - Engine RPM (0x5AD2A),Parameter/1D,uint8,%
+0x05AD36,372022,Discovered_2D_Engine_RPM_0x5AD36,Discovered 2D - Engine RPM (0x5AD36),Parameter/1D,uint8,%
+0x05AD42,372034,Discovered_2D_Engine_RPM_0x5AD42,Discovered 2D - Engine RPM (0x5AD42),Parameter/1D,uint8,%
+0x05AD4E,372046,Discovered_2D_Engine_RPM_0x5AD4E,Discovered 2D - Engine RPM (0x5AD4E),Parameter/1D,uint8,%
+0x05AD5A,372058,Discovered_2D_Engine_RPM_0x5AD5A,Discovered 2D - Engine RPM (0x5AD5A),Parameter/1D,uint8,%
+0x05AD66,372070,Discovered_2D_Engine_RPM_0x5AD66,Discovered 2D - Engine RPM (0x5AD66),Parameter/1D,uint8,%
+0x05AD72,372082,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5AD72,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5AD72),Parameter/1D,uint8,%
+0x05AD80,372096,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5AD80,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5AD80),Parameter/1D,uint8,%
+0x05AD8E,372110,Discovered_2D_Engine_RPM_0x5AD8E,Discovered 2D - Engine RPM (0x5AD8E),Parameter/1D,uint8,%
+0x05AD9A,372122,Discovered_2D_Engine_RPM_0x5AD9A,Discovered 2D - Engine RPM (0x5AD9A),Parameter/1D,uint8,%
+0x05ADA6,372134,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5ADA6,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5ADA6),Parameter/1D,uint8,%
+0x05ADB9,372153,ECT_Fuel_Compensation_1,ECT Fuel Compensation #1,2D Map,uint8,%
+0x05AF31,372529,ECT_Fuel_Compensation_2,ECT Fuel Compensation #2,2D Map,uint8,%
+0x05B0A9,372905,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B0A9,Discovered 3D - Engine RPM x Engine Load (0x5B0A9),Parameter/1D,uint8,%
+0x05B0AA,372906,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5B0AA,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5B0AA),Parameter/1D,uint8,%
+0x05B11B,373019,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B11B,Discovered 3D - Engine RPM x Engine Load (0x5B11B),Parameter/1D,uint8,%
+0x05B31D,373533,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B31D,Discovered 3D - Engine RPM x Engine Load (0x5B31D),Parameter/1D,uint8,%
+0x05B51F,374047,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B51F,Discovered 3D - Engine RPM x Engine Load (0x5B51F),Parameter/1D,uint8,%
+0x05B721,374561,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B721,Discovered 3D - Engine RPM x Engine Load (0x5B721),Parameter/1D,uint8,%
+0x05B923,375075,Discovered_3D_Engine_RPM_x_Engine_Load_0x5B923,Discovered 3D - Engine RPM x Engine Load (0x5B923),Parameter/1D,uint8,%
+0x05BB24,375588,OBTR_Over_Boost_Timing_Retard_Load,OBTR (Over-Boost Timing Retard) Load,1D Map,int8,degrees
+0x05BB3E,375614,Discovered_2D_Engine_RPM_0x5BB3E,Discovered 2D - Engine RPM (0x5BB3E),Parameter/1D,uint8,%
+0x05BB51,375633,Ignition_Warmup_Retard,Ignition Warmup Retard,2D Map,int8,degrees
+0x05BD4C,376140,Discovered_2D_Engine_RPM_0x5BD4C,Discovered 2D - Engine RPM (0x5BD4C),Parameter/1D,uint8,%
+0x05BD58,376152,Discovered_2D_Engine_RPM_0x5BD58,Discovered 2D - Engine RPM (0x5BD58),Parameter/1D,uint8,%
+0x05BD64,376164,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BD64,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BD64),Parameter/1D,uint8,%
+0x05BD72,376178,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BD72,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BD72),Parameter/1D,uint8,%
+0x05BD80,376192,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BD80,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BD80),Parameter/1D,uint8,%
+0x05BD8E,376206,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BD8E,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BD8E),Parameter/1D,uint8,%
+0x05BD9C,376220,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BD9C,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BD9C),Parameter/1D,uint8,%
+0x05BDAA,376234,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BDAA,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BDAA),Parameter/1D,uint8,%
+0x05BDB8,376248,Discovered_2D_Unknown_RAM_0xC612_0x5BDB8,Discovered 2D - Unknown RAM 0xC612 (0x5BDB8),Parameter/1D,uint8,%
+0x05BDF4,376308,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5BDF4,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5BDF4),Parameter/1D,uint8,%
+0x05BE00,376320,Discovered_2D_Engine_RPM_0x5BE00,Discovered 2D - Engine RPM (0x5BE00),Parameter/1D,uint8,%
+0x05BE0C,376332,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5BE0C,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5BE0C),Parameter/1D,uint8,%
+0x05BE18,376344,Discovered_2D_Engine_RPM_0x5BE18,Discovered 2D - Engine RPM (0x5BE18),Parameter/1D,uint8,%
+0x05BE24,376356,Discovered_2D_Engine_RPM_0x5BE24,Discovered 2D - Engine RPM (0x5BE24),Parameter/1D,uint8,%
+0x05BE34,376372,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5BE34,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5BE34),Parameter/1D,uint8,%
+0x05BE40,376384,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x5BE40,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x5BE40),Parameter/1D,uint8,%
+0x05BE4C,376396,Discovered_2D_Engine_RPM_0x5BE4C,Discovered 2D - Engine RPM (0x5BE4C),Parameter/1D,uint8,%
+0x05BE63,376419,Discovered_3D_Engine_RPM_x_Throttle_Position_TPS_Vehicle_Speed_0x5BE63,Discovered 3D - Engine RPM x Throttle Position (TPS) / Vehicle Speed (0x5BE63),Parameter/1D,uint8,%
+0x05BECB,376523,Discovered_3D_Engine_RPM_x_Throttle_Position_TPS_Vehicle_Speed_0x5BECB,Discovered 3D - Engine RPM x Throttle Position (TPS) / Vehicle Speed (0x5BECB),Parameter/1D,uint8,%
+0x05BF52,376658,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF52,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF52),Parameter/1D,uint8,%
+0x05BF60,376672,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF60,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF60),Parameter/1D,uint8,%
+0x05BF6E,376686,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF6E,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF6E),Parameter/1D,uint8,%
+0x05BF7C,376700,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF7C,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF7C),Parameter/1D,uint8,%
+0x05BF8A,376714,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF8A,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF8A),Parameter/1D,uint8,%
+0x05BF98,376728,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5BF98,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5BF98),Parameter/1D,uint8,%
+0x05BFA6,376742,Discovered_2D_Engine_RPM_0x5BFA6,Discovered 2D - Engine RPM (0x5BFA6),Parameter/1D,uint8,%
+0x05BFB4,376756,Discovered_2D_Engine_RPM_0x5BFB4,Discovered 2D - Engine RPM (0x5BFB4),Parameter/1D,uint8,%
+0x05BFC2,376770,Discovered_2D_Engine_RPM_0x5BFC2,Discovered 2D - Engine RPM (0x5BFC2),Parameter/1D,uint8,%
+0x05BFD0,376784,Discovered_2D_Engine_RPM_0x5BFD0,Discovered 2D - Engine RPM (0x5BFD0),Parameter/1D,uint8,%
+0x05BFDE,376798,Discovered_2D_Engine_RPM_0x5BFDE,Discovered 2D - Engine RPM (0x5BFDE),Parameter/1D,uint8,%
+0x05BFEC,376812,Discovered_2D_Engine_RPM_0x5BFEC,Discovered 2D - Engine RPM (0x5BFEC),Parameter/1D,uint8,%
+0x05BFFA,376826,Discovered_2D_Engine_RPM_0x5BFFA,Discovered 2D - Engine RPM (0x5BFFA),Parameter/1D,uint8,%
+0x05C008,376840,Discovered_2D_Engine_RPM_0x5C008,Discovered 2D - Engine RPM (0x5C008),Parameter/1D,uint8,%
+0x05C01D,376861,Discovered_3D_Unknown_RAM_0xC610_x_Unknown_RAM_0xC60E_0x5C01D,Discovered 3D - Unknown RAM 0xC610 x Unknown RAM 0xC60E (0x5C01D),Parameter/1D,uint8,%
+0x05C16E,377198,Discovered_2D_Unknown_RAM_0xC60E_0x5C16E,Discovered 2D - Unknown RAM 0xC60E (0x5C16E),Parameter/1D,uint8,%
+0x05C182,377218,Discovered_2D_Engine_RPM_0x5C182,Discovered 2D - Engine RPM (0x5C182),Parameter/1D,uint8,%
+0x05C19C,377244,Discovered_2D_Engine_RPM_0x5C19C,Discovered 2D - Engine RPM (0x5C19C),Parameter/1D,uint8,%
+0x05C1B6,377270,Discovered_2D_Engine_RPM_0x5C1B6,Discovered 2D - Engine RPM (0x5C1B6),Parameter/1D,uint8,%
+0x05C2E8,377576,Discovered_2D_Engine_RPM_0x5C2E8,Discovered 2D - Engine RPM (0x5C2E8),Parameter/1D,uint8,%
+0x05C302,377602,Discovered_2D_Unknown_RAM_0xC610_0x5C302,Discovered 2D - Unknown RAM 0xC610 (0x5C302),Parameter/1D,uint8,%
+0x05C316,377622,Discovered_2D_Unknown_RAM_0xC610_0x5C316,Discovered 2D - Unknown RAM 0xC610 (0x5C316),Parameter/1D,uint8,%
+0x05C32A,377642,Discovered_2D_Unknown_RAM_0xC610_0x5C32A,Discovered 2D - Unknown RAM 0xC610 (0x5C32A),Parameter/1D,uint8,%
+0x05C33E,377662,Discovered_2D_Unknown_RAM_0xC610_0x5C33E,Discovered 2D - Unknown RAM 0xC610 (0x5C33E),Parameter/1D,uint8,%
+0x05C352,377682,Discovered_2D_Engine_Load_0x5C352,Discovered 2D - Engine Load (0x5C352),Parameter/1D,uint8,%
+0x05C77B,378747,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5C77B,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5C77B),Parameter/1D,uint8,%
+0x05C85C,378972,Discovered_2D_Unknown_RAM_0xC60E_0x5C85C,Discovered 2D - Unknown RAM 0xC60E (0x5C85C),Parameter/1D,uint8,%
+0x05C87B,379003,Discovered_3D_Unknown_RAM_0xC60E_x_Unknown_RAM_0xC610_0x5C87B,Discovered 3D - Unknown RAM 0xC60E x Unknown RAM 0xC610 (0x5C87B),Parameter/1D,uint8,%
+0x05C9BE,379326,Discovered_2D_Engine_RPM_0x5C9BE,Discovered 2D - Engine RPM (0x5C9BE),Parameter/1D,uint8,%
+0x05CA66,379494,Discovered_2D_Engine_RPM_0x5CA66,Discovered 2D - Engine RPM (0x5CA66),Parameter/1D,uint8,%
+0x05CA92,379538,Discovered_2D_Engine_RPM_0x5CA92,Discovered 2D - Engine RPM (0x5CA92),Parameter/1D,uint8,%
+0x05CA9E,379550,Discovered_2D_Engine_RPM_0x5CA9E,Discovered 2D - Engine RPM (0x5CA9E),Parameter/1D,uint8,%
+0x05CBD6,379862,Discovered_2D_Engine_RPM_0x5CBD6,Discovered 2D - Engine RPM (0x5CBD6),Parameter/1D,uint8,%
+0x05CC3A,379962,Discovered_2D_Engine_RPM_0x5CC3A,Discovered 2D - Engine RPM (0x5CC3A),Parameter/1D,uint8,%
+0x05CC48,379976,Discovered_2D_Unknown_RAM_0xC5FC_0x5CC48,Discovered 2D - Unknown RAM 0xC5FC (0x5CC48),Parameter/1D,uint8,%
+0x05CC54,379988,Discovered_2D_Unknown_RAM_0xC5E2_0x5CC54,Discovered 2D - Unknown RAM 0xC5E2 (0x5CC54),Parameter/1D,uint8,%
+0x05CC68,380008,Discovered_2D_Unknown_RAM_0xC5E4_0x5CC68,Discovered 2D - Unknown RAM 0xC5E4 (0x5CC68),Parameter/1D,uint8,%
+0x05CC7F,380031,Discovered_3D_Engine_RPM_x_Engine_Load_0x5CC7F,Discovered 3D - Engine RPM x Engine Load (0x5CC7F),Parameter/1D,uint8,%
+0x05CCB0,380080,Discovered_2D_Engine_RPM_0x5CCB0,Discovered 2D - Engine RPM (0x5CCB0),Parameter/1D,uint8,%
+0x05CCC3,380099,Discovered_3D_Engine_RPM_x_Unknown_RAM_0xC600_0x5CCC3,Discovered 3D - Engine RPM x Unknown RAM 0xC600 (0x5CCC3),Parameter/1D,uint8,%
+0x05CCE9,380137,Discovered_3D_Throttle_Position_TPS_Vehicle_Speed_x_Unknown_RAM_0xC600_0x5CCE9,Discovered 3D - Throttle Position (TPS) / Vehicle Speed x Unknown RAM 0xC600 (0x5CCE9),Parameter/1D,uint8,%
+0x05CD21,380193,Discovered_3D_Engine_RPM_x_Unknown_RAM_0xC600_0x5CD21,Discovered 3D - Engine RPM x Unknown RAM 0xC600 (0x5CD21),Parameter/1D,uint8,%
+0x05CD40,380224,Discovered_2D_Engine_RPM_0x5CD40,Discovered 2D - Engine RPM (0x5CD40),Parameter/1D,uint8,%
+0x05CD54,380244,Discovered_2D_Engine_RPM_0x5CD54,Discovered 2D - Engine RPM (0x5CD54),Parameter/1D,uint8,%
+0x05CFEA,380906,Discovered_2D_Engine_RPM_0x5CFEA,Discovered 2D - Engine RPM (0x5CFEA),Parameter/1D,uint8,%
+0x05D001,380929,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D001,Discovered 3D - Engine RPM x Engine Load (0x5D001),Parameter/1D,uint8,%
+0x05D252,381522,Discovered_2D_Engine_RPM_0x5D252,Discovered 2D - Engine RPM (0x5D252),Parameter/1D,uint8,%
+0x05D25E,381534,Discovered_2D_Engine_RPM_0x5D25E,Discovered 2D - Engine RPM (0x5D25E),Parameter/1D,uint8,%
+0x05D26A,381546,Discovered_2D_Engine_RPM_0x5D26A,Discovered 2D - Engine RPM (0x5D26A),Parameter/1D,uint8,%
+0x05D27D,381565,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D27D,Discovered 3D - Engine RPM x Engine Load (0x5D27D),Parameter/1D,uint8,%
+0x05D2B5,381621,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D2B5,Discovered 3D - Engine RPM x Engine Load (0x5D2B5),Parameter/1D,uint8,%
+0x05D2E6,381670,Discovered_2D_Engine_RPM_0x5D2E6,Discovered 2D - Engine RPM (0x5D2E6),Parameter/1D,uint8,%
+0x05D2F2,381682,Discovered_2D_Engine_RPM_0x5D2F2,Discovered 2D - Engine RPM (0x5D2F2),Parameter/1D,uint8,%
+0x05D305,381701,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D305,Discovered 3D - Engine RPM x Engine Load (0x5D305),Parameter/1D,uint8,%
+0x05D390,381840,Discovered_2D_Unknown_RAM_0xC5F2_0x5D390,Discovered 2D - Unknown RAM 0xC5F2 (0x5D390),Parameter/1D,uint8,%
+0x05D3A3,381859,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D3A3,Discovered 3D - Engine RPM x Engine Load (0x5D3A3),Parameter/1D,uint8,%
+0x05D479,382073,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D479,Discovered 3D - Engine RPM x Engine Load (0x5D479),Parameter/1D,uint8,%
+0x05D4D4,382164,Discovered_2D_Engine_RPM_0x5D4D4,Discovered 2D - Engine RPM (0x5D4D4),Parameter/1D,uint8,%
+0x05D4E2,382178,Discovered_2D_Engine_RPM_0x5D4E2,Discovered 2D - Engine RPM (0x5D4E2),Parameter/1D,uint8,%
+0x05D576,382326,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint8,
+0x05D58E,382350,RPM,RPM,Parameter/1D,uint8,
+0x05D5D4,382420,Coolant_Temp,Coolant Temp,Parameter/1D,uint8,
+0x05D644,382532,Discovered_2D_Engine_RPM_0x5D644,Discovered 2D - Engine RPM (0x5D644),Parameter/1D,uint8,%
+0x05D656,382550,Discovered_2D_Engine_RPM_0x5D656,Discovered 2D - Engine RPM (0x5D656),Parameter/1D,uint8,%
+0x05D668,382568,Discovered_2D_Engine_RPM_0x5D668,Discovered 2D - Engine RPM (0x5D668),Parameter/1D,uint8,%
+0x05D67A,382586,Discovered_2D_Engine_RPM_0x5D67A,Discovered 2D - Engine RPM (0x5D67A),Parameter/1D,uint8,%
+0x05D693,382611,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D693,Discovered 3D - Engine RPM x Engine Load (0x5D693),Parameter/1D,uint8,%
+0x05D6F3,382707,Discovered_3D_Engine_RPM_x_Engine_Load_0x5D6F3,Discovered 3D - Engine RPM x Engine Load (0x5D6F3),Parameter/1D,uint8,%
+0x05DD83,384387,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DD83,Discovered 3D - Engine RPM x Engine Load (0x5DD83),Parameter/1D,uint8,%
+0x05DD8B,384395,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DD8B,Discovered 3D - Engine RPM x Engine Load (0x5DD8B),Parameter/1D,uint8,%
+0x05DD93,384403,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DD93,Discovered 3D - Engine RPM x Engine Load (0x5DD93),Parameter/1D,uint8,%
+0x05DD9B,384411,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DD9B,Discovered 3D - Engine RPM x Engine Load (0x5DD9B),Parameter/1D,uint8,%
+0x05DDA3,384419,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDA3,Discovered 3D - Engine RPM x Engine Load (0x5DDA3),Parameter/1D,uint8,%
+0x05DDAB,384427,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDAB,Discovered 3D - Engine RPM x Engine Load (0x5DDAB),Parameter/1D,uint8,%
+0x05DDB3,384435,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDB3,Discovered 3D - Engine RPM x Engine Load (0x5DDB3),Parameter/1D,uint8,%
+0x05DDBB,384443,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDBB,Discovered 3D - Engine RPM x Engine Load (0x5DDBB),Parameter/1D,uint8,%
+0x05DDC3,384451,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDC3,Discovered 3D - Engine RPM x Engine Load (0x5DDC3),Parameter/1D,uint8,%
+0x05DDCB,384459,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDCB,Discovered 3D - Engine RPM x Engine Load (0x5DDCB),Parameter/1D,uint8,%
+0x05DDD3,384467,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDD3,Discovered 3D - Engine RPM x Engine Load (0x5DDD3),Parameter/1D,uint8,%
+0x05DDDB,384475,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDDB,Discovered 3D - Engine RPM x Engine Load (0x5DDDB),Parameter/1D,uint8,%
+0x05DDE3,384483,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDE3,Discovered 3D - Engine RPM x Engine Load (0x5DDE3),Parameter/1D,uint8,%
+0x05DDEB,384491,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDEB,Discovered 3D - Engine RPM x Engine Load (0x5DDEB),Parameter/1D,uint8,%
+0x05DDF3,384499,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDF3,Discovered 3D - Engine RPM x Engine Load (0x5DDF3),Parameter/1D,uint8,%
+0x05DDFB,384507,Discovered_3D_Engine_RPM_x_Engine_Load_0x5DDFB,Discovered 3D - Engine RPM x Engine Load (0x5DDFB),Parameter/1D,uint8,%
+0x05DE03,384515,MIVEC_Intake_Normal_Coolant_Temp,MIVEC Intake Normal Coolant Temp,2D Map,uint8,degrees
+0x05E003,385027,MIVEC_Intake_Low_Coolant_Temp,MIVEC Intake Low Coolant Temp,2D Map,uint8,degrees
+0x05E203,385539,MIVEC_Exhaust_Normal_Coolant_Temp,MIVEC Exhaust Normal Coolant Temp,2D Map,uint8,degrees
+0x05E403,386051,MIVEC_Exhaust_Low_Coolant_Temp,MIVEC Exhaust Low Coolant Temp,2D Map,uint8,degrees
+0x05E600,386560,MIVEC_Intake_Map_Interpolation,MIVEC Intake Map Interpolation,1D Map,uint8,% Normal Temp Map
+0x05E60E,386574,MIVEC_Exhaust_Map_Interpolation,MIVEC Exhaust Map Interpolation,1D Map,uint8,% Normal Temp Map
+0x05E61C,386588,Percent_MIVEC_Intake_vs_Unknown,Percent MIVEC Intake vs Unknown,1D Map,uint8,%
+0x05E62C,386604,Percent_MIVEC_Exhaust_vs_Unknown,Percent MIVEC Exhaust vs Unknown,1D Map,uint8,%
+0x05E638,386616,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5E638,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5E638),Parameter/1D,uint8,%
+0x05E646,386630,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x5E646,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x5E646),Parameter/1D,uint8,%
+0x05E6B4,386740,Discovered_2D_Engine_RPM_0x5E6B4,Discovered 2D - Engine RPM (0x5E6B4),Parameter/1D,uint8,%
+0x05E7B9,387001,Discovered_3D_Engine_RPM_x_Engine_Load_0x5E7B9,Discovered 3D - Engine RPM x Engine Load (0x5E7B9),Parameter/1D,uint8,%
+0x05EC42,388162,Discovered_2D_Engine_RPM_0x5EC42,Discovered 2D - Engine RPM (0x5EC42),Parameter/1D,uint8,%
+0x05EC4C,388172,Discovered_2D_Unknown_RAM_0xC5FC_0x5EC4C,Discovered 2D - Unknown RAM 0xC5FC (0x5EC4C),Parameter/1D,uint8,%
+0x05EC5F,388191,Airflow_Check_1,Airflow Check #1,2D Map,uint8,units
+0x05ED55,388437,Airflow_Check_2,Airflow Check #2,2D Map,uint8,units
+0x05EE4B,388683,Airflow_Check_3,Airflow Check #3,2D Map,uint8,units
+0x05EF3A,388922,Discovered_2D_Unknown_RAM_0xC5E2_0x5EF3A,Discovered 2D - Unknown RAM 0xC5E2 (0x5EF3A),Parameter/1D,uint8,%
+0x05EF55,388949,Airflow_Check_4,Airflow Check #4,2D Map,uint8,units
+0x05EFB6,389046,Discovered_2D_Engine_RPM_0x5EFB6,Discovered 2D - Engine RPM (0x5EFB6),Parameter/1D,uint8,%
+0x05EFD8,389080,Discovered_2D_Engine_RPM_0x5EFD8,Discovered 2D - Engine RPM (0x5EFD8),Parameter/1D,uint8,%
+0x05EFE2,389090,Discovered_2D_Engine_RPM_0x5EFE2,Discovered 2D - Engine RPM (0x5EFE2),Parameter/1D,uint8,%
+0x05EFEC,389100,Discovered_2D_Engine_RPM_0x5EFEC,Discovered 2D - Engine RPM (0x5EFEC),Parameter/1D,uint8,%
+0x05EFF6,389110,Discovered_2D_Engine_RPM_0x5EFF6,Discovered 2D - Engine RPM (0x5EFF6),Parameter/1D,uint8,%
+0x05F093,389267,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F093,Discovered 3D - Engine RPM x Engine Load (0x5F093),Parameter/1D,uint8,%
+0x05F13B,389435,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F13B,Discovered 3D - Engine RPM x Engine Load (0x5F13B),Parameter/1D,uint8,%
+0x05F1E3,389603,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F1E3,Discovered 3D - Engine RPM x Engine Load (0x5F1E3),Parameter/1D,uint8,%
+0x05F28B,389771,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F28B,Discovered 3D - Engine RPM x Engine Load (0x5F28B),Parameter/1D,uint8,%
+0x05F333,389939,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F333,Discovered 3D - Engine RPM x Engine Load (0x5F333),Parameter/1D,uint8,%
+0x05F3DB,390107,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F3DB,Discovered 3D - Engine RPM x Engine Load (0x5F3DB),Parameter/1D,uint8,%
+0x05F483,390275,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F483,Discovered 3D - Engine RPM x Engine Load (0x5F483),Parameter/1D,uint8,%
+0x05F52B,390443,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F52B,Discovered 3D - Engine RPM x Engine Load (0x5F52B),Parameter/1D,uint8,%
+0x05F5E4,390628,Discovered_2D_Unknown_RAM_0xC612_0x5F5E4,Discovered 2D - Unknown RAM 0xC612 (0x5F5E4),Parameter/1D,uint8,%
+0x05F5EE,390638,Discovered_2D_Engine_RPM_0x5F5EE,Discovered 2D - Engine RPM (0x5F5EE),Parameter/1D,uint8,%
+0x05F5F8,390648,Discovered_2D_Engine_RPM_0x5F5F8,Discovered 2D - Engine RPM (0x5F5F8),Parameter/1D,uint8,%
+0x05F604,390660,Discovered_2D_Engine_RPM_0x5F604,Discovered 2D - Engine RPM (0x5F604),Parameter/1D,uint8,%
+0x05F620,390688,Idle_RPM_2_vs_Coolant_Temp,Idle RPM #2 vs Coolant Temp,1D Map,uint8,RPM
+0x05F630,390704,Idle_RPM_1_vs_Coolant_Temp,Idle RPM #1 vs Coolant Temp,1D Map,uint8,RPM
+0x05F736,390966,Discovered_2D_Engine_RPM_0x5F736,Discovered 2D - Engine RPM (0x5F736),Parameter/1D,uint8,%
+0x05F744,390980,Discovered_2D_Engine_RPM_0x5F744,Discovered 2D - Engine RPM (0x5F744),Parameter/1D,uint8,%
+0x05F750,390992,Discovered_2D_Engine_RPM_0x5F750,Discovered 2D - Engine RPM (0x5F750),Parameter/1D,uint8,%
+0x05F763,391011,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F763,Discovered 3D - Engine RPM x Engine Load (0x5F763),Parameter/1D,uint8,%
+0x05F79B,391067,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F79B,Discovered 3D - Engine RPM x Engine Load (0x5F79B),Parameter/1D,uint8,%
+0x05F7D3,391123,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F7D3,Discovered 3D - Engine RPM x Engine Load (0x5F7D3),Parameter/1D,uint8,%
+0x05F80B,391179,Discovered_3D_Engine_RPM_x_Engine_Load_0x5F80B,Discovered 3D - Engine RPM x Engine Load (0x5F80B),Parameter/1D,uint8,%
+0x05F83C,391228,Discovered_2D_Engine_RPM_0x5F83C,Discovered 2D - Engine RPM (0x5F83C),Parameter/1D,uint8,%
+0x05F84C,391244,Idle_Timing_Compensation_1_1,Idle Timing Compensation 1.1,1D Map,uint8,x
+0x05F86E,391278,Idle_Timing_Compensation_1_2,Idle Timing Compensation 1.2,1D Map,uint8,x
+0x05F890,391312,Idle_Timing_Compensation_2_1,Idle Timing Compensation 2.1,1D Map,uint8,x
+0x05F8B2,391346,Idle_Timing_Compensation_2_2,Idle Timing Compensation 2.2,1D Map,uint8,x
+0x05F95E,391518,Discovered_2D_Unknown_RAM_0xC60C_0x5F95E,Discovered 2D - Unknown RAM 0xC60C (0x5F95E),Parameter/1D,uint8,%
+0x05F96E,391534,Discovered_2D_Engine_RPM_0x5F96E,Discovered 2D - Engine RPM (0x5F96E),Parameter/1D,uint8,%
+0x05F9D0,391632,Discovered_2D_Unknown_RAM_0xC5E4_0x5F9D0,Discovered 2D - Unknown RAM 0xC5E4 (0x5F9D0),Parameter/1D,uint8,%
+0x05FA12,391698,Discovered_2D_Engine_RPM_0x5FA12,Discovered 2D - Engine RPM (0x5FA12),Parameter/1D,uint8,%
+0x05FA20,391712,Discovered_2D_Engine_RPM_0x5FA20,Discovered 2D - Engine RPM (0x5FA20),Parameter/1D,uint8,%
+0x05FAA5,391845,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FAA5,Discovered 3D - Engine RPM x Engine Load (0x5FAA5),Parameter/1D,uint8,%
+0x05FB63,392035,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FB63,Discovered 3D - Engine RPM x Engine Load (0x5FB63),Parameter/1D,uint8,%
+0x05FC21,392225,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FC21,Discovered 3D - Engine RPM x Engine Load (0x5FC21),Parameter/1D,uint8,%
+0x05FCDF,392415,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FCDF,Discovered 3D - Engine RPM x Engine Load (0x5FCDF),Parameter/1D,uint8,%
+0x05FD9D,392605,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FD9D,Discovered 3D - Engine RPM x Engine Load (0x5FD9D),Parameter/1D,uint8,%
+0x05FE5B,392795,Discovered_3D_Engine_RPM_x_Engine_Load_0x5FE5B,Discovered 3D - Engine RPM x Engine Load (0x5FE5B),Parameter/1D,uint8,%
+0x05FF80,393088,Discovered_2D_Engine_RPM_0x5FF80,Discovered 2D - Engine RPM (0x5FF80),Parameter/1D,uint8,%
+0x05FF8C,393100,Discovered_2D_Engine_RPM_0x5FF8C,Discovered 2D - Engine RPM (0x5FF8C),Parameter/1D,uint8,%
+0x05FF96,393110,Discovered_2D_Unknown_RAM_0xC5E2_0x5FF96,Discovered 2D - Unknown RAM 0xC5E2 (0x5FF96),Parameter/1D,uint8,%
+0x060018,393240,Discovered_2D_Engine_RPM_0x60018,Discovered 2D - Engine RPM (0x60018),Parameter/1D,uint8,%
+0x060028,393256,Discovered_2D_Engine_RPM_0x60028,Discovered 2D - Engine RPM (0x60028),Parameter/1D,uint8,%
+0x060038,393272,Discovered_2D_Engine_RPM_0x60038,Discovered 2D - Engine RPM (0x60038),Parameter/1D,uint8,%
+0x060048,393288,Discovered_2D_Engine_RPM_0x60048,Discovered 2D - Engine RPM (0x60048),Parameter/1D,uint8,%
+0x0600EE,393454,Discovered_2D_Fast_Engine_Coolant_Temp_ECT_0x600EE,Discovered 2D - Fast Engine Coolant Temp (ECT) (0x600EE),Parameter/1D,uint8,%
+0x06025C,393820,Discovered_2D_Throttle_Position_TPS_Vehicle_Speed_0x6025C,Discovered 2D - Throttle Position (TPS) / Vehicle Speed (0x6025C),Parameter/1D,uint8,%
+0x060268,393832,Discovered_2D_Unknown_RAM_0xC612_0x60268,Discovered 2D - Unknown RAM 0xC612 (0x60268),Parameter/1D,uint8,%
+0x06027C,393852,Knock_Background_Noise_Adder_TRIPLE_GAIN_1,Knock Background Noise Adder (TRIPLE GAIN) #1,1D Map,uint8,units
+0x060290,393872,Knock_Background_Noise_Adder_SINGLE_GAIN_1,Knock Background Noise Adder (SINGLE GAIN) #1,1D Map,uint8,units
+0x0602AA,393898,MAP_based_Load_Calc_3,MAP based Load Calc #3,2D Map,uint16,%
+0x0605AC,394668,MAP_based_Load_Calc_2_Cold_Interpolated,MAP based Load Calc #2 - Cold/Interpolated,2D Map,uint16,%
+0x0608AE,395438,MAP_based_Load_Calc_1_Hot_Interpolated,MAP based Load Calc #1 - Hot/Interpolated,2D Map,uint16,%
+0x060BFA,396282,Discovered_2D_Engine_RPM_0x60BFA,Discovered 2D - Engine RPM (0x60BFA),Parameter/1D,uint8,%
+0x060C0D,396301,Upper_Bound_Ignition_Timing,Upper Bound Ignition Timing,2D Map,int8,degrees
+0x060E0C,396812,Idle_Adder_1_vs_Coolant_Temp,Idle Adder #1 vs Coolant Temp,1D Map,uint8,RPM
+0x060E1A,396826,Idle_Adder_2_vs_Coolant_Temp,Idle Adder #2 vs Coolant Temp,1D Map,uint8,RPM
+0x060EB4,396980,Discovered_2D_Unknown_RAM_0xC5FC_0x60EB4,Discovered 2D - Unknown RAM 0xC5FC (0x60EB4),Parameter/1D,uint8,%
+0x060EC0,396992,Discovered_2D_Engine_RPM_0x60EC0,Discovered 2D - Engine RPM (0x60EC0),Parameter/1D,uint8,%
+0x060ECE,397006,Discovered_2D_Engine_RPM_0x60ECE,Discovered 2D - Engine RPM (0x60ECE),Parameter/1D,uint8,%
+0x060EDE,397022,Discovered_2D_Engine_RPM_0x60EDE,Discovered 2D - Engine RPM (0x60EDE),Parameter/1D,uint8,%
+0x060EEE,397038,Discovered_2D_Unknown_RAM_0xC5E2_0x60EEE,Discovered 2D - Unknown RAM 0xC5E2 (0x60EEE),Parameter/1D,uint8,%
+0x060F09,397065,Airflow_Check_Offset,Airflow Check Offset,2D Map,uint8,units
+0x060FCD,397261,Fuel_Compensation_MAT_vs_MAP_Omni4bar,Fuel Compensation MAT vs MAP - Omni4bar,2D Map,uint8,%
+0x0611A2,397730,Discovered_2D_Engine_RPM_0x611A2,Discovered 2D - Engine RPM (0x611A2),Parameter/1D,uint8,%
+0x061258,397912,Discovered_2D_Engine_RPM_0x61258,Discovered 2D - Engine RPM (0x61258),Parameter/1D,uint8,%
+0x0615DE,398814,RPM,RPM,Parameter/1D,uint8,
+0x061622,398882,RPM,RPM,Parameter/1D,uint8,
+0x061650,398928,Engine_Speed,Engine Speed,Parameter/1D,uint8,
+0x06168C,398988,Load,Load,Parameter/1D,uint8,
+0x061712,399122,Battery_Voltage,Battery Voltage,Parameter/1D,uint8,
+0x06173E,399166,Baro,Baro,Parameter/1D,uint8,
+0x061782,399234,Base_Fuel_Map_AFR,Base Fuel Map AFR,Parameter/1D,uint8,
+0x061796,399254,RPM,RPM,Parameter/1D,uint16,RPM
+0x0617BC,399292,Load,Load,Parameter/1D,uint16,Load
+0x061802,399362,RPM,RPM,Parameter/1D,uint16,RPM
+0x061836,399414,Load,Load,Parameter/1D,uint16,Load
+0x06187A,399482,Discovered_2D_Engine_Load_0x6187A,Discovered 2D - Engine Load (0x6187A),Parameter/1D,uint8,%
+0x06189A,399514,ECT,ECT,Parameter/1D,uint8,
+0x0618D8,399576,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint8,
+0x0618F0,399600,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint8,
+0x061936,399670,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint16,Fahrenheit
+0x0619C6,399814,Engine_Temp,Engine Temp,Parameter/1D,uint8,
+0x0619EC,399852,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint8,
+0x061A04,399876,IAT,IAT,Parameter/1D,uint8,
+0x061A38,399928,Discovered_2D_Engine_RPM_0x61A38,Discovered 2D - Engine RPM (0x61A38),Parameter/1D,uint8,%
+0x061B34,400180,Coolant_Temp,Coolant Temp,Parameter/1D,uint8,
+0x061B4A,400202,Coolant_Temp,Coolant Temp,Parameter/1D,uint8,
+0x061B82,400258,Discovered_2D_Engine_RPM_0x61B82,Discovered 2D - Engine RPM (0x61B82),Parameter/1D,uint8,%
+0x061C1A,400410,RPM,RPM,Parameter/1D,uint8,
+0x061C5A,400474,RPM,RPM,Parameter/1D,uint8,
+0x061C80,400512,RPM,RPM,Parameter/1D,uint8,
+0x061CA6,400550,Load,Load,Parameter/1D,uint8,
+0x061D7E,400766,Load,Load,Parameter/1D,uint8,
+0x061EB4,401076,RPM,RPM,Parameter/1D,uint8,
+0x061ECE,401102,Load,Load,Parameter/1D,uint8,
+0x061EFE,401150,Discovered_2D_Engine_Load_0x61EFE,Discovered 2D - Engine Load (0x61EFE),Parameter/1D,uint8,%
+0x061F40,401216,RPM,RPM,Parameter/1D,uint16,RPM
+0x061F6A,401258,Load,Load,Parameter/1D,uint16,Load
+0x061F9A,401306,RPM,RPM,Parameter/1D,uint16,RPM
+0x061FD0,401360,Volts,Volts,Parameter/1D,uint8,
+0x062028,401448,Volts,Volts,Parameter/1D,uint8,
+0x062080,401536,Volts,Volts,Parameter/1D,uint8,
+0x062174,401780,Unknown,Unknown,Parameter/1D,uint8,
+0x062190,401808,RPM,RPM,Parameter/1D,uint8,
+0x0621BC,401852,Load,Load,Parameter/1D,uint8,
+0x0623CE,402382,RPM,RPM,Parameter/1D,uint8,
+0x0624E4,402660,RPM,RPM,Parameter/1D,uint8,
+0x062E16,405014,Coolant_Temperature,Coolant Temperature,Parameter/1D,uint8,
+0x062E2E,405038,Unknown,Unknown,Parameter/1D,uint8,
+0x062E74,405108,RPM,RPM,Parameter/1D,uint8,
+0x062E9C,405148,Throttle_Main_or_SUB_Inverted_Opening,Throttle Main or SUB Inverted Opening,Parameter/1D,uint8,
+0x062EBE,405182,RPM,RPM,Parameter/1D,uint8,
+0x062EE4,405220,TPS_Related,TPS-Related,Parameter/1D,uint8,
+0x062F9C,405404,RPM,RPM,Parameter/1D,uint16,RPM
+0x062FC2,405442,Boost_Error_RAM_Address_in_Load_Error_Table_0xC5D8_0xC5D6,Boost Error RAM Address in Load Error Table 0xC5D8 -> 0xC5D6,Parameter/1D,bloblist,
+0x062FC6,405446,Boost_Error,Boost Error,Parameter/1D,uint8,
+0x062FEA,405482,OBTR_Boost_Error_RAM_Address_in_Load_Error_Table_0xC5D8_0xC5D6,OBTR Boost Error RAM Address in Load Error Table 0xC5D8 -> 0xC5D6,Parameter/1D,bloblist,
+0x062FEE,405486,Load_Error,Load Error,Parameter/1D,uint8,
+0x063006,405510,TPS,TPS,Parameter/1D,uint8,
+0x06301E,405534,Throttle,Throttle,Parameter/1D,uint16,%
+0x0630B4,405684,RPM,RPM,Parameter/1D,uint8,
+0x06329E,406174,RPM,RPM,Parameter/1D,uint8,
+0x06341E,406558,RPM,RPM,Parameter/1D,uint8,
+0x06344A,406602,MAP,MAP,Parameter/1D,uint8,
+0x063478,406648,TPS_Related,TPS-Related,Parameter/1D,uint8,
+0x063490,406672,Reactive_Solenoid_BWGDC_Related,Reactive Solenoid BWGDC-Related,Parameter/1D,uint8,
+0x0634C0,406720,MAT,MAT,Parameter/1D,uint8,
+0x0634D4,406740,MAP,MAP,Parameter/1D,uint8,
+0x063C02,408578,DTC_P1241_0x03E8_0xFFFF_Torque_monitor,DTC P1241 0x03E8 -> 0xFFFF Torque monitor,Parameter/1D,bloblist,
+0x063C0C,408588,DTC_P1238_0x0384_0xFFFF_Mass_airflow_sensor_plausibility_Torque_Monitor,DTC P1238 0x0384 -> 0xFFFF Mass airflow sensor plausibility (Torque Monitor),Parameter/1D,bloblist,
+0x063C58,408664,Discovered_2D_Unknown_RAM_0xDF64_0x63C58,Discovered 2D - Unknown RAM 0xDF64 (0x63C58),Parameter/1D,uint8,%
+0x063C6C,408684,Discovered_2D_Unknown_RAM_0xDF64_0x63C6C,Discovered 2D - Unknown RAM 0xDF64 (0x63C6C),Parameter/1D,uint8,%
+0x063C76,408694,Discovered_2D_Unknown_RAM_0xDF64_0x63C76,Discovered 2D - Unknown RAM 0xDF64 (0x63C76),Parameter/1D,uint8,%
+0x063C89,408713,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x63C89,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x63C89),Parameter/1D,uint8,%
+0x063DE1,409057,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x63DE1,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x63DE1),Parameter/1D,uint8,%
+0x063EF9,409337,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x63EF9,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x63EF9),Parameter/1D,uint8,%
+0x064011,409617,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x64011,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x64011),Parameter/1D,uint8,%
+0x064122,409890,Discovered_2D_Unknown_RAM_0xDF64_0x64122,Discovered 2D - Unknown RAM 0xDF64 (0x64122),Parameter/1D,uint8,%
+0x06413D,409917,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x6413D,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x6413D),Parameter/1D,uint8,%
+0x06424E,410190,Discovered_2D_Unknown_RAM_0xDF64_0x6424E,Discovered 2D - Unknown RAM 0xDF64 (0x6424E),Parameter/1D,uint8,%
+0x064269,410217,Torque_Limiter_1,Torque Limiter #1,2D Map,uint8,units
+0x06435F,410463,Torque_Limiter_2,Torque Limiter #2,2D Map,uint8,units
+0x064455,410709,Torque_Limiter_3,Torque Limiter #3,2D Map,uint8,units
+0x06454B,410955,Torque_Limiter_4,Torque Limiter #4,2D Map,uint8,units
+0x0645AC,411052,Discovered_2D_Unknown_RAM_0xDF60_0x645AC,Discovered 2D - Unknown RAM 0xDF60 (0x645AC),Parameter/1D,uint8,%
+0x0645CC,411084,Discovered_2D_Unknown_RAM_0xDF60_0x645CC,Discovered 2D - Unknown RAM 0xDF60 (0x645CC),Parameter/1D,uint8,%
+0x0645EC,411116,Discovered_2D_Unknown_RAM_0xDF64_0x645EC,Discovered 2D - Unknown RAM 0xDF64 (0x645EC),Parameter/1D,uint8,%
+0x0645FA,411130,Discovered_2D_Unknown_RAM_0xDF64_0x645FA,Discovered 2D - Unknown RAM 0xDF64 (0x645FA),Parameter/1D,uint8,%
+0x064615,411157,Discovered_3D_Unknown_RAM_0xDF64_x_Unknown_RAM_0xDF68_0x64615,Discovered 3D - Unknown RAM 0xDF64 x Unknown RAM 0xDF68 (0x64615),Parameter/1D,uint8,%
+0x0647C0,411584,RPM,RPM,Parameter/1D,uint8,
+0x0647E8,411624,TPS_Related,TPS-Related,Parameter/1D,uint8,
+0x06480A,411658,RPM,RPM,Parameter/1D,uint8,
+0x0648A8,411816,TPS_Related,TPS-Related,Parameter/1D,uint8,
+0x064A2B,412203,Discovered_3D_Unknown_RAM_0xE1BC_x_Unknown_RAM_0xE1C0_0x64A2B,Discovered 3D - Unknown RAM 0xE1BC x Unknown RAM 0xE1C0 (0x64A2B),Parameter/1D,uint8,%
+0x064B83,412547,Discovered_3D_Unknown_RAM_0xE1BC_x_Unknown_RAM_0xE1C0_0x64B83,Discovered 3D - Unknown RAM 0xE1BC x Unknown RAM 0xE1C0 (0x64B83),Parameter/1D,uint8,%
+0x064C9B,412827,Discovered_3D_Unknown_RAM_0xE1BC_x_Unknown_RAM_0xE1C0_0x64C9B,Discovered 3D - Unknown RAM 0xE1BC x Unknown RAM 0xE1C0 (0x64C9B),Parameter/1D,uint8,%
+0x064DAC,413100,Discovered_2D_Unknown_RAM_0xE1B8_0x64DAC,Discovered 2D - Unknown RAM 0xE1B8 (0x64DAC),Parameter/1D,uint8,%
+0x064DCC,413132,Discovered_2D_Unknown_RAM_0xE1BC_0x64DCC,Discovered 2D - Unknown RAM 0xE1BC (0x64DCC),Parameter/1D,uint8,%
+0x064DE0,413152,Discovered_2D_Unknown_RAM_0xE1BC_0x64DE0,Discovered 2D - Unknown RAM 0xE1BC (0x64DE0),Parameter/1D,uint8,%
+0x064DF4,413172,Discovered_2D_Unknown_RAM_0xE1BC_0x64DF4,Discovered 2D - Unknown RAM 0xE1BC (0x64DF4),Parameter/1D,uint8,%
+0x064DFE,413182,Discovered_2D_Unknown_RAM_0xE1BC_0x64DFE,Discovered 2D - Unknown RAM 0xE1BC (0x64DFE),Parameter/1D,uint8,%
+0x064E11,413201,Discovered_3D_Unknown_RAM_0xE1BC_x_Unknown_RAM_0xE1C0_0x64E11,Discovered 3D - Unknown RAM 0xE1BC x Unknown RAM 0xE1C0 (0x64E11),Parameter/1D,uint8,%
+0x064F07,413447,Discovered_3D_Unknown_RAM_0xE1BC_x_Unknown_RAM_0xE1C0_0x64F07,Discovered 3D - Unknown RAM 0xE1BC x Unknown RAM 0xE1C0 (0x64F07),Parameter/1D,uint8,%
+0x064F68,413544,Discovered_2D_Unknown_RAM_0xE1BC_0x64F68,Discovered 2D - Unknown RAM 0xE1BC (0x64F68),Parameter/1D,uint8,%
+0x066148,418120,Discovered_2D_Unknown_RAM_0xEE64_0x66148,Discovered 2D - Unknown RAM 0xEE64 (0x66148),Parameter/1D,uint8,%
+0x07FA27,522791,Mode_23_IFMode_0x05_0x23_1,Mode 23 - IFMode 0x05 -> 0x23 #1,Parameter/1D,bloblist,
+0x08B887,571527,Mode_23_IFMode_0x05_0x23_2,Mode 23 - IFMode 0x05 -> 0x23 #2,Parameter/1D,bloblist,
+0x08B88E,571534,Mode_23_DoMode_0x4D_0x5D,Mode 23 - DoMode 0x4D -> 0x5D,Parameter/1D,bloblist,
+0x091055,594005,Monitor_Available_1_Not_Available_0_Read_Only_Do_NOT_Change,"Monitor Available(1)/Not Available(0) - Read Only, Do NOT Change",Parameter/1D,bloblist,
+0x0910C0,594112,Non_Continuous_Monitor_Completion_Patch_1_0xA0BD_0x6000,Non-Continuous Monitor Completion Patch 1 0xA0BD->0x6000,Parameter/1D,bloblist,
+0x0910C1,594113,Monitor_Passed_1_Failed_0_Read_Only_Do_NOT_Change,"Monitor Passed(1)/Failed(0) - Read Only, Do NOT Change",Parameter/1D,bloblist,
+0x0910C2,594114,Non_Continuous_Monitor_Completion_Patch_2_0x87C2_0x7000,Non-Continuous Monitor Completion Patch 2 0x87C2->0x7000,Parameter/1D,bloblist,
+0x096394,615316,OBD_II_Codes,OBD-II Codes,Parameter/1D,uint16,hex
+0x0CFFF8,851960,RAX_Direct_Boost_Baro_Comp_Data_and_Subroutine,RAX Direct Boost Baro Comp: Data and Subroutine,Parameter/1D,bloblist,
+0x0D0044,852036,RAX_IAT_Adjusted_BWGDC_Initial_Scale_Table_Data,RAX IAT Adjusted BWGDC: Initial Scale/Table Data,Parameter/1D,bloblist,
+0x0D004A,852042,IAT,IAT,Parameter/1D,uint16,Fahrenheit
+0x0D0064,852068,IAT_Adjusted_BWGDC_Requires_RAX3,IAT Adjusted BWGDC (Requires RAX3),1D Map,uint8,%WGDC Change
+0x0D0080,852096,RAX_IAT_Adjusted_BWGDC_Subroutine,RAX IAT Adjusted BWGDC: Subroutine,Parameter/1D,bloblist,
+0x0D0180,852352,RAX_Fast_Logging_Data,RAX Fast Logging: Data,Parameter/1D,bloblist,
+0x0D0200,852480,RAX_Fast_Logging_Subroutine,RAX Fast Logging: Subroutine,Parameter/1D,bloblist,
+0x0D057C,853372,RAX_Smart_EC_Data_and_Subroutine,RAX Smart EC: Data and Subroutine,Parameter/1D,bloblist,
+0x0F0000,983040,MethSafe_Fuel_Injector_Scaling,MethSafe Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F0009,983049,MethSafe_High_Octane_Fuel_Map,MethSafe High Octane Fuel Map,2D Map,uint8,AFR
+0x0F0167,983399,MethSafe_High_Octane_Timing_Map,MethSafe High Octane Timing Map,2D Map,int8,degrees
+0x0F0377,983927,MethSafe_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,MethSafe Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F0427,984103,MethSafe_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,MethSafe Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F0517,984343,MethSafe_Boost_Target_1_High_Gear_Range,MethSafe Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F05C7,984519,MethSafe_Boost_Target_2_Low_Gear_Range,MethSafe Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F0674,984692,MethSafe_Cranking_Enrichment_IPW_Adder,MethSafe Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F0E90,986768,MethSafe_Rev_Limiter,MethSafe Rev Limiter,1D Map,uint16,RPM
+0x0F1000,987136,Alternate_1_Fuel_Injector_Scaling,Alternate #1 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F1009,987145,Alternate_1_High_Octane_Fuel_Map,Alternate #1 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F1167,987495,Alternate_1_High_Octane_Timing_Map,Alternate #1 High Octane Timing Map,2D Map,int8,degrees
+0x0F1377,988023,Alternate_1_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #1 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F1427,988199,Alternate_1_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #1 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F1517,988439,Alternate_1_Boost_Target_1_High_Gear_Range,Alternate #1 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F15C7,988615,Alternate_1_Boost_Target_2_Low_Gear_Range,Alternate #1 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F1674,988788,Alternate_1_Cranking_Enrichment_IPW_Adder,Alternate #1 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F1E90,990864,Alternate_1_Rev_Limiter,Alternate #1 Rev Limiter,1D Map,uint16,RPM
+0x0F2000,991232,Alternate_2_Fuel_Injector_Scaling,Alternate #2 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F2009,991241,Alternate_2_High_Octane_Fuel_Map,Alternate #2 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F2167,991591,Alternate_2_High_Octane_Timing_Map,Alternate #2 High Octane Timing Map,2D Map,int8,degrees
+0x0F2377,992119,Alternate_2_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #2 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F2427,992295,Alternate_2_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #2 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F2517,992535,Alternate_2_Boost_Target_1_High_Gear_Range,Alternate #2 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F25C7,992711,Alternate_2_Boost_Target_2_Low_Gear_Range,Alternate #2 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F2674,992884,Alternate_2_Cranking_Enrichment_IPW_Adder,Alternate #2 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F2E90,994960,Alternate_2_Rev_Limiter,Alternate #2 Rev Limiter,1D Map,uint16,RPM
+0x0F3000,995328,Alternate_3_Fuel_Injector_Scaling,Alternate #3 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F3009,995337,Alternate_3_High_Octane_Fuel_Map,Alternate #3 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F3167,995687,Alternate_3_High_Octane_Timing_Map,Alternate #3 High Octane Timing Map,2D Map,int8,degrees
+0x0F3377,996215,Alternate_3_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #3 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F3427,996391,Alternate_3_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #3 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F3517,996631,Alternate_3_Boost_Target_1_High_Gear_Range,Alternate #3 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F35C7,996807,Alternate_3_Boost_Target_2_Low_Gear_Range,Alternate #3 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F3674,996980,Alternate_3_Cranking_Enrichment_IPW_Adder,Alternate #3 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F3E90,999056,Alternate_3_Rev_Limiter,Alternate #3 Rev Limiter,1D Map,uint16,RPM
+0x0F4000,999424,Alternate_4_Fuel_Injector_Scaling,Alternate #4 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F4009,999433,Alternate_4_High_Octane_Fuel_Map,Alternate #4 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F4167,999783,Alternate_4_High_Octane_Timing_Map,Alternate #4 High Octane Timing Map,2D Map,int8,degrees
+0x0F4377,1000311,Alternate_4_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #4 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F4427,1000487,Alternate_4_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #4 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F4517,1000727,Alternate_4_Boost_Target_1_High_Gear_Range,Alternate #4 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F45C7,1000903,Alternate_4_Boost_Target_2_Low_Gear_Range,Alternate #4 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F4674,1001076,Alternate_4_Cranking_Enrichment_IPW_Adder,Alternate #4 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F4E90,1003152,Alternate_4_Rev_Limiter,Alternate #4 Rev Limiter,1D Map,uint16,RPM
+0x0F5000,1003520,Alternate_5_Fuel_Injector_Scaling,Alternate #5 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F5009,1003529,Alternate_5_High_Octane_Fuel_Map,Alternate #5 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F5167,1003879,Alternate_5_High_Octane_Timing_Map,Alternate #5 High Octane Timing Map,2D Map,int8,degrees
+0x0F5377,1004407,Alternate_5_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #5 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F5427,1004583,Alternate_5_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #5 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F5517,1004823,Alternate_5_Boost_Target_1_High_Gear_Range,Alternate #5 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F55C7,1004999,Alternate_5_Boost_Target_2_Low_Gear_Range,Alternate #5 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F5674,1005172,Alternate_5_Cranking_Enrichment_IPW_Adder,Alternate #5 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F5E90,1007248,Alternate_5_Rev_Limiter,Alternate #5 Rev Limiter,1D Map,uint16,RPM
+0x0F6000,1007616,Alternate_6_Fuel_Injector_Scaling,Alternate #6 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F6009,1007625,Alternate_6_High_Octane_Fuel_Map,Alternate #6 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F6167,1007975,Alternate_6_High_Octane_Timing_Map,Alternate #6 High Octane Timing Map,2D Map,int8,degrees
+0x0F6377,1008503,Alternate_6_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #6 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F6427,1008679,Alternate_6_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #6 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F6517,1008919,Alternate_6_Boost_Target_1_High_Gear_Range,Alternate #6 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F65C7,1009095,Alternate_6_Boost_Target_2_Low_Gear_Range,Alternate #6 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F6674,1009268,Alternate_6_Cranking_Enrichment_IPW_Adder,Alternate #6 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F6E90,1011344,Alternate_6_Rev_Limiter,Alternate #6 Rev Limiter,1D Map,uint16,RPM
+0x0F7000,1011712,Alternate_7_Fuel_Injector_Scaling,Alternate #7 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F7009,1011721,Alternate_7_High_Octane_Fuel_Map,Alternate #7 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F7167,1012071,Alternate_7_High_Octane_Timing_Map,Alternate #7 High Octane Timing Map,2D Map,int8,degrees
+0x0F7377,1012599,Alternate_7_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #7 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F7427,1012775,Alternate_7_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #7 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F7517,1013015,Alternate_7_Boost_Target_1_High_Gear_Range,Alternate #7 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F75C7,1013191,Alternate_7_Boost_Target_2_Low_Gear_Range,Alternate #7 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F7674,1013364,Alternate_7_Cranking_Enrichment_IPW_Adder,Alternate #7 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F7E90,1015440,Alternate_7_Rev_Limiter,Alternate #7 Rev Limiter,1D Map,uint16,RPM
+0x0F8000,1015808,Alternate_8_Fuel_Injector_Scaling,Alternate #8 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F8009,1015817,Alternate_8_High_Octane_Fuel_Map,Alternate #8 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F8167,1016167,Alternate_8_High_Octane_Timing_Map,Alternate #8 High Octane Timing Map,2D Map,int8,degrees
+0x0F8377,1016695,Alternate_8_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #8 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F8427,1016871,Alternate_8_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #8 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F8517,1017111,Alternate_8_Boost_Target_1_High_Gear_Range,Alternate #8 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F85C7,1017287,Alternate_8_Boost_Target_2_Low_Gear_Range,Alternate #8 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F8674,1017460,Alternate_8_Cranking_Enrichment_IPW_Adder,Alternate #8 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F8E90,1019536,Alternate_8_Rev_Limiter,Alternate #8 Rev Limiter,1D Map,uint16,RPM
+0x0F9000,1019904,Alternate_9_Fuel_Injector_Scaling,Alternate #9 Fuel Injector Scaling,Parameter/1D,uint16,cc/min
+0x0F9009,1019913,Alternate_9_High_Octane_Fuel_Map,Alternate #9 High Octane Fuel Map,2D Map,uint8,AFR
+0x0F9167,1020263,Alternate_9_High_Octane_Timing_Map,Alternate #9 High Octane Timing Map,2D Map,int8,degrees
+0x0F9377,1020791,Alternate_9_Reactive_Solenoid_Base_WGDC_Map_1_High_Gear_Range,Alternate #9 Reactive Solenoid Base WGDC Map #1 (High Gear Range),2D Map,uint8,%
+0x0F9427,1020967,Alternate_9_Reactive_Solenoid_Base_WGDC_Map_2_Low_Gear_Range,Alternate #9 Reactive Solenoid Base WGDC Map #2 (Low Gear Range),2D Map,uint8,%
+0x0F9517,1021207,Alternate_9_Boost_Target_1_High_Gear_Range,Alternate #9 Boost Target #1 (High Gear Range),2D Map,uint8,psia
+0x0F95C7,1021383,Alternate_9_Boost_Target_2_Low_Gear_Range,Alternate #9 Boost Target #2 (Low Gear Range),2D Map,uint8,psia
+0x0F9674,1021556,Alternate_9_Cranking_Enrichment_IPW_Adder,Alternate #9 Cranking Enrichment IPW Adder,1D Map,uint8,ms
+0x0F9E90,1023632,Alternate_9_Rev_Limiter,Alternate #9 Rev Limiter,1D Map,uint16,RPM
+0x0FA009,1024009,Launch_High_Octane_Fuel_Map,Launch High Octane Fuel Map,2D Map,uint8,AFR
+0x0FA167,1024359,Launch_High_Octane_Timing_Map,Launch High Octane Timing Map,2D Map,int8,degrees
+0x0FBE0C,1031692,Load_Required_for_CEL_on_Knock,Load Required for CEL on Knock,Parameter/1D,uint16,Load
+0x0FBE0E,1031694,KnockSum_Required_for_Slow_CEL_Low_Knock,KnockSum Required for Slow CEL (Low Knock),Parameter/1D,uint16,units
+0x0FBE10,1031696,KnockSum_Required_for_Fast_CEL_High_Knock,KnockSum Required for Fast CEL (High Knock),Parameter/1D,uint16,units
+0x0FBE12,1031698,Knock_CEL_Flash_time,Knock CEL Flash time,Parameter/1D,uint16,ms
+0x0FBE14,1031700,KnockSum_Required_for_TPSCut_Super_High_Knock,KnockSum Required for TPSCut (Super High Knock),Parameter/1D,uint16,units
+0x0FBE16,1031702,Max_TPS_when_seeing_High_Knock,Max TPS when seeing High Knock,Parameter/1D,uint16,%
+0x0FBE18,1031704,Map_Switching_Master_0_OFF_1_Alt_Map_2_MethSafe_3_Flex,"Map Switching Master (0=OFF, 1=Alt Map, 2=MethSafe, 3=Flex)",Parameter/1D,bloblist,
+0x0FBE1A,1031706,MethSafe_Map_Master_0_OFF_1_5V_ADC_2_Resistor_ADC,"MethSafe Map Master (0=OFF, 1=5V ADC, 2=Resistor ADC)",Parameter/1D,bloblist,
+0x0FBE1C,1031708,Alternate_Map_Max_Count,Alternate Map Max Count,Parameter/1D,bloblist,
+0x0FBE1E,1031710,MethSafe_Alternate_Map_Load_Threshold,MethSafe/Alternate Map Load Threshold,Parameter/1D,uint16,Load
+0x0FBE20,1031712,MethSafe_Alternate_Map_Time_to_Activate_Swap,MethSafe/Alternate Map Time to Activate/Swap,Parameter/1D,uint16,ms
+0x0FBE22,1031714,MethSafe_ADC_Threshold,MethSafe ADC Threshold,Parameter/1D,uint16,Volts
+0x0FBE24,1031716,High_Low_Gear_MIVEC_Crossover_5MT,High/Low Gear MIVEC Crossover (5MT),Parameter/1D,bloblist,
+0x0FBE26,1031718,RPM_Drop_on_NLTS,RPM Drop on NLTS,Parameter/1D,uint16,RPM
+0x0FBE28,1031720,Minimum_Speed_required_for_NLTS,Minimum Speed required for NLTS,Parameter/1D,uint16,km/h
+0x0FBE2A,1031722,Minimum_RPM_required_for_NLTS,Minimum RPM required for NLTS,Parameter/1D,uint16,RPM
+0x0FBE2C,1031724,Maximum_Speed_permitted_for_Launch_Maps,Maximum Speed permitted for Launch Maps,Parameter/1D,uint16,km/h
+0x0FBE2E,1031726,Minimum_TPS_required_for_NLTS_or_Launch_Maps,Minimum TPS required for NLTS or Launch Maps,Parameter/1D,uint16,%
+0x0FBE32,1031730,Flex_Fuel_Input_Method,Flex Fuel Input Method,Parameter/1D,bloblist,
+0x0FBE34,1031732,Flex_Averaging_Period,Flex Averaging Period,Parameter/1D,uint16,units
+0x0FBE36,1031734,Flex_Sensor_Range_CEL,Flex Sensor Range CEL,Parameter/1D,uint16,%
+0x0FBE38,1031736,Flex_Sensor_Minimim_Voltage_Allowed,Flex Sensor Minimim Voltage Allowed,Parameter/1D,uint16,Volts
+0x0FBE42,1031746,Volts,Volts,Parameter/1D,uint16,Volts
+0x0FBE60,1031776,Flex_Sensor_Volts_to_Ethanol,Flex - Sensor Volts to Ethanol,1D Map,uint8,%
+0x0FBE72,1031794,Ethanol,Ethanol,Parameter/1D,uint16,%
+0x0FBE90,1031824,Flex_Injector_Scaling_Interpolator,Flex - Injector Scaling Interpolator,1D Map,uint8,%
+0x0FBEA0,1031840,Flex_Fuel_Map_Interpolator,Flex - Fuel Map Interpolator,1D Map,uint8,%
+0x0FBEB0,1031856,Flex_Timing_Map_Interpolator,Flex - Timing Map Interpolator,1D Map,uint8,%
+0x0FBEC0,1031872,Flex_Boost_Map_Interpolator,Flex - Boost Map Interpolator,1D Map,uint8,%
+0x0FBED0,1031888,Flex_Cranking_Enrichment_Map_Interpolator,Flex - Cranking Enrichment Map Interpolator,1D Map,uint8,%
+0x0FC007,1032199,MIVEC_Intake_2_Hot_Interpolated_Low_Gear_Range,MIVEC Intake #2 - Hot/Interpolated - (Low Gear Range),2D Map,uint8,degrees
+0x0FC207,1032711,MIVEC_Exhaust_2_Hot_Interpolated_Low_Gear_Range,MIVEC Exhaust #2 - Hot/Interpolated - (Low Gear Range),2D Map,uint8,degrees
+0x804573,8406387,RAM_LTFT_Idle,Long Term Fuel Trim (Idle Domain),RAM/Variable,int8,%
+0x804575,8406389,RAM_LTFT_Cruise,Long Term Fuel Trim (Cruise Domain),RAM/Variable,int8,%
+0x80459F,8406431,RAM_Octane_Level,Octane Level %,RAM/Variable,uint8,%
+0x8045BD,8406461,RAM_Engine_RPM_High,Raw Engine RPM High Byte,RAM/Variable,uint8,raw
+0x805018,8409112,RAM_TephraMOD_Active_Map,TephraMOD v3 Active Map Number,RAM/Variable,uint8,map index
+0x805075,8409205,RAM_Fuel_Tank_Pressure,Fuel Tank Pressure Volts,RAM/Variable,uint8,Volts
+0x805083,8409219,RAM_Flex_Fuel_Percent,TephraMOD Flex Fuel Ethanol Content %,RAM/Variable,uint8,%
+0x8051A8,8409512,RAM_RAX_B_Dat,"RAX Fast Logging Packet B (Load, IPW, AFRMAP, O2-2)",RAM/Buffer,uint32,packed bitfield
+0x8051AC,8409516,RAM_RAX_A_Dat,"RAX Fast Logging Packet A (STFT, LTFT InUse, LTFT Idle, LTFT Cruise)",RAM/Buffer,uint32,packed bitfield
+0x8051B0,8409520,RAM_RAX_C_Dat,"RAX Fast Logging Packet C (Load Timing, Timing Adv, Knock Sum, RPM)",RAM/Buffer,uint32,packed bitfield
+0x8051B4,8409524,RAM_RAX_D_Dat,"RAX Fast Logging Packet D (MAP, Baro, Active WGDC, MAF Volts)",RAM/Buffer,uint32,packed bitfield
+0x8051B8,8409528,RAM_RAX_E_Dat,"RAX Fast Logging Packet E (InVVT Tgt, ExVVT Tgt, InVVT Act, ExVVT Act)",RAM/Buffer,uint32,packed bitfield
+0x8051BC,8409532,RAM_RAX_F_Dat,"RAX Fast Logging Packet F (TPS, APP, IAT, WGDC Corr)",RAM/Buffer,uint32,packed bitfield
+0x8051C0,8409536,RAM_RAX_G_Dat,"RAX Fast Logging Packet G (Speed, Battery, ECT, MAT)",RAM/Buffer,uint32,packed bitfield
+0x8051C4,8409540,RAM_RAX_H_Dat,"RAX Fast Logging Packet H (MAPCalcs, IMAPCalcs, MAFCalcs, ChosenCalc)",RAM/Buffer,uint32,packed bitfield
+0x808131,8421681,RAM_Knock_Flag,Knock Detected Flag,RAM/Variable,uint8,flag
+0x8085D6,8422870,RAM_Boost_Error_RAX_Logged,Boost Error (RAX Mod Address),RAM/Variable,int16,psi/load
+0x8085D8,8422872,RAM_Boost_Error,Boost Error (Target - Actual),RAM/Variable,int16,psi/load
+0x808687,8423047,RAM_ECT_Engine_Coolant_Temp,Engine Coolant Temperature (ECT),RAM/Variable,uint8,Celsius
+0x8086A3,8423075,RAM_IAT_Intake_Air_Temp,Intake Air Temperature (IAT),RAM/Variable,uint8,Celsius
+0x8086A9,8423081,RAM_MAT_Manifold_Air_Temp,Manifold Air Temperature (MAT),RAM/Variable,uint8,Celsius
+0x8086B9,8423097,RAM_Rear_O2_Sensor,Secondary Oxygen Sensor (Bank 1 Sensor 2),RAM/Variable,uint8,Volts ADC
+0x80873F,8423231,RAM_Battery_Voltage,ECU Battery Voltage,RAM/Variable,uint8,Volts
+0x808749,8423241,RAM_TPS_Throttle_Position,Drive-By-Wire Throttle Position (TPS),RAM/Variable,uint8,%
+0x80876A,8423274,RAM_Manifold_Absolute_Pressure_MAP,Manifold Absolute Pressure (MAP),RAM/Variable,uint16,kPa
+0x808798,8423320,RAM_Engine_RPM,Engine RPM,RAM/Variable,uint16,RPM
+0x80879F,8423327,RAM_Engine_RPM_Low,Raw Engine RPM Low Byte,RAM/Variable,uint8,raw
+0x8087C0,8423360,RAM_Load_Calculated,Engine Load (Calculated Airflow/Load),RAM/Variable,uint16,Load %
+0x8087C6,8423366,RAM_Load_Timing,Engine Load (Timing Pipeline),RAM/Variable,uint16,Load %
+0x8087F3,8423411,RAM_MAF_Frequency_Hz,Mass Air Flow Sensor Frequency (Hz),RAM/Variable,uint16,Hz
+0x8087F8,8423416,RAM_Load_Filter_Lag_Alpha,First-Order Load Lag Filter Alpha,RAM/Variable,uint16,0..256
+0x8087FC,8423420,RAM_Load_Filtered_Target,Filtered Target Engine Load,RAM/Variable,uint16,Load %
+0x80880A,8423434,RAM_MAPCalcs_Load,Manifold-Pressure Calculated Load (MAPCalcs),RAM/Variable,uint16,Load %
+0x808812,8423442,RAM_IMAPCalcs_Load,Interpolated Manifold Load (IMAPCalcs),RAM/Variable,uint16,Load %
+0x808816,8423446,RAM_MAP_3D_Table_Interpolated,"Blended 3D MAP Surface Load (Tables 1, 2, 3)",RAM/Variable,uint16,Load %
+0x80883B,8423483,RAM_Vehicle_Speed_VSS,Vehicle Speed Sensor (VSS),RAM/Variable,uint8,km/h
+0x8088EC,8423660,RAM_STFT,Short Term Fuel Trim (STFT),RAM/Variable,int8,%
+0x8088FD,8423677,RAM_LTFT_InUse,Long Term Fuel Trim In-Use,RAM/Variable,int8,%
+0x808949,8423753,RAM_Target_AFR_AFRMAP,Target AFR (Open Loop Cell),RAM/Variable,uint8,AFR
+0x80894C,8423756,RAM_Current_Target_AFR,Current Active Target AFR,RAM/Variable,uint16,AFR
+0x808A5B,8424027,RAM_Ignition_Timing_Advance,Ignition Timing Advance,RAM/Variable,int8,degrees
+0x808A77,8424055,RAM_Knock_Dynamics,Knock Dynamics State,RAM/Variable,uint8,raw
+0x808A9F,8424095,RAM_Knock_Sum,Knock Sum Accumulator,RAM/Variable,uint8,counts
+0x808BB5,8424373,RAM_WGDC_Correction,Wastegate Duty Cycle Correction,RAM/Variable,int8,%
+0x808BB7,8424375,RAM_WGDC_Active,Active Wastegate Duty Cycle (WGDC),RAM/Variable,uint8,%
+0x808FBE,8425406,RAM_MAF_Airflow_Clamped,MAF Airflow Clamped,RAM/Variable,uint16,g/s
+0x808FC0,8425408,RAM_MAF_Airflow_Interpolated,MAF Airflow Interpolated,RAM/Variable,uint16,g/s
+0x808FC4,8425412,RAM_MAF_Airflow_Sum,MAF Airflow Sample Accumulator,RAM/Variable,uint32,sum
+0x808FC8,8425416,RAM_MAF_Airflow_Samples,MAF Airflow Sample Counter,RAM/Variable,uint16,count
+0x808FCC,8425420,RAM_MAF_Voltage_ADC,Mass Air Flow Sensor Input Voltage (ADC),RAM/Variable,uint16,Volts ADC
+0x808FD2,8425426,RAM_MAF_Cycle_Avg_Airflow,MAF Cycle-Averaged Airflow,RAM/Variable,uint16,g/s
+0x808FDC,8425436,RAM_MAFCalcs_Acc,MAF Calculated Load Accumulator (32-bit),RAM/Variable,uint32,Load % * 65536
+0x808FDE,8425438,RAM_MAFCalcs_Load,Airflow Calculated Load (MAFCalcs),RAM/Variable,uint16,Load %
+0x808FE0,8425440,RAM_ChosenCalc_Acc,Chosen Load Accumulator (32-bit),RAM/Variable,uint32,Load % * 65536
+0x808FE2,8425442,RAM_ChosenCalc_Load,Selected Final Engine Load (ChosenCalc),RAM/Variable,uint16,Load %
+0x809566,8426854,RAM_InVVT_Target,Intake MIVEC Cam Phasing Target,RAM/Variable,uint16,degrees
+0x809572,8426866,RAM_ExVVT_Target,Exhaust MIVEC Cam Phasing Target,RAM/Variable,uint16,degrees
+0x80959E,8426910,RAM_InVVT_Actual,Intake MIVEC Cam Phasing Actual,RAM/Variable,uint16,degrees
+0x8095AA,8426922,RAM_ExVVT_Actual,Exhaust MIVEC Cam Phasing Actual,RAM/Variable,uint16,degrees
+0x809645,8427077,RAM_APP_Pedal_Position,Accelerator Pedal Position (APP),RAM/Variable,uint8,%
+0x80A8F4,8431860,RAM_Transient_TPS_State,Transient Throttle State Flags,RAM/Variable,uint16,bitmask
+0x80A8F6,8431862,RAM_Transient_TPS_Blend_Weight,Transient Throttle Blend Weight,RAM/Variable,uint16,0..256
+0x80A8FA,8431866,RAM_Transient_TPS_Countdown,Transient Throttle Countdown,RAM/Variable,uint16,cycles
+0x80A8FC,8431868,RAM_MAP_Load_Calc_Table3,MAP Load Calc Table #3 Interpolated,RAM/Variable,uint16,Load %
+0x80A8FE,8431870,RAM_MAP_Load_Calc_Cold,MAP Load Calc Cold Interpolated,RAM/Variable,uint16,Load %
+0x80A900,8431872,RAM_MAP_Load_Calc_Hot,MAP Load Calc Hot Interpolated,RAM/Variable,uint16,Load %
+0x80AA7B,8432251,RAM_Knock_Variance,Knock Sensor Variance,RAM/Variable,uint8,raw
+0x80AA7F,8432255,RAM_Knock_Base,Knock Sensor Noise Floor / Base,RAM/Variable,uint8,raw
+0x80AA81,8432257,RAM_Knock_Delta,Knock Sensor Delta Change,RAM/Variable,uint8,raw
+0x80AB45,8432453,RAM_Barometric_Pressure,Atmospheric Barometric Pressure,RAM/Variable,uint8,kPa
+0x80AB80,8432512,RAM_Injector_Pulse_Width_IPW,Final Injector Pulse Width (IPW),RAM/Variable,uint16,ms*10
