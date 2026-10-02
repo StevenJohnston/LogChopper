@@ -165,7 +165,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "AFR / AFRMAP",
+        func: "(1.0 - (STFT + CurrentLTFT) / 100.0) * (AFR / AFRMAP)",
         newLogField: "AFR_ERR",
       },
       dragHandle: ".drag-handle",
@@ -179,7 +179,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "MAFCalcs <= MAPCalcs ? AFR_ERR : ((MAPCalcs * AFR_ERR) / (TARGET_RATIO * MAFCalcs))",
+        func: "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W + (1.0 - W) / TARGET_RATIO)) / MAFCalcs",
         newLogField: "MAF_CORR",
       },
       dragHandle: ".drag-handle",
@@ -193,7 +193,7 @@ export const savedGroup: SavedGroup = {
         y: 40,
       },
       data: {
-        func: "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs * AFR_ERR) / MAPCalcs)",
+        func: "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W * TARGET_RATIO + (1.0 - W))) / MAPCalcs",
         newLogField: "MAP_CORR",
       },
       dragHandle: ".drag-handle",
