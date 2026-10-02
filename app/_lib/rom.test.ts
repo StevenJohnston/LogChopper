@@ -546,9 +546,11 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const parser = new Parser();
 
   const ratioFunc = "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))";
-  const afrErrFunc = "AFR / AFRMAP";
-  const mafCorrFunc = "MAFCalcs <= MAPCalcs ? AFR_ERR : ((MAPCalcs * AFR_ERR) / (TARGET_RATIO * MAFCalcs))";
-  const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : ((TARGET_RATIO * MAFCalcs * AFR_ERR) / MAPCalcs)";
+  const afrErrFunc = "(1.0 - (STFT + CurrentLTFT) / 100.0) * (AFR / AFRMAP)";
+  const mafCorrFunc =
+    "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W + (1.0 - W) / TARGET_RATIO)) / MAFCalcs";
+  const mapCorrFunc =
+    "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W * TARGET_RATIO + (1.0 - W))) / MAPCalcs";
   const mafSmoothFunc =
     "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (baseStep = sourceTable[y][x] - sourceTable[y][x - 1]; minVal = destTable[y][x - 1] + (baseStep > 0 ? baseStep * 0.25 : 0.01); val < minVal ? minVal : val) : val";
 
@@ -561,66 +563,65 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   assert.equal(parser.evaluate(ratioFunc, { MAP: 120 }), 0.95);
   assert.equal(parser.evaluate(ratioFunc, { MAP: 200 }), 0.95);
 
-  // 2. AFR error direction:
-  // Rich reading (11.0 vs 11.5 target) -> multiplier < 1 to decrease table / fuel (lean out)
-  const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0 });
+  // 2. AFR error direction and trim awareness:
+  const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0, STFT: 0, CurrentLTFT: 0 });
   assert(richErr < 1.0);
   assert(Math.abs(richErr - 11.0 / 11.5) < 1e-6);
 
-  // Lean reading (12.5 vs 11.5 target) -> multiplier > 1 to increase table / fuel (richen up)
-  const leanErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 12.5 });
-  assert(leanErr > 1.0);
-  assert(Math.abs(leanErr - 12.5 / 11.5) < 1e-6);
+  const leanWithTrim = parser.evaluate(afrErrFunc, { AFRMAP: 14.7, AFR: 14.7, STFT: 5, CurrentLTFT: 3 });
+  assert(Math.abs(leanWithTrim - 0.92) < 1e-6);
 
-  // 3. Low MAP (e.g. 50 kPa, Target Ratio = 1.05):
-  // Normal state: MAF is active (40 <= 45) -> MAF gets AFR_ERR, MAP tracks (1.05 * MAF_new) / MAP
-  const lowMapMafActive = {
+  // 3. Ground Truth Airflow: Low MAP (e.g. 50 kPa, Target Ratio = 1.05)
+  // Vacuum mode (W=1.0): TrueLoad = activeLoad * AFR_ERR
+  // Normal state (MAF 40 <= MAP 45): MAF is active (40), TrueLoad = 40 * 0.98 = 39.2
+  const lowMapNormal = {
     MAP: 50,
     MAPCalcs: 45,
     MAFCalcs: 40,
     TARGET_RATIO: 1.05,
     AFR_ERR: 0.98,
   };
-  assert.equal(parser.evaluate(mafCorrFunc, lowMapMafActive), 0.98);
-  // MAP target is 1.05 * 40 * 0.98 = 41.16, currently 45 -> correction is 41.16 / 45
-  assert(Math.abs(parser.evaluate(mapCorrFunc, lowMapMafActive) - (1.05 * 40 * 0.98) / 45) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, lowMapNormal) - 0.98) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, lowMapNormal) - (1.05 * 39.2) / 45) < 1e-6);
 
-  // Inverted state in low MAP: MAP under-reads (35 < 40) causing lean AFR -> MAP gets AFR_ERR, MAF tracks (MAP_new / 1.05) / MAF
+  // Inverted vacuum state (MAP under-reads at 30 < 40): MAP is active (30)
+  // Engine ran 10% lean because of MAP: TrueLoad = 30 * 1.10 = 33.0
+  // MAF is trimmed down to TrueLoad (33/40 = 0.825), MAP is lifted above MAF (1.05 * 33 / 30 = 1.155)
   const lowMapInverted = {
     MAP: 50,
-    MAPCalcs: 35,
+    MAPCalcs: 30,
     MAFCalcs: 40,
     TARGET_RATIO: 1.05,
-    AFR_ERR: 1.15,
+    AFR_ERR: 1.10,
   };
-  assert.equal(parser.evaluate(mapCorrFunc, lowMapInverted), 1.15);
-  // MAF target is (35 * 1.15) / 1.05 = 38.3333, currently 40 -> correction is (35 * 1.15) / (1.05 * 40)
-  assert(Math.abs(parser.evaluate(mafCorrFunc, lowMapInverted) - (35 * 1.15) / (1.05 * 40)) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, lowMapInverted) - 0.825) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, lowMapInverted) - 1.155) < 1e-6);
 
-  // 4. High MAP (e.g. 180 kPa, Target Ratio = 0.95):
-  // Normal state: MAP is active (200 < 220) -> MAP gets AFR_ERR, MAF tracks (MAP_new / 0.95) / MAF
-  const highMapMapActive = {
+  // 4. Ground Truth Airflow: High MAP (e.g. 180 kPa, Target Ratio = 0.95)
+  // Boost mode (W=0.0): MAP is fuel master, MAF provides headroom (TrueLoad / 0.95)
+  // Normal state (MAP 200 <= MAF 220): MAP is active (200), TrueLoad = 200 * 1.04 = 208
+  const highMapNormal = {
     MAP: 180,
     MAPCalcs: 200,
     MAFCalcs: 220,
     TARGET_RATIO: 0.95,
     AFR_ERR: 1.04,
   };
-  assert.equal(parser.evaluate(mapCorrFunc, highMapMapActive), 1.04);
-  // MAF target is (200 * 1.04) / 0.95 = 218.947, currently 220 -> correction is (200 * 1.04) / (0.95 * 220)
-  assert(Math.abs(parser.evaluate(mafCorrFunc, highMapMapActive) - (200 * 1.04) / (0.95 * 220)) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, highMapNormal) - 1.04) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, highMapNormal) - 208 / (0.95 * 220)) < 1e-6);
 
-  // Inverted state in high MAP: MAF is active (200 <= 220) causing lean AFR -> MAF gets AFR_ERR, MAP tracks (0.95 * MAF_new) / MAP
+  // Inverted boost state (MAF under-reads at 180 < 200): MAF is active (180)
+  // Engine ran 10% lean: TrueLoad = 180 * 1.10 = 198
+  // MAP is adjusted to TrueLoad (198/200 = 0.99), MAF is lifted to TrueLoad / 0.95 (208.42/180 = 1.15789)
   const highMapInverted = {
     MAP: 180,
-    MAPCalcs: 220,
-    MAFCalcs: 200,
+    MAPCalcs: 200,
+    MAFCalcs: 180,
     TARGET_RATIO: 0.95,
-    AFR_ERR: 1.15,
+    AFR_ERR: 1.10,
   };
-  assert.equal(parser.evaluate(mafCorrFunc, highMapInverted), 1.15);
-  // MAP target is 0.95 * (200 * 1.15) = 218.5, currently 220 -> correction is (0.95 * 200 * 1.15) / 220
-  assert(Math.abs(parser.evaluate(mapCorrFunc, highMapInverted) - (0.95 * 200 * 1.15) / 220) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, highMapInverted) - 0.99) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, highMapInverted) - 198 / (0.95 * 180)) < 1e-6);
 
   // 5. MAF Scaling smooth rule: enforces strictly monotonic increasing table without flat plateaus
   const baseTable: Table2DX<number> = {
