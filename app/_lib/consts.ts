@@ -78,6 +78,10 @@ export const scalingAliases = {
   },
   Temp: {
     insteadUse: "MAT",
+    expr: "MAT * 1.8 + 32",
+  },
+  TempC: {
+    insteadUse: "MAT",
     expr: "MAT",
   },
   MAT: {

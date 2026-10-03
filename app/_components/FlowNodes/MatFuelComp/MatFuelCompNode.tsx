@@ -90,7 +90,15 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
         return t3d.yAxis.values;
       }
     }
-    return [-18, -3, 12, 32, 52, 72, 92];
+    return [14, 41, 68, 104, 140, 176, 212];
+  }, [data.sourceTable]);
+
+  const isFahrenheit = useMemo(() => {
+    if (data.sourceTable && data.sourceTable.type === "3D") {
+      const t3d = data.sourceTable as Table3D<number>;
+      return t3d.yAxis?.scaling === "Temp" || (t3d.yAxis?.values?.some((v) => v > 100) ?? false);
+    }
+    return true;
   }, [data.sourceTable]);
 
   // Determine active table to display in RomModuleUI
@@ -175,15 +183,15 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
                 <div className="bg-amber-50 border-l-4 border-amber-500 p-2 my-2 text-xs">
                   <p className="font-semibold text-amber-900">Core Principle:</p>
                   <p className="text-amber-800">
-                    • <strong>Base MAT (14°C / 12°C row)</strong> is the tuning anchor (multiplier locked at 1.0000).<br />
-                    • <strong>Higher MAT rows (32°C, 52°C, etc.)</strong> are adjusted so their delivered AFR matches the cool baseline.<br />
+                    • <strong>Base MAT ({isFahrenheit ? "68°F / 20°C row" : "20°C row"})</strong> is the tuning anchor (multiplier locked at 1.0000).<br />
+                    • <strong>Higher MAT rows ({isFahrenheit ? "104°F, 140°F" : "40°C, 60°C"}, etc.)</strong> are adjusted so their delivered AFR matches the cool baseline.<br />
                     • <strong>MAF &amp; MAP tables</strong> tune absolute fueling (<span className="font-mono">AFR → AFRMAP</span>).
                   </p>
                 </div>
                 <p className="font-semibold text-slate-900 mt-2">Safety Features:</p>
                 <ul className="list-disc pl-5 text-slate-700 space-y-1">
-                  <li><strong>Anchor Protection:</strong> Fueling at base reference temp (14°C / 12°C row) is locked at 1.0000 (0% drift).</li>
-                  <li><strong>Variety Gating:</strong> Requires logs with temperature spread ≥ 10°C across ≥ 2 distinct bins before applying corrections.</li>
+                  <li><strong>Anchor Protection:</strong> Fueling at base reference temp ({isFahrenheit ? "68°F / 20°C" : "20°C"} baseline) is locked at 1.0000 (0% drift).</li>
+                  <li><strong>Variety Gating:</strong> Requires logs with temperature spread ≥ 10°C (18°F) across ≥ 2 distinct bins before applying corrections.</li>
                   <li><strong>Confidence Damping:</strong> Uses Hill weighting to prevent low-sample cells from introducing spikes.</li>
                 </ul>
               </div>
@@ -211,7 +219,7 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
               <span className="text-[10px] font-normal px-1 rounded bg-emerald-200">PASS</span>
             </div>
             <div className="text-[11px] text-emerald-800 mt-0.5">
-              Spread: <span className="font-semibold">{data.spread.toFixed(1)}°C</span> (min {data.minTempSpread}°C) | Base MAT: <span className="font-semibold">{data.refTempUsed}°C</span>
+              Spread: <span className="font-semibold">{data.spread.toFixed(1)}°C / {(data.spread * 1.8).toFixed(1)}°F</span> (min {data.minTempSpread}°C) | Base MAT: <span className="font-semibold">{data.refTempUsed}{isFahrenheit ? "°F" : "°C"} ({isFahrenheit ? `${Math.round((data.refTempUsed - 32) / 1.8)}°C` : `${Math.round(data.refTempUsed * 1.8 + 32)}°F`})</span>
             </div>
           </div>
         ) : (
@@ -235,13 +243,32 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
             value={data.refTemp === undefined ? "auto" : String(data.refTemp)}
             onChange={onRefTempChange}
           >
-            <option value="auto">Auto (14°C Base MAT)</option>
-            <option value="14">14°C (Target Base MAT)</option>
-            {availableTemps.map((temp) => (
-              <option key={temp} value={temp}>
-                {temp}°C {temp === 12 ? "(Base MAT ~14°C)" : temp === 20 ? "(20°C Baseline)" : ""}
-              </option>
-            ))}
+            <option value="auto">
+              Auto ({isFahrenheit ? "68°F / 20°C Baseline" : "20°C Baseline"})
+            </option>
+            {availableTemps.map((temp) => {
+              const tempF = isFahrenheit ? temp : Math.round(temp * 1.8 + 32);
+              const tempC = isFahrenheit ? Math.round((temp - 32) / 1.8) : temp;
+              let desc = "";
+              if (isFahrenheit) {
+                if (temp === 68) desc = "(Baseline / Cool Commute)";
+                else if (temp === 104) desc = "(Warm Commute / Heat Soak)";
+                else if (temp === 140) desc = "(High Heat Soak)";
+                else if (temp === 41) desc = "(Cold Ambient)";
+                else if (temp === 14) desc = "(Sub-Zero Winter Freeze)";
+              } else {
+                if (temp === 20) desc = "(Baseline / Cool Commute)";
+                else if (temp === 40) desc = "(Warm Commute / Heat Soak)";
+                else if (temp === 60) desc = "(High Heat Soak)";
+                else if (temp === 5) desc = "(Cold Ambient)";
+                else if (temp === -10) desc = "(Sub-Zero Winter Freeze)";
+              }
+              return (
+                <option key={temp} value={temp}>
+                  {tempF}°F / {tempC}°C {desc}
+                </option>
+              );
+            })}
           </select>
         </div>
 

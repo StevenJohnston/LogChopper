@@ -923,6 +923,11 @@ export function calculateMatTempInvariance(
     return null;
   }
   const table3d = baseTable as Table3D<number>;
+  const yAxisValues = table3d.yAxis?.values || [];
+  const isFahrenheit = table3d.yAxis?.scaling === "Temp" || yAxisValues.some((v) => v > 100);
+  const defaultRefTemp = isFahrenheit ? 68 : 20;
+  const unitLabel = isFahrenheit ? "°F" : "°C";
+
   const minTempSpread = options.minTempSpread ?? 10.0;
   const minDistinctBins = options.minDistinctBins ?? 2;
   const minCellSamples = options.minCellSamples ?? 5;
@@ -932,7 +937,7 @@ export function calculateMatTempInvariance(
 
   // Initialize output tables preserving scaling, axis, etc.
   const deltaPercentTable = duplicateTable(table3d, () => 0) as Table3D<number>;
-  deltaPercentTable.name = `MAT AFR Drift % (ref ${options.refTemp ?? 14}°C)`;
+  deltaPercentTable.name = `MAT AFR Drift % (ref ${options.refTemp ?? defaultRefTemp}${unitLabel})`;
 
   const countTable = duplicateTable(table3d, () => 0) as Table3D<number>;
   countTable.name = "MAT Sample Counts";
@@ -950,7 +955,7 @@ export function calculateMatTempInvariance(
       sufficient: false,
       spread: varietyResult.spread,
       reason: "Failed to map log records to 3D MAT vs MAP table grid",
-      refTempUsed: options.refTemp ?? 14,
+      refTempUsed: options.refTemp ?? defaultRefTemp,
       deltaPercentTable,
       countTable,
       correctedTable,
@@ -960,7 +965,6 @@ export function calculateMatTempInvariance(
 
   const numRows = table3d.values.length;
   const numCols = table3d.values[0].length;
-  const yAxisValues = table3d.yAxis.values;
 
   // Matrices for cell statistics
   const cellCounts: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
@@ -1008,7 +1012,7 @@ export function calculateMatTempInvariance(
       sufficient: false,
       spread: varietyResult.spread,
       reason: varietyResult.reason,
-      refTempUsed: options.refTemp ?? 14,
+      refTempUsed: options.refTemp ?? defaultRefTemp,
       deltaPercentTable,
       countTable,
       correctedTable,
@@ -1017,17 +1021,20 @@ export function calculateMatTempInvariance(
   }
 
   // Determine reference temperature row
-  const targetRefTemp = options.refTemp ?? 14;
+  const targetRefTemp = options.refTemp ?? defaultRefTemp;
   let refRowIdx = nearestIndex(yAxisValues, targetRefTemp);
 
-  // If options.refTemp was not specified, pick the row with the most sample weight near 14°C (between 0°C and 25°C)
+  // If options.refTemp was not specified, pick the row with the most sample weight in the normal operating range (50-85°F or 10-30°C)
   if (options.refTemp === undefined) {
     let bestRow = refRowIdx;
     let maxSamples = -1;
     for (let y = 0; y < numRows; y++) {
       const tempVal = yAxisValues[y];
       const rowWeight = cellWeights[y].reduce((a, b) => a + b, 0);
-      if (tempVal >= 0 && tempVal <= 25 && rowWeight > maxSamples) {
+      const inBaselineRange = isFahrenheit
+        ? tempVal >= 50 && tempVal <= 85
+        : tempVal >= 10 && tempVal <= 30;
+      if (inBaselineRange && rowWeight > maxSamples) {
         maxSamples = rowWeight;
         bestRow = y;
       }
@@ -1035,6 +1042,7 @@ export function calculateMatTempInvariance(
     refRowIdx = bestRow;
   }
   const refTempUsed = yAxisValues[refRowIdx];
+  deltaPercentTable.name = `MAT AFR Drift % (ref ${refTempUsed}${unitLabel})`;
 
   // For each MAP column x:
   // Compare each temperature row y to reference row refRowIdx

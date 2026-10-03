@@ -1062,6 +1062,8 @@ test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
 
   // Verify scalingAliases mapping for MAT and Temp
   assert.equal(scalingAliases["Temp"].insteadUse, "MAT");
+  assert.equal(scalingAliases["Temp"].expr, "MAT * 1.8 + 32");
+  assert.equal(scalingAliases["TempC"].insteadUse, "MAT");
   assert.equal(scalingAliases["MAT"].insteadUse, "MAT");
 
   const tableMatMap: Table3D<number> = {
@@ -1082,8 +1084,8 @@ test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
       type: "Y Axis",
       elements: 3,
       address: "62000",
-      scaling: "Temp", // XML axis name/scaling is Temp
-      values: [20, 30, 40],
+      scaling: "Temp", // XML axis name/scaling is Temp (Fahrenheit in EcuFlash)
+      values: [41, 68, 104], // 5°C, 20°C, 40°C in Fahrenheit
     },
     values: [
       [1.0, 1.0, 1.0],
@@ -1092,16 +1094,16 @@ test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
     ],
   };
 
-  // Log record has 'MAT' and 'MAP'
+  // Log record has 'MAT' in Celsius (20°C -> 68°F)
   const logs: LogRecord[] = [
-    { LogID: 1, MAP: 100, MAT: 30, AFR: 14.7 },
+    { LogID: 1, MAP: 100, MAT: 20, AFR: 14.7 },
   ];
 
   const logTable = FillTableFromLog(tableMatMap, logs, true) as Table3D<LogRecord[]>;
   assert(logTable !== undefined && logTable !== null);
   assert.equal(logTable.type, "3D");
 
-  // Row index 1 is MAT=30, Col index 1 is MAP=100
+  // Row index 1 is MAT=68°F (from MAT=20°C), Col index 1 is MAP=100
   assert.equal(logTable.values[1][1].length, 1);
   assert.equal(logTable.values[1][1][0].LogID, 1);
   assert.equal(logTable.values[1][1][0].weight, 1.0);
@@ -1110,6 +1112,7 @@ test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
 test("calculateMatTempInvariance flattens temperature AFR delta to reference temperature", () => {
   const { calculateMatTempInvariance } = require("@/app/_lib/rom");
 
+  // Real 4B11T table with Fahrenheit axis
   const tableMatMap: Table3D<number> = {
     type: "3D",
     name: "Fuel Compensation MAT vs MAP - Stock3bar",
@@ -1129,16 +1132,17 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
       elements: 3,
       address: "62000",
       scaling: "Temp",
-      values: [0, 20, 40],
+      values: [41, 68, 104], // 41°F (+5°C), 68°F (+20°C), 104°F (+40°C)
     },
     values: [
-      [1.000, 1.000, 1.000], // 0°C
-      [1.025, 1.025, 1.025], // 20°C (reference)
-      [1.060, 1.060, 1.060], // 40°C (hot)
+      [1.000, 1.000, 1.000], // 41°F
+      [1.025, 1.025, 1.025], // 68°F (reference)
+      [1.060, 1.060, 1.060], // 104°F (hot)
     ],
   };
 
-  // 10 records at 20°C (morning): runs 15.5 AFR (target 14.7 -> error 1.0544)
+  // 10 records at MAT=20°C (morning): 20°C * 1.8 + 32 = 68°F
+  // Runs 15.5 AFR (target 14.7 -> error 1.0544)
   const coolLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
     LogID: i + 1,
     MAP: 40,
@@ -1147,7 +1151,8 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
     AFRMAP: 14.7,
   }));
 
-  // 10 records at 40°C (afternoon): runs 14.5 AFR (target 14.7 -> error 0.9864)
+  // 10 records at MAT=40°C (afternoon): 40°C * 1.8 + 32 = 104°F
+  // Runs 14.5 AFR (target 14.7 -> error 0.9864)
   const hotLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
     LogID: i + 11,
     MAP: 40,
@@ -1159,7 +1164,7 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
   const allLogs = [...coolLogs, ...hotLogs];
 
   const result = calculateMatTempInvariance(tableMatMap, allLogs, {
-    refTemp: 20,
+    refTemp: 68,
     minTempSpread: 10.0,
     minDistinctBins: 2,
     minCellSamples: 5,
@@ -1168,21 +1173,21 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
 
   assert(result !== null);
   assert.equal(result.sufficient, true);
-  assert.equal(result.refTempUsed, 20);
+  assert.equal(result.refTempUsed, 68);
 
   // Column 0 is MAP=40 kPa:
-  // Row 0 is 0°C (no samples) -> unchanged
+  // Row 0 is 41°F (no samples) -> unchanged
   assert.equal(result.countTable.values[0][0], 0);
   assert.equal(result.deltaPercentTable.values[0][0], 0);
   assert.equal(result.correctedTable.values[0][0], 1.000);
 
-  // Row 1 is 20°C (reference temperature):
+  // Row 1 is 68°F (reference temperature from 20°C morning):
   // deltaPercent is 0.0%, baseline value 1.025 is UNCHANGED!
   assert.equal(result.countTable.values[1][0], 10);
   assert.equal(result.deltaPercentTable.values[1][0], 0);
   assert.equal(result.correctedTable.values[1][0], 1.025);
 
-  // Row 2 is 40°C (hot temperature):
+  // Row 2 is 104°F (hot temperature from 40°C afternoon):
   // Raw ratio = 0.9864 / 1.0544 = 0.9355 (-6.45% drift)
   assert.equal(result.countTable.values[2][0], 10);
   assert(Math.abs(result.deltaPercentTable.values[2][0] - (-6.45)) < 0.1);
@@ -1196,10 +1201,10 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
   assert(Math.abs(predictedHotAfr - 15.5) < 0.05, "Hot AFR should equal cool AFR (15.5)!");
 });
 
-test("calculateMatTempInvariance anchors at 14°C base MAT and matches higher MAT to lower", () => {
+test("calculateMatTempInvariance anchors at 68°F base MAT and matches higher MAT to lower", () => {
   const { calculateMatTempInvariance } = require("@/app/_lib/rom");
 
-  // 4B11T factory MAT vs MAP table
+  // Factory 4B11T MAT vs MAP table (Fahrenheit axis: 14, 41, 68, 104, 140, 176, 212)
   const table4B11T: Table3D<number> = {
     type: "3D",
     name: "Fuel Compensation MAT vs MAP - Stock3bar",
@@ -1219,44 +1224,43 @@ test("calculateMatTempInvariance anchors at 14°C base MAT and matches higher MA
       elements: 7,
       address: "634c0",
       scaling: "Temp",
-      values: [-18, -3, 12, 32, 52, 72, 92],
+      values: [14, 41, 68, 104, 140, 176, 212],
     },
     values: [
-      [1.00, 1.00, 1.00], // -18°C
-      [1.02, 1.02, 1.02], // -3°C
-      [1.00, 1.00, 1.00], // 12°C (Base MAT anchor ~14°C)
-      [1.03, 1.03, 1.03], // 32°C (Warm commute)
-      [1.05, 1.05, 1.05], // 52°C (Heat soak)
-      [1.00, 1.00, 1.00], // 72°C
-      [1.00, 1.00, 1.00], // 92°C
+      [1.10, 1.10, 1.10], // 14°F (-10°C winter)
+      [1.05, 1.05, 1.05], // 41°F (+5°C cold ambient)
+      [1.00, 1.00, 1.00], // 68°F (+20°C base MAT anchor)
+      [1.03, 1.03, 1.03], // 104°F (+40°C warm commute & heat soak)
+      [1.05, 1.05, 1.05], // 140°F (+60°C high heat soak)
+      [1.00, 1.00, 1.00], // 176°F
+      [1.00, 1.00, 1.00], // 212°F
     ],
   };
 
-  // Morning commute (cool, MAT ~14-17°C, bilinearly populates 12°C row)
+  // Morning commute: cool, MAT ~20°C in EvoScan log (evaluates to 68°F)
   // Car ran 15.6 AFR at 50 kPa
   const morningLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
     LogID: i + 1,
     MAP: 50,
-    MAT: 14,
+    MAT: 20,
     AFR: 15.6,
     AFRMAP: 14.7,
   }));
 
-  // Afternoon commute (hot, MAT ~35°C, populates 32°C row)
+  // Afternoon commute: hot, MAT ~40°C in EvoScan log (evaluates to 104°F)
   // Heat soak caused car to run richer at 14.8 AFR
   const afternoonLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
     LogID: i + 20,
     MAP: 50,
-    MAT: 32,
+    MAT: 40,
     AFR: 14.8,
     AFRMAP: 14.7,
   }));
 
   const allLogs = [...morningLogs, ...afternoonLogs];
 
-  // Default options (should use refTemp = 14 -> row 12)
+  // Default options (auto-detects 68°F baseline row for Fahrenheit table)
   const result = calculateMatTempInvariance(table4B11T, allLogs, {
-    refTemp: 14,
     minTempSpread: 10.0,
     minDistinctBins: 2,
     minCellSamples: 5,
@@ -1265,24 +1269,23 @@ test("calculateMatTempInvariance anchors at 14°C base MAT and matches higher MA
 
   assert(result !== null);
   assert.equal(result.sufficient, true);
-  // Nearest row to 14°C is 12°C
-  assert.equal(result.refTempUsed, 12);
+  // Auto picks 68°F (index 2) as baseline reference
+  assert.equal(result.refTempUsed, 68);
 
-  // 12°C row (index 2) is the base MAT: 0% drift, value unchanged (1.00)
+  // 68°F row (index 2) is the base MAT: 0% drift, value unchanged (1.00)
   assert.equal(result.deltaPercentTable.values[2][0], 0);
   assert.equal(result.correctedTable.values[2][0], 1.00);
 
-  // 32°C row (index 3): ran richer (14.8 vs 15.6)
-  // With bilinear interpolation, records at MAT 14 contribute 90% to row 12 and 10% to row 32
-  // Drift = -4.66%
+  // 104°F row (index 3): ran richer (14.8 vs 15.6)
+  // Drift = (14.8 / 15.6 - 1) * 100 = -5.13%
   const driftPct = result.deltaPercentTable.values[3][0];
-  assert(Math.abs(driftPct - (-4.66)) < 0.1, `Expected ~ -4.66% drift, got ${driftPct}`);
+  assert(Math.abs(driftPct - (-5.13)) < 0.1, `Expected ~ -5.13% drift, got ${driftPct}`);
 
   // Corrected multiplier decreases to reduce fuel at higher MAT:
   const correctedMultiplier = result.correctedTable.values[3][0];
   assert(correctedMultiplier < 1.03, "Higher MAT multiplier must decrease to lean out afternoon rich drift");
 
   // Verify that predicted afternoon AFR now matches morning baseline:
-  const predictedHotAfr = (15 * 14.8 + 1.5 * 15.6) / 16.5 * (1.03 / correctedMultiplier);
+  const predictedHotAfr = 14.8 * (1.03 / correctedMultiplier);
   assert(Math.abs(predictedHotAfr - 15.6) < 0.05, `Afternoon AFR (${predictedHotAfr}) must equal morning baseline (15.6)!`);
 });
