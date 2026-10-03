@@ -1289,3 +1289,77 @@ test("calculateMatTempInvariance anchors at 68°F base MAT and matches higher MA
   const predictedHotAfr = 14.8 * (1.03 / correctedMultiplier);
   assert(Math.abs(predictedHotAfr - 15.6) < 0.05, `Afternoon AFR (${predictedHotAfr}) must equal morning baseline (15.6)!`);
 });
+
+test("calculateMatTempInvariance automatically selects lowest hit MAT row with sufficient data as anchor", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  const table: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Omni4bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "MAP",
+      type: "X Axis",
+      elements: 2,
+      address: "634d4",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100],
+    },
+    yAxis: {
+      name: "MAT",
+      type: "Y Axis",
+      elements: 7,
+      address: "634c0",
+      scaling: "Temp",
+      values: [14, 41, 68, 104, 140, 176, 212],
+    },
+    values: [
+      [1.00, 1.00], // 14°F: 0 samples
+      [1.04, 1.04], // 41°F: 15 samples (chilly morning)
+      [1.00, 1.00], // 68°F: 15 samples (afternoon warm)
+      [1.00, 1.00], // 104°F
+      [1.00, 1.00], // 140°F
+      [1.00, 1.00], // 176°F
+      [1.00, 1.00], // 212°F
+    ],
+  };
+
+  // Logs on chilly morning (MAT=5°C -> 41°F)
+  const chillyLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 50,
+    MAT: 5,
+    AFR: 15.0,
+    AFRMAP: 14.7,
+  }));
+
+  // Logs in afternoon (MAT=20°C -> 68°F)
+  const warmLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 20,
+    MAP: 50,
+    MAT: 20,
+    AFR: 14.2,
+    AFRMAP: 14.7,
+  }));
+
+  const logs = [...chillyLogs, ...warmLogs];
+
+  // Auto options: 14°F has 0 samples, so lowest hit row is 41°F!
+  const result = calculateMatTempInvariance(table, logs, {
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false,
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  // Must automatically select 41°F (row 1) as the baseline anchor!
+  assert.equal(result.refTempUsed, 41);
+  // Row 1 (41°F) drift must be 0% and unchanged
+  assert.equal(result.deltaPercentTable.values[1][0], 0);
+  assert.equal(result.correctedTable.values[1][0], 1.04);
+  // Row 2 (68°F) is warmer, so its fuel is adjusted to match row 1
+  assert(result.correctedTable.values[2][0] < 1.00);
+});

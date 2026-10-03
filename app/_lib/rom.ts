@@ -1020,26 +1020,26 @@ export function calculateMatTempInvariance(
     };
   }
 
-  // Determine reference temperature row
-  const targetRefTemp = options.refTemp ?? defaultRefTemp;
-  let refRowIdx = nearestIndex(yAxisValues, targetRefTemp);
-
-  // If options.refTemp was not specified, pick the row with the most sample weight in the normal operating range (50-85°F or 10-30°C)
-  if (options.refTemp === undefined) {
-    let bestRow = refRowIdx;
-    let maxSamples = -1;
+  // Determine reference temperature row:
+  // If refTemp is specified, use nearest index to that temperature.
+  // Otherwise, automatically pick the lowest temperature row actually hit in the logs with sufficient data!
+  let refRowIdx = -1;
+  if (options.refTemp !== undefined) {
+    refRowIdx = nearestIndex(yAxisValues, options.refTemp);
+  } else {
+    // Scan from lowest temp to highest to find the lowest row with sufficient data
+    const minRowSamplesThreshold = Math.max(minCellSamples * 2, 10);
     for (let y = 0; y < numRows; y++) {
-      const tempVal = yAxisValues[y];
-      const rowWeight = cellWeights[y].reduce((a, b) => a + b, 0);
-      const inBaselineRange = isFahrenheit
-        ? tempVal >= 50 && tempVal <= 85
-        : tempVal >= 10 && tempVal <= 30;
-      if (inBaselineRange && rowWeight > maxSamples) {
-        maxSamples = rowWeight;
-        bestRow = y;
+      const rowSamples = cellCounts[y].reduce((a, b) => a + b, 0);
+      if (rowSamples >= minRowSamplesThreshold) {
+        refRowIdx = y;
+        break;
       }
     }
-    refRowIdx = bestRow;
+    // Fallback if no single row reached threshold
+    if (refRowIdx === -1) {
+      refRowIdx = nearestIndex(yAxisValues, defaultRefTemp);
+    }
   }
   const refTempUsed = yAxisValues[refRowIdx];
   deltaPercentTable.name = `MAT AFR Drift % (ref ${refTempUsed}${unitLabel})`;

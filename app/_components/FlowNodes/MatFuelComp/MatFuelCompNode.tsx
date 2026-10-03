@@ -244,7 +244,7 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
             onChange={onRefTempChange}
           >
             <option value="auto">
-              Auto ({isFahrenheit ? "68°F / 20°C Baseline" : "20°C Baseline"})
+              Auto (Lowest MAT Hit: {data.refTempUsed !== undefined ? `${data.refTempUsed}${isFahrenheit ? "°F" : "°C"}` : isFahrenheit ? "68°F" : "20°C"})
             </option>
             {availableTemps.map((temp) => {
               const tempF = isFahrenheit ? temp : Math.round(temp * 1.8 + 32);
