@@ -46,6 +46,8 @@ import SteadyStateFilterNode from "@/app/_components/FlowNodes/SteadyStateFilter
 import { SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
 import MatVarietyFilterNode from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterNode";
 import { MatVarietyFilterType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes";
+import MatFuelCompNode from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompNode";
+import { MatFuelCompType } from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompTypes";
 
 const selector = (state: RFState) => ({
   nodes: state.nodes,
@@ -63,7 +65,7 @@ const selector = (state: RFState) => ({
 const Flow: React.FC = () => {
   const { nodes, edges, reactFlowInstance, onNodeDragStop, setReactFlowInstance, onNodesChange, onEdgesChange, onConnect, addNode, addEdge } = useFlow(selector, shallow);
   const nodeTypes = useMemo(() => {
-    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode, romSelector: RomSelectorNode, logSelector: LogSelectorNode, afrMlShifter: AfrMlShifterNode, TpsAfrDeleteNode, [GearType]: GearNode, [TableLookupType]: TableLookupNode, [SteadyStateFilterType]: SteadyStateFilterNode, [MatVarietyFilterType]: MatVarietyFilterNode }
+    return { BaseRomNode, BaseTableNode, BaseLogNode, ForkNode, LogFilterNode, LogAlterNode, FillTableNode, FillLogTableNode, GroupNode, CombineNode, CombineAdvancedTableNode, RunningLogAlterNode, AfrShiftNode, MovingAverageLogFilterNode, TableRemapNode, romSelector: RomSelectorNode, logSelector: LogSelectorNode, afrMlShifter: AfrMlShifterNode, TpsAfrDeleteNode, [GearType]: GearNode, [TableLookupType]: TableLookupNode, [SteadyStateFilterType]: SteadyStateFilterNode, [MatVarietyFilterType]: MatVarietyFilterNode, [MatFuelCompType]: MatFuelCompNode }
   }, [])
   const connectingNodeId = useRef<string | null>(null);
   const connectingHandleId = useRef<string | null>(null);

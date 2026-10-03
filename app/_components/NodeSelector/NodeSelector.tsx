@@ -29,6 +29,7 @@ import GearButton from "./GearButton";
 import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
 import { SteadyStateFilterData, SteadyStateFilterNodeType, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes"
 import { MatVarietyFilterData, MatVarietyFilterNodeType, MatVarietyFilterType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes"
+import { MatFuelCompData, MatFuelCompNodeType, MatFuelCompType } from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompTypes"
 import MatFuelCompGroup from "@/app/_components/NodeSelector/MatFuelCompGroup"
 
 const selector = (state: RFState) => ({
@@ -172,6 +173,20 @@ const NodeSelector = () => {
           <MatFuelCompGroup />
           <TableRemapper />
           <TableLookupButton />
+          <NodeSelectorButton
+            onClick={() => {
+              const matCompNode: MatFuelCompNodeType = {
+                position: getViewportPosition(100, 100),
+                id: uuid(),
+                type: MatFuelCompType,
+                data: new MatFuelCompData({}),
+                dragHandle: '.drag-handle',
+              }
+              updateNode(matCompNode)
+            }}
+          >
+            MAT Fuel Comp
+          </NodeSelectorButton>
           {savedGroups.length > 0 && (
             <div className='flex justify-between col-span-2'>
               Saved Groups

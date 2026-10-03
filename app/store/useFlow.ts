@@ -54,6 +54,7 @@ import {
 } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 import { SteadyStateFilterNodeType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
 import { MatVarietyFilterNodeType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes";
+import { MatFuelCompNodeType } from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompTypes";
 
 interface ClonableData {
   clone: (data: any) => any;
@@ -90,7 +91,8 @@ export type MyNode =
   | GearNodeType
   | TableLookupNodeType
   | SteadyStateFilterNodeType
-  | MatVarietyFilterNodeType;
+  | MatVarietyFilterNodeType
+  | MatFuelCompNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
@@ -264,7 +266,7 @@ const useFlow = createWithEqualityFn<RFState>(
       await set((state) => {
         const oldNode = state.nodes.find((n) => n.id == node.id);
         if (oldNode && isRefreshableNode(oldNode)) {
-          oldNode?.data.activeUpdate?.worker.postMessage({
+          (oldNode.data.activeUpdate?.worker as Worker | undefined)?.postMessage({
             type: "kill",
           });
         }
@@ -277,7 +279,7 @@ const useFlow = createWithEqualityFn<RFState>(
           if (!isRefreshableNode(updateNode)) {
             continue;
           }
-          updateNode.data.activeUpdate?.worker.postMessage({
+          (updateNode.data.activeUpdate?.worker as Worker | undefined)?.postMessage({
             type: "kill",
           });
 
