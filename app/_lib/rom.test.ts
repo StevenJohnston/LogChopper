@@ -995,29 +995,43 @@ test("MAT Fuel Comp savedGroup structure and cloning", () => {
   const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
 
   assert.equal(savedGroup.groupName, "MAT Fuel Comp");
-  assert.equal(savedGroup.nodes.length, 16);
-  assert.equal(savedGroup.edges.length, 17);
+  assert.equal(savedGroup.nodes.length, 8);
+  assert.equal(savedGroup.edges.length, 6);
 
-  // 1. Check MAT Variety Filter Node configuration
-  const varietyNode = savedGroup.nodes.find((n: any) => n.type === "MatVarietyFilterNode");
-  assert(varietyNode !== undefined, "MatVarietyFilterNode must be present in MAT Fuel Comp savedGroup");
-  assert.equal(varietyNode.data.minTempSpread, 10.0);
-  assert.equal(varietyNode.data.minDistinctBins, 2);
+  // 1. Check MAT Fuel Comp Node configuration
+  const matCompNode = savedGroup.nodes.find((n: any) => n.type === "MatFuelCompNode");
+  assert(matCompNode !== undefined, "MatFuelCompNode must be present in MAT Fuel Comp savedGroup");
+  assert.equal(matCompNode.data.minTempSpread, 10.0);
+  assert.equal(matCompNode.data.minDistinctBins, 2);
+  assert.equal(matCompNode.data.minCellSamples, 5);
+  assert.equal(matCompNode.data.maxCorrectionRatio, 0.15);
+  assert.equal(matCompNode.data.enableDamping, true);
 
-  // 2. Check Pipeline wiring: Log -> AfrMlShifter -> TpsAfrDelete -> MatVarietyFilter -> LogFilter
+  // 2. Check Pipeline wiring: Log -> AfrMlShifter -> TpsAfrDelete -> LogFilter -> MatFuelCompNode
   const tpsNode = savedGroup.nodes.find((n: any) => n.type === "TpsAfrDeleteNode");
   const logFilterNode = savedGroup.nodes.find((n: any) => n.type === "LogFilterNode");
   assert(tpsNode !== undefined && logFilterNode !== undefined);
 
-  const tpsToVarietyEdge = savedGroup.edges.find((e: any) => e.source === tpsNode.id && e.target === varietyNode.id);
-  assert(tpsToVarietyEdge !== undefined, "TpsAfrDeleteNode must connect into MatVarietyFilterNode");
-  assert.equal(tpsToVarietyEdge.sourceHandle, "Log#LogSource");
-  assert.equal(tpsToVarietyEdge.targetHandle, "Log#LogTarget");
+  const tpsToLogFilterEdge = savedGroup.edges.find((e: any) => e.source === tpsNode.id && e.target === logFilterNode.id);
+  assert(tpsToLogFilterEdge !== undefined, "TpsAfrDeleteNode must connect into LogFilterNode");
+  assert.equal(tpsToLogFilterEdge.sourceHandle, "Log#LogSource");
+  assert.equal(tpsToLogFilterEdge.targetHandle, "Log#LogTarget");
 
-  const varietyToLogFilterEdge = savedGroup.edges.find((e: any) => e.source === varietyNode.id && e.target === logFilterNode.id);
-  assert(varietyToLogFilterEdge !== undefined, "MatVarietyFilterNode must connect into LogFilterNode");
-  assert.equal(varietyToLogFilterEdge.sourceHandle, "Log#LogSource");
-  assert.equal(varietyToLogFilterEdge.targetHandle, "Log#LogTarget");
+  const logFilterToMatCompEdge = savedGroup.edges.find((e: any) => e.source === logFilterNode.id && e.target === matCompNode.id);
+  assert(logFilterToMatCompEdge !== undefined, "LogFilterNode must connect into MatFuelCompNode");
+  assert.equal(logFilterToMatCompEdge.sourceHandle, "Log#LogSource");
+  assert.equal(logFilterToMatCompEdge.targetHandle, "Log#LogIn");
+
+  // 3. Check BaseTable is 3D Fuel Compensation MAT vs MAP connected to MatFuelCompNode
+  const baseTableNode = savedGroup.nodes.find((n: any) => n.type === "BaseTableNode");
+  assert(baseTableNode !== undefined);
+  assert.equal(baseTableNode.data.tableKey, "Fuel Compensation MAT vs MAP - Stock3bar");
+  assert.equal(baseTableNode.data.tableType, "3D");
+
+  const tableToMatCompEdge = savedGroup.edges.find((e: any) => e.source === baseTableNode.id && e.target === matCompNode.id);
+  assert(tableToMatCompEdge !== undefined, "BaseTableNode must connect into MatFuelCompNode");
+  assert.equal(tableToMatCompEdge.sourceHandle, "3D#TableOut");
+  assert.equal(tableToMatCompEdge.targetHandle, "3D#TableIn");
 
   // Verify all edges have defined and valid handle IDs
   for (const edge of savedGroup.edges) {
@@ -1025,20 +1039,14 @@ test("MAT Fuel Comp savedGroup structure and cloning", () => {
     assert(edge.targetHandle && edge.targetHandle.length > 0, `Edge ${edge.id} missing targetHandle`);
   }
 
-  // 3. Check BaseTable is 3D Fuel Compensation MAT vs MAP
-  const baseTableNode = savedGroup.nodes.find((n: any) => n.type === "BaseTableNode");
-  assert(baseTableNode !== undefined);
-  assert.equal(baseTableNode.data.tableKey, "Fuel Compensation MAT vs MAP - Stock3bar");
-  assert.equal(baseTableNode.data.tableType, "3D");
-
   // 4. Verify Cloning preserves node count, edge count, unique IDs, and handle integrity
   const cloned = cloneSavedGroup(savedGroup);
   assert.equal(cloned.groupName, "MAT Fuel Comp");
-  assert.equal(cloned.nodes.length, 16);
-  assert.equal(cloned.edges.length, 17);
+  assert.equal(cloned.nodes.length, 8);
+  assert.equal(cloned.edges.length, 6);
 
   const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
-  assert.equal(nodeIds.size, 16);
+  assert.equal(nodeIds.size, 8);
 
   for (const edge of cloned.edges) {
     assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
@@ -1097,4 +1105,93 @@ test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
   assert.equal(logTable.values[1][1].length, 1);
   assert.equal(logTable.values[1][1][0].LogID, 1);
   assert.equal(logTable.values[1][1][0].weight, 1.0);
+});
+
+test("calculateMatTempInvariance flattens temperature AFR delta to reference temperature", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  const tableMatMap: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "61000",
+      scaling: "StockXMAP in kPa",
+      values: [40, 80, 120],
+    },
+    yAxis: {
+      name: "Temp",
+      type: "Y Axis",
+      elements: 3,
+      address: "62000",
+      scaling: "Temp",
+      values: [0, 20, 40],
+    },
+    values: [
+      [1.000, 1.000, 1.000], // 0°C
+      [1.025, 1.025, 1.025], // 20°C (reference)
+      [1.060, 1.060, 1.060], // 40°C (hot)
+    ],
+  };
+
+  // 10 records at 20°C (morning): runs 15.5 AFR (target 14.7 -> error 1.0544)
+  const coolLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 40,
+    MAT: 20,
+    AFR: 15.5,
+    AFRMAP: 14.7,
+  }));
+
+  // 10 records at 40°C (afternoon): runs 14.5 AFR (target 14.7 -> error 0.9864)
+  const hotLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
+    LogID: i + 11,
+    MAP: 40,
+    MAT: 40,
+    AFR: 14.5,
+    AFRMAP: 14.7,
+  }));
+
+  const allLogs = [...coolLogs, ...hotLogs];
+
+  const result = calculateMatTempInvariance(tableMatMap, allLogs, {
+    refTemp: 20,
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false, // test raw ratio precision
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  assert.equal(result.refTempUsed, 20);
+
+  // Column 0 is MAP=40 kPa:
+  // Row 0 is 0°C (no samples) -> unchanged
+  assert.equal(result.countTable.values[0][0], 0);
+  assert.equal(result.deltaPercentTable.values[0][0], 0);
+  assert.equal(result.correctedTable.values[0][0], 1.000);
+
+  // Row 1 is 20°C (reference temperature):
+  // deltaPercent is 0.0%, baseline value 1.025 is UNCHANGED!
+  assert.equal(result.countTable.values[1][0], 10);
+  assert.equal(result.deltaPercentTable.values[1][0], 0);
+  assert.equal(result.correctedTable.values[1][0], 1.025);
+
+  // Row 2 is 40°C (hot temperature):
+  // Raw ratio = 0.9864 / 1.0544 = 0.9355 (-6.45% drift)
+  assert.equal(result.countTable.values[2][0], 10);
+  assert(Math.abs(result.deltaPercentTable.values[2][0] - (-6.45)) < 0.1);
+  // Corrected value = 1.060 * 0.9355 = 0.9916
+  assert(Math.abs(result.correctedTable.values[2][0] - (1.060 * (0.9864 / 1.0544))) < 0.001);
+
+  // Verify resulting AFR equivalence:
+  // Initial hot fuel multiplier: 1.060 -> gave 14.5 AFR.
+  // New hot fuel multiplier: 0.9916 -> delivers (14.5 * 1.060 / 0.9916) = 15.5 AFR!
+  const predictedHotAfr = 14.5 * (1.060 / result.correctedTable.values[2][0]);
+  assert(Math.abs(predictedHotAfr - 15.5) < 0.05, "Hot AFR should equal cool AFR (15.5)!");
 });

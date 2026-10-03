@@ -1,5 +1,5 @@
 "use client";
-import { LogRecord } from "@/app/_lib/log";
+import { LogRecord, evaluateMatVariety, MatVarietyFilterResult } from "@/app/_lib/log";
 import { Aggregator, scalingAliases, typeToReader } from "./consts";
 import {
   Axis,
@@ -7,6 +7,7 @@ import {
   LogTable,
   Scaling,
   Table,
+  Table3D,
   isTable2DX,
   isTable2DY,
 } from "./rom-metadata";
@@ -889,5 +890,209 @@ export function getTableTSV(table: BasicTable): string {
   const firstRow = table.values[0];
   const maxCol = Array.isArray(firstRow) ? firstRow.length - 1 : 0;
   return getCellRangeTSV(table, [0, 0], [maxRow, maxCol]);
+}
+
+export interface MatTempInvarianceOptions {
+  refTemp?: number;
+  minTempSpread?: number;
+  minDistinctBins?: number;
+  minCellSamples?: number;
+  maxCorrectionRatio?: number;
+  enableDamping?: boolean;
+  confidenceHk?: number;
+}
+
+export interface MatTempInvarianceResult {
+  sufficient: boolean;
+  spread: number;
+  reason?: string;
+  refTempUsed: number;
+  deltaPercentTable: Table3D<number>;
+  countTable: Table3D<number>;
+  correctedTable: Table3D<number>;
+  varietyResult?: MatVarietyFilterResult;
+}
+
+export function calculateMatTempInvariance(
+  baseTable: BasicTable,
+  logs: LogRecord[],
+  options: MatTempInvarianceOptions = {}
+): MatTempInvarianceResult | null {
+  if (baseTable.type !== "3D") {
+    console.log("calculateMatTempInvariance requires a 3D table");
+    return null;
+  }
+  const table3d = baseTable as Table3D<number>;
+  const minTempSpread = options.minTempSpread ?? 10.0;
+  const minDistinctBins = options.minDistinctBins ?? 2;
+  const minCellSamples = options.minCellSamples ?? 5;
+  const maxCorrectionRatio = options.maxCorrectionRatio ?? 0.15;
+  const enableDamping = options.enableDamping ?? true;
+  const confidenceHk = options.confidenceHk ?? 100;
+
+  // Initialize output tables preserving scaling, axis, etc.
+  const deltaPercentTable = duplicateTable(table3d, () => 0) as Table3D<number>;
+  deltaPercentTable.name = `MAT AFR Drift % (ref ${options.refTemp ?? 20}°C)`;
+
+  const countTable = duplicateTable(table3d, () => 0) as Table3D<number>;
+  countTable.name = "MAT Sample Counts";
+
+  const correctedTable = duplicateTable(table3d, (v) => v) as Table3D<number>;
+  correctedTable.name = "MAT Fuel Comp (Corrected)";
+
+  // Check temperature variety
+  const varietyResult = evaluateMatVariety(logs, { minTempSpread, minDistinctBins });
+
+  // Bin logs into table grid using bilinear weighting
+  const logTable = FillTableFromLog(table3d, logs, true) as Table3D<LogRecord[]>;
+  if (!logTable || !logTable.values) {
+    return {
+      sufficient: false,
+      spread: varietyResult.spread,
+      reason: "Failed to map log records to 3D MAT vs MAP table grid",
+      refTempUsed: options.refTemp ?? 20,
+      deltaPercentTable,
+      countTable,
+      correctedTable,
+      varietyResult,
+    };
+  }
+
+  const numRows = table3d.values.length;
+  const numCols = table3d.values[0].length;
+  const yAxisValues = table3d.yAxis.values;
+
+  // Matrices for cell statistics
+  const cellCounts: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+  const cellWeights: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+  const cellFuelError: number[][] = Array.from({ length: numRows }, () => Array(numCols).fill(0));
+
+  for (let y = 0; y < numRows; y++) {
+    for (let x = 0; x < numCols; x++) {
+      const records = logTable.values[y][x];
+      if (!records || records.length === 0) continue;
+
+      let sumWeightedError = 0;
+      let sumWeight = 0;
+      let validRecordCount = 0;
+
+      for (const r of records) {
+        if (r.delete) continue;
+        const afr = typeof r.AFR === "number" ? r.AFR : undefined;
+        if (afr === undefined || isNaN(afr) || afr <= 0) continue;
+
+        let error = afr;
+        const targetAfr = typeof r.AFRMAP === "number" && r.AFRMAP > 0 ? r.AFRMAP : undefined;
+        if (targetAfr) {
+          const trim = ((typeof r.STFT === "number" ? r.STFT : 0) + (typeof r.CurrentLTFT === "number" ? r.CurrentLTFT : 0)) / 100.0;
+          error = (1.0 - trim) * (afr / targetAfr);
+        }
+
+        const w = typeof r.weight === "number" && r.weight > 0 ? r.weight : 1.0;
+        sumWeightedError += error * w;
+        sumWeight += w;
+        validRecordCount++;
+      }
+
+      cellCounts[y][x] = validRecordCount;
+      cellWeights[y][x] = sumWeight;
+      countTable.values[y][x] = validRecordCount;
+      if (sumWeight > 0) {
+        cellFuelError[y][x] = sumWeightedError / sumWeight;
+      }
+    }
+  }
+
+  if (!varietyResult.sufficient) {
+    return {
+      sufficient: false,
+      spread: varietyResult.spread,
+      reason: varietyResult.reason,
+      refTempUsed: options.refTemp ?? 20,
+      deltaPercentTable,
+      countTable,
+      correctedTable,
+      varietyResult,
+    };
+  }
+
+  // Determine reference temperature row
+  const targetRefTemp = options.refTemp ?? 20;
+  let refRowIdx = nearestIndex(yAxisValues, targetRefTemp);
+
+  // If options.refTemp was not specified, pick the row with the most sample weight near 20°C
+  if (options.refTemp === undefined) {
+    let bestRow = refRowIdx;
+    let maxSamples = -1;
+    for (let y = 0; y < numRows; y++) {
+      const tempVal = yAxisValues[y];
+      const rowWeight = cellWeights[y].reduce((a, b) => a + b, 0);
+      if (tempVal >= 15 && tempVal <= 30 && rowWeight > maxSamples) {
+        maxSamples = rowWeight;
+        bestRow = y;
+      }
+    }
+    refRowIdx = bestRow;
+  }
+  const refTempUsed = yAxisValues[refRowIdx];
+
+  // For each MAP column x:
+  // Compare each temperature row y to reference row refRowIdx
+  for (let x = 0; x < numCols; x++) {
+    const refWeight = cellWeights[refRowIdx][x];
+    const refError = cellFuelError[refRowIdx][x];
+
+    // Reference row is always 0% drift and multiplier 1.0
+    deltaPercentTable.values[refRowIdx][x] = 0;
+    correctedTable.values[refRowIdx][x] = table3d.values[refRowIdx][x];
+
+    // Check if reference cell has sufficient data
+    const refHasData = refWeight >= minCellSamples && refError > 0;
+
+    for (let y = 0; y < numRows; y++) {
+      if (y === refRowIdx) continue;
+
+      const cellWeight = cellWeights[y][x];
+      const cellError = cellFuelError[y][x];
+      const baseVal = table3d.values[y][x];
+
+      if (refHasData && cellWeight >= minCellSamples && cellError > 0) {
+        // Raw ratio: cellError / refError
+        // If hot cell ran richer (cellError < refError), rawRatio < 1.0 -> reduces fuel
+        // If cold cell ran leaner (cellError > refError), rawRatio > 1.0 -> increases fuel
+        const rawRatio = cellError / refError;
+        const deltaPct = (rawRatio - 1.0) * 100.0;
+        deltaPercentTable.values[y][x] = Number(deltaPct.toFixed(2));
+
+        let effectiveMultiplier = rawRatio;
+        if (enableDamping) {
+          const wEff = Math.min(cellWeight, refWeight);
+          const conf = wEff <= 0 ? 0 : (wEff * wEff) / (wEff * wEff + confidenceHk);
+          effectiveMultiplier = 1.0 + conf * (rawRatio - 1.0);
+        }
+
+        // Clamp to allowed range: e.g. [1 - maxCorrection, 1 + maxCorrection]
+        const minMult = 1.0 - maxCorrectionRatio;
+        const maxMult = 1.0 + maxCorrectionRatio;
+        const clampedMultiplier = Math.max(minMult, Math.min(maxMult, effectiveMultiplier));
+
+        correctedTable.values[y][x] = Number((baseVal * clampedMultiplier).toFixed(4));
+      } else {
+        // Insufficient data or no reference -> unchanged
+        deltaPercentTable.values[y][x] = 0;
+        correctedTable.values[y][x] = baseVal;
+      }
+    }
+  }
+
+  return {
+    sufficient: true,
+    spread: varietyResult.spread,
+    refTempUsed,
+    deltaPercentTable,
+    countTable,
+    correctedTable,
+    varietyResult,
+  };
 }
 

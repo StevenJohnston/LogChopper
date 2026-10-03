@@ -14,6 +14,7 @@ import { AfrMlShifterWorker } from "@/app/_components/FlowNodes/AfrMlShifter/Afr
 import { SteadyStateFilterWorker } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterWorkerTypes";
 import { GearWorker } from "@/app/_components/FlowNodes/Gear/GearWorkerTypes";
 import { MatVarietyFilterWorker } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterWorkerTypes";
+import { MatFuelCompWorker } from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompWorkerTypes";
 
 export interface RunMessage<T> {
   type: "run";
@@ -52,7 +53,8 @@ export type MyWorker =
   | AfrMlShifterWorker
   | SteadyStateFilterWorker
   | GearWorker
-  | MatVarietyFilterWorker;
+  | MatVarietyFilterWorker
+  | MatFuelCompWorker;
 
 type TransferOrOptions = Transferable[] | StructuredSerializeOptions;
 export interface ExternalWorker<MessageIn, MessageOut>
