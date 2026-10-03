@@ -1011,9 +1011,19 @@ test("MAT Fuel Comp savedGroup structure and cloning", () => {
 
   const tpsToVarietyEdge = savedGroup.edges.find((e: any) => e.source === tpsNode.id && e.target === varietyNode.id);
   assert(tpsToVarietyEdge !== undefined, "TpsAfrDeleteNode must connect into MatVarietyFilterNode");
+  assert.equal(tpsToVarietyEdge.sourceHandle, "Log#LogSource");
+  assert.equal(tpsToVarietyEdge.targetHandle, "Log#LogTarget");
 
   const varietyToLogFilterEdge = savedGroup.edges.find((e: any) => e.source === varietyNode.id && e.target === logFilterNode.id);
   assert(varietyToLogFilterEdge !== undefined, "MatVarietyFilterNode must connect into LogFilterNode");
+  assert.equal(varietyToLogFilterEdge.sourceHandle, "Log#LogSource");
+  assert.equal(varietyToLogFilterEdge.targetHandle, "Log#LogTarget");
+
+  // Verify all edges have defined and valid handle IDs
+  for (const edge of savedGroup.edges) {
+    assert(edge.sourceHandle && edge.sourceHandle.length > 0, `Edge ${edge.id} missing sourceHandle`);
+    assert(edge.targetHandle && edge.targetHandle.length > 0, `Edge ${edge.id} missing targetHandle`);
+  }
 
   // 3. Check BaseTable is 3D Fuel Compensation MAT vs MAP
   const baseTableNode = savedGroup.nodes.find((n: any) => n.type === "BaseTableNode");
@@ -1021,7 +1031,7 @@ test("MAT Fuel Comp savedGroup structure and cloning", () => {
   assert.equal(baseTableNode.data.tableKey, "Fuel Compensation MAT vs MAP - Stock3bar");
   assert.equal(baseTableNode.data.tableType, "3D");
 
-  // 4. Verify Cloning preserves node count, edge count, and unique IDs
+  // 4. Verify Cloning preserves node count, edge count, unique IDs, and handle integrity
   const cloned = cloneSavedGroup(savedGroup);
   assert.equal(cloned.groupName, "MAT Fuel Comp");
   assert.equal(cloned.nodes.length, 16);
@@ -1033,6 +1043,8 @@ test("MAT Fuel Comp savedGroup structure and cloning", () => {
   for (const edge of cloned.edges) {
     assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
     assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+    assert(edge.sourceHandle && edge.sourceHandle.length > 0, `Cloned edge ${edge.id} missing sourceHandle`);
+    assert(edge.targetHandle && edge.targetHandle.length > 0, `Cloned edge ${edge.id} missing targetHandle`);
   }
 });
 
