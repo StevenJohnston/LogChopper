@@ -13,6 +13,7 @@ import { TableRemapWorker } from "@/app/_components/FlowNodes/TableRemap/TableRe
 import { AfrMlShifterWorker } from "@/app/_components/FlowNodes/AfrMlShifter/AfrMlShifterWorkerTypes";
 import { SteadyStateFilterWorker } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterWorkerTypes";
 import { GearWorker } from "@/app/_components/FlowNodes/Gear/GearWorkerTypes";
+import { MatVarietyFilterWorker } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterWorkerTypes";
 
 export interface RunMessage<T> {
   type: "run";
@@ -50,7 +51,8 @@ export type MyWorker =
   | TableRemapWorker
   | AfrMlShifterWorker
   | SteadyStateFilterWorker
-  | GearWorker;
+  | GearWorker
+  | MatVarietyFilterWorker;
 
 type TransferOrOptions = Transferable[] | StructuredSerializeOptions;
 export interface ExternalWorker<MessageIn, MessageOut>

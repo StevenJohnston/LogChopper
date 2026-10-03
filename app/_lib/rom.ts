@@ -266,15 +266,15 @@ export function FillTableFromLog(
         const { xAxis, yAxis } = table;
         // Y axis
         const yScaling = yAxis.scaling;
-        const yAxisLogValue = l[yScaling];
+        let yAxisLogValue = l[yScaling];
         if (typeof yAxisLogValue !== "number") {
-          console.log(
-            "Wanted log value to be of type number",
-            "log",
-            l,
-            "yScaling",
-            yScaling
-          );
+          const parser = new exprParser();
+          const alias = (scalingAliases as Record<string, any>)[yScaling];
+          if (alias && typeof l[alias.insteadUse] === "number") {
+            yAxisLogValue = parser.evaluate(alias.expr, l as Record<string, any>);
+          }
+        }
+        if (typeof yAxisLogValue !== "number") {
           return;
         }
         let y = 0;

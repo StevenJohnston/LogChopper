@@ -919,3 +919,126 @@ export function smoothSpeedAndCalculateGear(
     return record;
   });
 }
+
+export interface MatVarietyFilterOptions {
+  minTempSpread?: number;
+  minDistinctBins?: number;
+  binSize?: number;
+  minSamplesPerBin?: number;
+}
+
+export interface MatVarietyFilterResult {
+  sufficient: boolean;
+  minMat: number;
+  maxMat: number;
+  spread: number;
+  activeBinsCount: number;
+  binSummary: { binStart: number; binEnd: number; count: number }[];
+  totalSamples: number;
+  validSamples: number;
+  reason?: string;
+}
+
+export function evaluateMatVariety(
+  logs: LogRecord[],
+  options: MatVarietyFilterOptions = {}
+): MatVarietyFilterResult {
+  const minTempSpread = options.minTempSpread ?? 10.0;
+  const minDistinctBins = options.minDistinctBins ?? 2;
+  const binSize = options.binSize ?? 5.0;
+  const minSamplesPerBin = options.minSamplesPerBin ?? 5;
+
+  let minMat = Infinity;
+  let maxMat = -Infinity;
+  let validSamples = 0;
+  const binMap: Record<number, number> = {};
+
+  for (const log of logs) {
+    if (log.delete) continue;
+    const mat =
+      typeof log.MAT === "number"
+        ? log.MAT
+        : typeof log.IAT === "number"
+        ? log.IAT
+        : typeof log.AirTemp === "number"
+        ? log.AirTemp
+        : undefined;
+    if (mat === undefined || isNaN(mat)) continue;
+
+    validSamples++;
+    if (mat < minMat) minMat = mat;
+    if (mat > maxMat) maxMat = mat;
+
+    const binKey = Math.floor(mat / binSize) * binSize;
+    binMap[binKey] = (binMap[binKey] || 0) + 1;
+  }
+
+  if (validSamples === 0) {
+    return {
+      sufficient: false,
+      minMat: 0,
+      maxMat: 0,
+      spread: 0,
+      activeBinsCount: 0,
+      binSummary: [],
+      totalSamples: logs.length,
+      validSamples: 0,
+      reason: "No valid MAT/IAT readings found in logs",
+    };
+  }
+
+  const spread = maxMat - minMat;
+  const binSummary = Object.keys(binMap)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((binStart) => ({
+      binStart,
+      binEnd: binStart + binSize,
+      count: binMap[binStart],
+    }));
+
+  const activeBinsCount = binSummary.filter((b) => b.count >= minSamplesPerBin).length;
+  const spreadOk = spread >= minTempSpread;
+  const binsOk = activeBinsCount >= minDistinctBins;
+  const sufficient = spreadOk && binsOk;
+
+  let reason = "";
+  if (!sufficient) {
+    if (!spreadOk && !binsOk) {
+      reason = `MAT spread (${spread.toFixed(1)}°C) is less than required ${minTempSpread.toFixed(1)}°C, and only ${activeBinsCount} distinct bin(s) met sample threshold (required ${minDistinctBins}).`;
+    } else if (!spreadOk) {
+      reason = `MAT spread (${spread.toFixed(1)}°C) is less than required ${minTempSpread.toFixed(1)}°C.`;
+    } else {
+      reason = `Active temperature bins (${activeBinsCount}) is less than required ${minDistinctBins} bins.`;
+    }
+  }
+
+  return {
+    sufficient,
+    minMat,
+    maxMat,
+    spread,
+    activeBinsCount,
+    binSummary,
+    totalSamples: logs.length,
+    validSamples,
+    reason: sufficient ? undefined : reason,
+  };
+}
+
+export function filterMatVarietyLogs(
+  logs: LogRecord[],
+  options: MatVarietyFilterOptions = {}
+): { logs: LogRecord[]; result: MatVarietyFilterResult } {
+  const result = evaluateMatVariety(logs, options);
+  if (!result.sufficient) {
+    const deletedLogs = logs.map((l) => ({
+      ...l,
+      delete: true,
+      deleteReason: l.deleteReason || `Insufficient MAT variety: ${result.reason}`,
+    }));
+    return { logs: deletedLogs, result };
+  }
+  return { logs, result };
+}
+

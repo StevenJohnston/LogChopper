@@ -53,6 +53,7 @@ import {
   TableLookupNodeType,
 } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 import { SteadyStateFilterNodeType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
+import { MatVarietyFilterNodeType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes";
 
 interface ClonableData {
   clone: (data: any) => any;
@@ -88,7 +89,8 @@ export type MyNode =
   | TpsAfrDeleteNodeType
   | GearNodeType
   | TableLookupNodeType
-  | SteadyStateFilterNodeType;
+  | SteadyStateFilterNodeType
+  | MatVarietyFilterNodeType;
 
 const initialNodes = [] as MyNode[];
 const initialEdges = [] as Edge[];
