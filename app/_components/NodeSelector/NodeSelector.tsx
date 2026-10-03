@@ -28,6 +28,8 @@ import { AfrMlShifterButton } from "./AfrMlShifterButton"
 import GearButton from "./GearButton";
 import { TpsAfrDeleteData, TpsAfrDeleteNodeType, TpsAfrDeleteType } from "@/app/_components/FlowNodes/TpsAfrDelete/TpsAfrDeleteTypes"
 import { SteadyStateFilterData, SteadyStateFilterNodeType, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes"
+import { MatVarietyFilterData, MatVarietyFilterNodeType, MatVarietyFilterType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes"
+import MatFuelCompGroup from "@/app/_components/NodeSelector/MatFuelCompGroup"
 
 const selector = (state: RFState) => ({
   reactFlowInstance: state.reactFlowInstance,
@@ -129,6 +131,20 @@ const NodeSelector = () => {
           >
             Steady State Filter
           </NodeSelectorButton>
+          <NodeSelectorButton
+            onClick={() => {
+              const matFilter: MatVarietyFilterNodeType = {
+                position: getViewportPosition(100, 100),
+                id: uuid(),
+                type: MatVarietyFilterType,
+                data: new MatVarietyFilterData({}),
+                dragHandle: '.drag-handle',
+              }
+              updateNode(matFilter)
+            }}
+          >
+            MAT Variety Filter
+          </NodeSelectorButton>
 
           <div className="col-span-2">Rom</div>
           <SelectedRom />
@@ -153,6 +169,7 @@ const NodeSelector = () => {
           <AfrMapGroup />
           <MafMapBalancerGroup />
           <MafMapCoherenceGroup />
+          <MatFuelCompGroup />
           <TableRemapper />
           <TableLookupButton />
           {savedGroups.length > 0 && (

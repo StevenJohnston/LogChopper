@@ -920,7 +920,169 @@ test("MAF & MAP Coherence Analyzer mathematical formulas", () => {
   );
 });
 
+test("MAT Variety Filter logic blocks narrow temperature datalogs and permits diverse datalogs", () => {
+  const { evaluateMatVariety, filterMatVarietyLogs } = require("@/app/_lib/log");
 
+  // 1. Narrow temperature datalog (single run, MAT 22°C - 26°C -> span 4°C < 10°C)
+  const narrowLogs = [
+    { LogID: 1, MAT: 22.0, AFR: 14.7 },
+    { LogID: 2, MAT: 23.5, AFR: 14.6 },
+    { LogID: 3, MAT: 24.0, AFR: 14.8 },
+    { LogID: 4, MAT: 25.0, AFR: 14.7 },
+    { LogID: 5, MAT: 26.0, AFR: 14.5 },
+  ];
 
+  const narrowEval = evaluateMatVariety(narrowLogs, { minTempSpread: 10.0, minDistinctBins: 2 });
+  assert.equal(narrowEval.sufficient, false);
+  assert.equal(narrowEval.spread, 4.0);
+  assert.ok(narrowEval.reason.includes("MAT spread"));
 
+  const filteredNarrow = filterMatVarietyLogs(narrowLogs, { minTempSpread: 10.0, minDistinctBins: 2 });
+  assert.equal(filteredNarrow.result.sufficient, false);
+  // All records should be marked delete = true to prevent corruption downstream
+  assert.equal(filteredNarrow.logs.length, 5);
+  for (const record of filteredNarrow.logs) {
+    assert.equal(record.delete, true);
+  }
 
+  // 2. Diverse temperature datalogs (morning commute MAT 20°C - 24°C combined with afternoon MAT 40°C - 44°C)
+  const diverseLogs = [
+    { LogID: 1, MAT: 20.0, AFR: 14.7 },
+    { LogID: 2, MAT: 21.0, AFR: 14.8 },
+    { LogID: 3, MAT: 22.0, AFR: 14.7 },
+    { LogID: 4, MAT: 23.0, AFR: 14.6 },
+    { LogID: 5, MAT: 24.0, AFR: 14.7 },
+    { LogID: 6, MAT: 40.0, AFR: 13.9 },
+    { LogID: 7, MAT: 41.0, AFR: 14.0 },
+    { LogID: 8, MAT: 42.0, AFR: 14.1 },
+    { LogID: 9, MAT: 43.0, AFR: 13.8 },
+    { LogID: 10, MAT: 44.0, AFR: 13.9 },
+  ];
+
+  const diverseEval = evaluateMatVariety(diverseLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(diverseEval.sufficient, true);
+  assert.equal(diverseEval.spread, 24.0);
+  assert.ok(diverseEval.activeBinsCount >= 2);
+  assert.strictEqual(diverseEval.reason, undefined);
+
+  const filteredDiverse = filterMatVarietyLogs(diverseLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(filteredDiverse.result.sufficient, true);
+  assert.equal(filteredDiverse.logs.length, 10);
+  for (const record of filteredDiverse.logs) {
+    assert.strictEqual(record.delete, undefined);
+  }
+
+  // 3. Fallback to IAT if MAT column is missing
+  const iatLogs = [
+    { LogID: 1, IAT: 15.0, AFR: 14.7 },
+    { LogID: 2, IAT: 16.0, AFR: 14.7 },
+    { LogID: 3, IAT: 17.0, AFR: 14.7 },
+    { LogID: 4, IAT: 18.0, AFR: 14.7 },
+    { LogID: 5, IAT: 19.0, AFR: 14.7 },
+    { LogID: 6, IAT: 35.0, AFR: 14.0 },
+    { LogID: 7, IAT: 36.0, AFR: 14.0 },
+    { LogID: 8, IAT: 37.0, AFR: 14.0 },
+    { LogID: 9, IAT: 38.0, AFR: 14.0 },
+    { LogID: 10, IAT: 39.0, AFR: 14.0 },
+  ];
+  const iatEval = evaluateMatVariety(iatLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(iatEval.sufficient, true);
+  assert.equal(iatEval.spread, 24.0);
+});
+
+test("MAT Fuel Comp savedGroup structure and cloning", () => {
+  const { savedGroup } = require("@/app/_components/NodeSelector/MatFuelCompGroup");
+  const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
+
+  assert.equal(savedGroup.groupName, "MAT Fuel Comp");
+  assert.equal(savedGroup.nodes.length, 16);
+  assert.equal(savedGroup.edges.length, 17);
+
+  // 1. Check MAT Variety Filter Node configuration
+  const varietyNode = savedGroup.nodes.find((n: any) => n.type === "MatVarietyFilterNode");
+  assert(varietyNode !== undefined, "MatVarietyFilterNode must be present in MAT Fuel Comp savedGroup");
+  assert.equal(varietyNode.data.minTempSpread, 10.0);
+  assert.equal(varietyNode.data.minDistinctBins, 2);
+
+  // 2. Check Pipeline wiring: Log -> AfrMlShifter -> TpsAfrDelete -> MatVarietyFilter -> LogFilter
+  const tpsNode = savedGroup.nodes.find((n: any) => n.type === "TpsAfrDeleteNode");
+  const logFilterNode = savedGroup.nodes.find((n: any) => n.type === "LogFilterNode");
+  assert(tpsNode !== undefined && logFilterNode !== undefined);
+
+  const tpsToVarietyEdge = savedGroup.edges.find((e: any) => e.source === tpsNode.id && e.target === varietyNode.id);
+  assert(tpsToVarietyEdge !== undefined, "TpsAfrDeleteNode must connect into MatVarietyFilterNode");
+
+  const varietyToLogFilterEdge = savedGroup.edges.find((e: any) => e.source === varietyNode.id && e.target === logFilterNode.id);
+  assert(varietyToLogFilterEdge !== undefined, "MatVarietyFilterNode must connect into LogFilterNode");
+
+  // 3. Check BaseTable is 3D Fuel Compensation MAT vs MAP
+  const baseTableNode = savedGroup.nodes.find((n: any) => n.type === "BaseTableNode");
+  assert(baseTableNode !== undefined);
+  assert.equal(baseTableNode.data.tableKey, "Fuel Compensation MAT vs MAP - Stock3bar");
+  assert.equal(baseTableNode.data.tableType, "3D");
+
+  // 4. Verify Cloning preserves node count, edge count, and unique IDs
+  const cloned = cloneSavedGroup(savedGroup);
+  assert.equal(cloned.groupName, "MAT Fuel Comp");
+  assert.equal(cloned.nodes.length, 16);
+  assert.equal(cloned.edges.length, 17);
+
+  const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
+  assert.equal(nodeIds.size, 16);
+
+  for (const edge of cloned.edges) {
+    assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
+    assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+  }
+});
+
+test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
+  const { FillTableFromLog } = require("@/app/_lib/rom");
+  const { scalingAliases } = require("@/app/_lib/consts");
+
+  // Verify scalingAliases mapping for MAT and Temp
+  assert.equal(scalingAliases["Temp"].insteadUse, "MAT");
+  assert.equal(scalingAliases["MAT"].insteadUse, "MAT");
+
+  const tableMatMap: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "61000",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100, 150],
+    },
+    yAxis: {
+      name: "Temp",
+      type: "Y Axis",
+      elements: 3,
+      address: "62000",
+      scaling: "Temp", // XML axis name/scaling is Temp
+      values: [20, 30, 40],
+    },
+    values: [
+      [1.0, 1.0, 1.0],
+      [1.02, 1.02, 1.02],
+      [1.05, 1.05, 1.05],
+    ],
+  };
+
+  // Log record has 'MAT' and 'MAP'
+  const logs: LogRecord[] = [
+    { LogID: 1, MAP: 100, MAT: 30, AFR: 14.7 },
+  ];
+
+  const logTable = FillTableFromLog(tableMatMap, logs, true) as Table3D<LogRecord[]>;
+  assert(logTable !== undefined && logTable !== null);
+  assert.equal(logTable.type, "3D");
+
+  // Row index 1 is MAT=30, Col index 1 is MAP=100
+  assert.equal(logTable.values[1][1].length, 1);
+  assert.equal(logTable.values[1][1][0].LogID, 1);
+  assert.equal(logTable.values[1][1][0].weight, 1.0);
+});
