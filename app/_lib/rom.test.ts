@@ -1195,3 +1195,94 @@ test("calculateMatTempInvariance flattens temperature AFR delta to reference tem
   const predictedHotAfr = 14.5 * (1.060 / result.correctedTable.values[2][0]);
   assert(Math.abs(predictedHotAfr - 15.5) < 0.05, "Hot AFR should equal cool AFR (15.5)!");
 });
+
+test("calculateMatTempInvariance anchors at 14°C base MAT and matches higher MAT to lower", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  // 4B11T factory MAT vs MAP table
+  const table4B11T: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "634d4",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100, 150],
+    },
+    yAxis: {
+      name: "MAT",
+      type: "Y Axis",
+      elements: 7,
+      address: "634c0",
+      scaling: "Temp",
+      values: [-18, -3, 12, 32, 52, 72, 92],
+    },
+    values: [
+      [1.00, 1.00, 1.00], // -18°C
+      [1.02, 1.02, 1.02], // -3°C
+      [1.00, 1.00, 1.00], // 12°C (Base MAT anchor ~14°C)
+      [1.03, 1.03, 1.03], // 32°C (Warm commute)
+      [1.05, 1.05, 1.05], // 52°C (Heat soak)
+      [1.00, 1.00, 1.00], // 72°C
+      [1.00, 1.00, 1.00], // 92°C
+    ],
+  };
+
+  // Morning commute (cool, MAT ~14-17°C, bilinearly populates 12°C row)
+  // Car ran 15.6 AFR at 50 kPa
+  const morningLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 50,
+    MAT: 14,
+    AFR: 15.6,
+    AFRMAP: 14.7,
+  }));
+
+  // Afternoon commute (hot, MAT ~35°C, populates 32°C row)
+  // Heat soak caused car to run richer at 14.8 AFR
+  const afternoonLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 20,
+    MAP: 50,
+    MAT: 32,
+    AFR: 14.8,
+    AFRMAP: 14.7,
+  }));
+
+  const allLogs = [...morningLogs, ...afternoonLogs];
+
+  // Default options (should use refTemp = 14 -> row 12)
+  const result = calculateMatTempInvariance(table4B11T, allLogs, {
+    refTemp: 14,
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false,
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  // Nearest row to 14°C is 12°C
+  assert.equal(result.refTempUsed, 12);
+
+  // 12°C row (index 2) is the base MAT: 0% drift, value unchanged (1.00)
+  assert.equal(result.deltaPercentTable.values[2][0], 0);
+  assert.equal(result.correctedTable.values[2][0], 1.00);
+
+  // 32°C row (index 3): ran richer (14.8 vs 15.6)
+  // With bilinear interpolation, records at MAT 14 contribute 90% to row 12 and 10% to row 32
+  // Drift = -4.66%
+  const driftPct = result.deltaPercentTable.values[3][0];
+  assert(Math.abs(driftPct - (-4.66)) < 0.1, `Expected ~ -4.66% drift, got ${driftPct}`);
+
+  // Corrected multiplier decreases to reduce fuel at higher MAT:
+  const correctedMultiplier = result.correctedTable.values[3][0];
+  assert(correctedMultiplier < 1.03, "Higher MAT multiplier must decrease to lean out afternoon rich drift");
+
+  // Verify that predicted afternoon AFR now matches morning baseline:
+  const predictedHotAfr = (15 * 14.8 + 1.5 * 15.6) / 16.5 * (1.03 / correctedMultiplier);
+  assert(Math.abs(predictedHotAfr - 15.6) < 0.05, `Afternoon AFR (${predictedHotAfr}) must equal morning baseline (15.6)!`);
+});

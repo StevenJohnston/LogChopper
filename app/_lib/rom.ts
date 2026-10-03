@@ -932,7 +932,7 @@ export function calculateMatTempInvariance(
 
   // Initialize output tables preserving scaling, axis, etc.
   const deltaPercentTable = duplicateTable(table3d, () => 0) as Table3D<number>;
-  deltaPercentTable.name = `MAT AFR Drift % (ref ${options.refTemp ?? 20}°C)`;
+  deltaPercentTable.name = `MAT AFR Drift % (ref ${options.refTemp ?? 14}°C)`;
 
   const countTable = duplicateTable(table3d, () => 0) as Table3D<number>;
   countTable.name = "MAT Sample Counts";
@@ -950,7 +950,7 @@ export function calculateMatTempInvariance(
       sufficient: false,
       spread: varietyResult.spread,
       reason: "Failed to map log records to 3D MAT vs MAP table grid",
-      refTempUsed: options.refTemp ?? 20,
+      refTempUsed: options.refTemp ?? 14,
       deltaPercentTable,
       countTable,
       correctedTable,
@@ -1008,7 +1008,7 @@ export function calculateMatTempInvariance(
       sufficient: false,
       spread: varietyResult.spread,
       reason: varietyResult.reason,
-      refTempUsed: options.refTemp ?? 20,
+      refTempUsed: options.refTemp ?? 14,
       deltaPercentTable,
       countTable,
       correctedTable,
@@ -1017,17 +1017,17 @@ export function calculateMatTempInvariance(
   }
 
   // Determine reference temperature row
-  const targetRefTemp = options.refTemp ?? 20;
+  const targetRefTemp = options.refTemp ?? 14;
   let refRowIdx = nearestIndex(yAxisValues, targetRefTemp);
 
-  // If options.refTemp was not specified, pick the row with the most sample weight near 20°C
+  // If options.refTemp was not specified, pick the row with the most sample weight near 14°C (between 0°C and 25°C)
   if (options.refTemp === undefined) {
     let bestRow = refRowIdx;
     let maxSamples = -1;
     for (let y = 0; y < numRows; y++) {
       const tempVal = yAxisValues[y];
       const rowWeight = cellWeights[y].reduce((a, b) => a + b, 0);
-      if (tempVal >= 15 && tempVal <= 30 && rowWeight > maxSamples) {
+      if (tempVal >= 0 && tempVal <= 25 && rowWeight > maxSamples) {
         maxSamples = rowWeight;
         bestRow = y;
       }

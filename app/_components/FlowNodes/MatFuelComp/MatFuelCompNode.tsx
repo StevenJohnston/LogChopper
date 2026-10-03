@@ -90,7 +90,7 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
         return t3d.yAxis.values;
       }
     }
-    return [-20, 0, 20, 40, 60, 80];
+    return [-18, -3, 12, 32, 52, 72, 92];
   }, [data.sourceTable]);
 
   // Determine active table to display in RomModuleUI
@@ -170,18 +170,19 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
               <div className="bg-white rounded-lg p-4 min-w-[500px] border-black border-2 font-normal text-xs text-gray-800 shadow-xl">
                 <p className="text-base font-bold mb-1 text-slate-900">MAT Temperature Invariance Calibration</p>
                 <p className="mb-2 text-slate-700">
-                  Equalizes fueling across intake manifold air temperatures (MAT) without corrupting base VE calibration.
+                  Equalizes fueling across intake manifold air temperatures (MAT) so higher temperatures match the cooler base MAT calibration.
                 </p>
                 <div className="bg-amber-50 border-l-4 border-amber-500 p-2 my-2 text-xs">
                   <p className="font-semibold text-amber-900">Core Principle:</p>
                   <p className="text-amber-800">
-                    • <strong>MAF &amp; MAP tables</strong> tune absolute fueling (<span className="font-mono">AFR → AFRMAP</span>).<br />
-                    • <strong>MAT Fuel Comp table</strong> guarantees relative temperature invariance (<span className="font-mono">AFR(T) → AFR(T_ref)</span>).
+                    • <strong>Base MAT (14°C / 12°C row)</strong> is the tuning anchor (multiplier locked at 1.0000).<br />
+                    • <strong>Higher MAT rows (32°C, 52°C, etc.)</strong> are adjusted so their delivered AFR matches the cool baseline.<br />
+                    • <strong>MAF &amp; MAP tables</strong> tune absolute fueling (<span className="font-mono">AFR → AFRMAP</span>).
                   </p>
                 </div>
                 <p className="font-semibold text-slate-900 mt-2">Safety Features:</p>
                 <ul className="list-disc pl-5 text-slate-700 space-y-1">
-                  <li><strong>Anchor Protection:</strong> Fueling at reference temp (default 20°C) is locked at 1.0000 (0% drift).</li>
+                  <li><strong>Anchor Protection:</strong> Fueling at base reference temp (14°C / 12°C row) is locked at 1.0000 (0% drift).</li>
                   <li><strong>Variety Gating:</strong> Requires logs with temperature spread ≥ 10°C across ≥ 2 distinct bins before applying corrections.</li>
                   <li><strong>Confidence Damping:</strong> Uses Hill weighting to prevent low-sample cells from introducing spikes.</li>
                 </ul>
@@ -210,7 +211,7 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
               <span className="text-[10px] font-normal px-1 rounded bg-emerald-200">PASS</span>
             </div>
             <div className="text-[11px] text-emerald-800 mt-0.5">
-              Spread: <span className="font-semibold">{data.spread.toFixed(1)}°C</span> (min {data.minTempSpread}°C) | Ref Temp: <span className="font-semibold">{data.refTempUsed}°C</span>
+              Spread: <span className="font-semibold">{data.spread.toFixed(1)}°C</span> (min {data.minTempSpread}°C) | Base MAT: <span className="font-semibold">{data.refTempUsed}°C</span>
             </div>
           </div>
         ) : (
@@ -228,16 +229,17 @@ function MatFuelCompNode({ id, data, isConnectable }: NodeProps<MatFuelCompData>
       {/* Controls & Configuration */}
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
         <div>
-          <label className="block font-medium text-slate-800 mb-1">Ref Temp (Anchor):</label>
+          <label className="block font-medium text-slate-800 mb-1">Base MAT (Anchor):</label>
           <select
             className="w-full p-1.5 border border-slate-300 rounded bg-white font-mono text-xs focus:ring-1 focus:ring-amber-500"
             value={data.refTemp === undefined ? "auto" : String(data.refTemp)}
             onChange={onRefTempChange}
           >
-            <option value="auto">Auto (20°C preferred)</option>
+            <option value="auto">Auto (14°C Base MAT)</option>
+            <option value="14">14°C (Target Base MAT)</option>
             {availableTemps.map((temp) => (
               <option key={temp} value={temp}>
-                {temp}°C {temp === 20 ? "(Standard Baseline)" : ""}
+                {temp}°C {temp === 12 ? "(Base MAT ~14°C)" : temp === 20 ? "(20°C Baseline)" : ""}
               </option>
             ))}
           </select>

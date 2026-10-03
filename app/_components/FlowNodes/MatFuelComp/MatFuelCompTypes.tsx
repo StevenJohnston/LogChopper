@@ -108,7 +108,7 @@ export class MatFuelCompData
     countTable = null,
     activeView = "corrected",
     refTemp = undefined,
-    refTempUsed = 20,
+    refTempUsed = 14,
     minTempSpread = 10.0,
     minDistinctBins = 2,
     minCellSamples = 5,
