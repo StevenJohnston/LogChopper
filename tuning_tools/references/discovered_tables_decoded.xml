@@ -33,10 +33,10 @@
     <table name="Post-Start Initial Flare Fuel Enrichment vs ECT (0x556BE)" address="556be" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
     <!-- Role: Multiplier applied to calculated injection pulse width during transition out of decel fuel cut (routine 0x2463C / 0x24718) to smooth engine re-engagement. -->
     <table name="Decel Fuel Cut Recovery Pulse Width Multiplier vs Engine RPM (0x5571A)" address="5571a" category="Fuel: Decel Fuel Cut Recovery" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x55792)" address="55792" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x55820)" address="55820" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Vehicle speed threshold in neutral/coasting below which decel fuel cut is inhibited to prevent stalling. -->
+    <table name="Decel Fuel Cut Vehicle Speed Threshold (Coast / Neutral) vs Throttle Angle (0x55792)" address="55792" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
+    <!-- Role: Throttle position deactivation boundary (90 tapering to 7) triggering fuel reactivation during coasting. -->
+    <table name="Decel Fuel Cut Throttle Angle Deactivation Curve vs Vehicle Speed (0x55820)" address="55820" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
     <!-- Role: Minimum vehicle speed threshold required to maintain decel fuel cut when in-gear, preventing low-speed driveline bucking. -->
     <table name="Decel Fuel Cut Vehicle Speed Threshold (In-Gear) vs Throttle Angle (0x55832)" address="55832" category="Fuel: Decel Fuel Cut Thresholds" type="2D" scaling="uint8"/>
     <!-- Role: Subtractive step decrement applied to post-crank fuel pulse width as RPM climbs through initial flare (20 down to 3). -->
@@ -55,12 +55,12 @@
     <table name="Rolling Vehicle Speed Smoothing Multiplier (Mode 2 / Overrun) vs Engine RPM (0x5593E)" address="5593e" category="Vehicle Speed &amp; Gear State Machine" type="2D" scaling="Percent128"/>
     <!-- Role: Load-dependent scaling multiplier applied to base ignition advance calculation in routine 0x20B88 (nominal 128 / 1.00x). -->
     <table name="Base Ignition Advance Load Multiplier vs Engine Load (0x56158)" address="56158" category="Ignition Timing: Base Calculation" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine Load Secondary Filter (0x5616C)" address="5616c" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Array of 8 gear-indexed tables accessed via pointer table 0x063668 in routine 0x020BA0 scaling base spark advance across engine load. -->
+    <table name="Gear-Indexed Ignition Advance Load Scale Factor vs Engine Load (0x5616C)" address="5616c" category="Ignition Timing: Base Calculation" type="2D" scaling="uint8"/>
     <!-- Role: Engine load threshold (88-96% load) above which closed-loop idle ignition retard is deactivated. -->
     <table name="Idle Ignition Spark Retard Load Enable Ceiling vs Engine Load (0x56196)" address="56196" category="Ignition Timing: Idle Stability &amp; Retard" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x561AA)" address="561aa" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: High-RPM spark advance multiplier clamp (0 uncapping to 255) evaluated in base spark routine 0x02FD94. -->
+    <table name="Base Ignition Advance High-RPM Multiplier vs Engine RPM (0x561AA)" address="561aa" category="Ignition Timing: Base Calculation" type="2D" scaling="uint8"/>
     <!-- Role: RPM multiplier applied to base idle ignition timing in the main spark arbitration routine (0x02FD94). Nominal 128 (1.00x). -->
     <table name="Base Idle Ignition Timing Multiplier vs Engine RPM (0x561DA)" address="561da" category="Ignition Timing: Idle Stability &amp; Retard" type="2D" scaling="Percent128"/>
     <!-- Role: Engine load switching curve across RPM evaluated in routine 0x200B0 that triggers transition of ignition timing logic from cruise mode to boosted operation. -->
@@ -71,10 +71,10 @@
     <table name="Dynamic Coast Ignition Retard RPM Correction Factor vs Engine RPM (0x5621A)" address="5621a" category="Ignition Timing: Coast &amp; Transient Retard" type="2D" scaling="Percent128"/>
     <!-- Role: Transient manifold pressure delta multiplier applied to dynamic coast ignition retard during rapid throttle lifts. -->
     <table name="Dynamic Coast Ignition Retard Manifold Pressure Multiplier vs Delta MAP (0x56222)" address="56222" category="Ignition Timing: Coast &amp; Transient Retard" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Filtered Throttle Angle Delta (0x56236)" address="56236" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] RAM 0xFFFF (0x563A4)" address="563a4" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Transient throttle lift rate multiplier (179 tapering to 141) scaling dynamic coast retard upon rapid throttle closing. -->
+    <table name="Dynamic Coast Ignition Retard Throttle Rate Delta Multiplier vs Delta TPS (0x56236)" address="56236" category="Ignition Timing: Coast &amp; Transient Retard" type="2D" scaling="uint8"/>
+    <!-- Role: Stepper motor equivalent base airflow step calibration curve immediately preceding DBW airflow offset 0x563C6. -->
+    <table name="DBW Idle Airflow Base Target Step Curve vs Airflow Step (0x563A4)" address="563a4" category="Idle Control: Target Airflow &amp; Stepper" type="2D" scaling="uint8"/>
     <!-- Role: RPM-dependent airflow adder / trim applied to base idle airflow target (routine 0x270E8 / 0x27BA0). -->
     <table name="DBW Idle Airflow Offset vs Engine RPM (0x563C6)" address="563c6" category="Drive-by-Wire: Idle Airflow Control" type="2D" scaling="uint8"/>
     <!-- Role: Progressive duty cycle adder (22 ramping to 160) applied to base wastegate duty cycle in routine 0x02C1D0 (outputs to RAM 0x808BC0) to maintain boost against wastegate blow-open. -->
@@ -87,8 +87,8 @@
     <table name="TCM CAN Communication Timeout Recovery Multiplier vs Engine RPM (0x56534)" address="56534" category="Transmission: CAN Communication &amp; Diagnostics" type="2D" scaling="uint8"/>
     <!-- Role: Driver demand torque curve across TPS and vehicle speed evaluated in routine 0x0A0A04 (outputs to RAM 0x8088DA). -->
     <table name="Transmission Driver Demand Torque Multiplier vs Throttle Position / VSS (0x5662E)" address="5662e" category="Transmission: Torque Request Arbitration" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x5663A)" address="5663a" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Auxiliary torque request adder active during rapid accelerator pedal depression. -->
+    <table name="Transmission Driver Demand Torque Offset (Kickdown) vs Throttle Position / VSS (0x5663A)" address="5663a" category="Transmission: Torque Request Arbitration" type="2D" scaling="uint8"/>
     <!-- Role: Secondary load filter damping coefficient evaluated in routine 0x0A0A34 (outputs to RAM 0x808870). -->
     <table name="Transmission Secondary Load Filter Damping Factor vs Engine Load (0x56646)" address="56646" category="Transmission: Torque Request Arbitration" type="2D" scaling="Percent128"/>
     <!-- Role: Auxiliary idle speed offset added during in-gear transmission load in routine 0x0A6958 (outputs to RAM 0x804618). -->
@@ -111,10 +111,10 @@
     <table name="Transmission Gear 4 Target Load / Airflow Threshold vs Target Load (0x566DC)" address="566dc" category="Transmission: Shift Schedule Maps" type="2D" scaling="uint8"/>
     <!-- Role: In-gear engine load compensation factor evaluated in routine 0x0A6924 (outputs to RAM 0x808646). -->
     <table name="Transmission In-Gear Idle Load Compensation Factor vs Engine RPM (0x566EC)" address="566ec" category="Transmission: Idle &amp; Drivability Compensation" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x56B4C)" address="56b4c" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine Load Secondary Filter (0x56BBA)" address="56bba" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Time delay filter (9 to 17 cycles) before flagging turbine speed rationality faults. -->
+    <table name="Transmission Turbine Slip Diagnostic Delay Timer vs Engine RPM (0x56B4C)" address="56b4c" category="Transmission: Rationality &amp; Diagnostics" type="2D" scaling="uint8"/>
+    <!-- Role: Plausibility ceiling (99 to 156) for transmission calculated input torque across engine load. -->
+    <table name="Transmission Input Torque Rationality Ceiling vs Engine Load (0x56BBA)" address="56bba" category="Transmission: Rationality &amp; Diagnostics" type="2D" scaling="uint8"/>
     <!-- Role: Lower rationality limit for turbine to engine speed ratio in routine 0x0A45A0 (outputs to RAM 0x80913A). -->
     <table name="Transmission Turbine Shaft Speed Ratio Minimum Limit vs Engine RPM (0x56BCE)" address="56bce" category="Transmission: Rationality &amp; Diagnostics" type="2D" scaling="uint8"/>
     <!-- Role: Lower speed sensor diagnostic floor evaluated in routine 0x0A4588 (outputs to RAM 0x808646). -->
@@ -163,14 +163,14 @@
     <table name="Load Filter Baseline Upper Clamp vs Engine RPM (0x576E6)" address="576e6" category="Load Calculation &amp; Lag Filtering" type="2D" scaling="uint8"/>
     <!-- Role: RPM-dependent multiplier on the load filter alpha, ramping up from 78 at low RPM to 128 (1.000) at 3000 RPM. -->
     <table name="Load Low-Pass Lag Filter Multiplier vs Engine RPM (0x57702)" address="57702" category="Load Calculation &amp; Lag Filtering" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine Load Secondary Filter (0x57A2E)" address="57a2e" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x57A42)" address="57a42" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Minimum rate-of-change clamp (3 baseline) for secondary engine load filter. -->
+    <table name="Secondary Load Lag Filter Slew Floor vs Engine Load (0x57A2E)" address="57a2e" category="MAF/MAP Load Calculation &amp; Smoothing" type="2D" scaling="uint8"/>
+    <!-- Role: Maximum rate-of-change clamp (nominal 128 / 1.00x) for secondary engine load filter. -->
+    <table name="Secondary Load Lag Filter Slew Ceiling vs Engine RPM (0x57A42)" address="57a42" category="MAF/MAP Load Calculation &amp; Smoothing" type="2D" scaling="Percent128"/>
     <!-- Role: Maximum allowed engine torque during reverse gear engagement evaluated in routine 0x0AA96C (outputs to RAM 0x808848). -->
     <table name="Reverse Gear Inhibit Engine Torque Threshold vs Engine RPM (0x57BAA)" address="57baa" category="Transmission: Torque Request Arbitration" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x57BB6)" address="57bb6" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Maximum vehicle speed threshold (128 tapering to 84) allowed for reverse gear engagement. -->
+    <table name="Reverse Gear Inhibit Vehicle Speed Ceiling vs Engine RPM (0x57BB6)" address="57bb6" category="Transmission: Torque Request Arbitration" type="2D" scaling="uint8"/>
     <!-- Role: Coolant-temperature-dependent delay duration (multiplied by 20 ticks) enforced before fuel delivery is restored upon exiting DFCO. -->
     <table name="Decel Fuel Cut Reactivation Delay Timer vs Fast ECT (0x57BC4)" address="57bc4" category="Fuel: Decel Fuel Cut Timers" type="2D" scaling="uint8"/>
     <!-- Role: Rationality voltage threshold floor for catalyst efficiency monitor (P0420) in routine 0x047768 (outputs to RAM 0x809190). -->
@@ -183,16 +183,16 @@
     <table name="Decel Fuel Cut (DFCO) Cut-Off Lower Hysteresis Threshold vs Engine RPM (0x57D68)" address="57d68" category="Fuel: Decel Fuel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
     <!-- Role: Upper engine speed hysteresis threshold for the master DFCO latch (bit 0x80 of RAM 0x808878). RPM rising above this arms fuel cut. -->
     <table name="Decel Fuel Cut (DFCO) Cut-Off Upper Hysteresis Threshold vs Engine RPM (0x57D7A)" address="57d7a" category="Fuel: Decel Fuel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x57D8C)" address="57d8c" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x57DDC)" address="57ddc" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Throttle hysteresis floor (70 down to 24) preventing fuel injection shudder around the tip-in threshold. -->
+    <table name="Decel Fuel Cut Throttle Angle Hysteresis Floor vs Throttle Angle (0x57D8C)" address="57d8c" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
+    <!-- Role: Dynamic lower RPM floor (255 down to 26) below which fuel injection is immediately re-enabled. -->
+    <table name="Decel Fuel Cut Dynamic Reactivation RPM Floor vs Engine RPM (0x57DDC)" address="57ddc" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
     <!-- Role: Safety floor offset limiting maximum allowed timing retard during rapid throttle and boost transitions (routine 0x21E9C). -->
     <table name="Minimum Ignition Timing Retard Floor Offset vs Engine RPM (0x58CC8)" address="58cc8" category="Ignition Timing: Limits &amp; Safety Clamps" type="2D" scaling="uint8"/>
     <!-- Role: Dynamic discrete lag filter applied to raw MAP sensor signal. High filtering in vacuum (14 ticks) to smooth idle pulsations; zero filtering in boost (0 ticks) for fast spool response. -->
     <table name="Manifold Pressure Sensor Filter Lag Factor vs MAP (0x59A4C)" address="59a4c" category="Intake &amp; Manifold Pressure Filtering" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x59E84)" address="59e84" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Transient spike delta threshold (20 baseline) filtering electrical noise on analog MAP input. -->
+    <table name="Manifold Pressure Sensor Spike Rejection Threshold vs Engine RPM (0x59E84)" address="59e84" category="Sensor Scaling &amp; Calibration" type="2D" scaling="uint8"/>
     <!-- Role: CAN bus message scheduling multiplier for engine-to-transmission heartbeat packets in routine 0x0A0850 (outputs to RAM 0x808BB2). -->
     <table name="Transmission CAN Heartbeat Rate Filter Multiplier vs Engine RPM (0x59E92)" address="59e92" category="Transmission: CAN Communication &amp; Diagnostics" type="2D" scaling="Percent128"/>
     <!-- Role: Engine cycle decrement threshold for primary post-start fuel decay with A/C active (30 down to 23 cycles). -->
@@ -203,16 +203,16 @@
     <table name="Post-Start Fuel Decay Step Threshold #2 (A/C ON) vs RPM (0x59EBC)" address="59ebc" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
     <!-- Role: Secondary stage engine cycle decrement threshold with A/C OFF (20 down to 13 cycles). -->
     <table name="Post-Start Fuel Decay Step Threshold #2 (A/C OFF) vs RPM (0x59ECA)" address="59eca" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x59EEC)" address="59eec" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x59EF8)" address="59ef8" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Enrichment decay step size (20 tapering to 5) when air conditioning compressor is engaged. -->
+    <table name="Post-Start Warmup Fuel Decay Step Threshold #3 (A/C ON) vs Engine RPM (0x59EEC)" address="59eec" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
+    <!-- Role: Initial hold duration in engine revolutions before post-start enrichment decay initiates. -->
+    <table name="Post-Start Warmup Fuel Decay Initial Delay Timer vs Engine RPM (0x59EF8)" address="59ef8" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
     <!-- Role: Hysteresis delta (nominal 3 km/h) preventing gear calculation hunting between adjacent gears in routine 0x1FDF0. -->
     <table name="Gear Calculation Speed Hysteresis Delta vs Engine RPM (0x5A05C)" address="5a05c" category="Vehicle Speed &amp; Gear State Machine" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5A070)" address="5a070" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5A2B6)" address="5a2b6" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Confirmation dwell filter (255 cycles) required to lock in detected gear ratio. -->
+    <table name="Gear Ratio Calculation Confirmation Timer vs Engine RPM (0x5A070)" address="5a070" category="Vehicle Speed &amp; Gear State Machine" type="2D" scaling="uint8"/>
+    <!-- Role: Angular gating window boundary for crankshaft position sensor zero-crossing detection. -->
+    <table name="Crankshaft Reluctor Synchronous Window Boundary vs Engine RPM (0x5A2B6)" address="5a2b6" category="Diagnostics: Misfire Detection &amp; Crank Speed" type="2D" scaling="uint8"/>
     <!-- Role: Engine speed boundary threshold below which misfire detection is masked in routine 0x08830C (outputs to RAM 0x80AABE). -->
     <table name="Crankshaft Misfire Inhibit RPM Boundary vs Engine RPM (0x5A34A)" address="5a34a" category="Diagnostics: Misfire Detection &amp; Crank Speed" type="2D" scaling="uint8"/>
     <!-- Role: Lower acceleration variance floor for crank tooth time windowing in routine 0x084C88 (outputs to RAM 0x80A3BA). -->
@@ -251,8 +251,8 @@
     <table name="DBW Throttle Acceleration Damping Floor #2 (Low Load) vs RPM (0x5AAF4)" address="5aaf4" category="Drive-by-Wire: Transient Throttle" type="2D" scaling="uint8"/>
     <!-- Role: Upper ceiling clamp on maximum allowed dynamic knock retard across engine RPM (outputs to RAM 0x80A468 in routine 0x17414). -->
     <table name="Knock Retard Authority Ceiling Clamp vs Engine RPM (0x5AC32)" address="5ac32" category="Ignition Timing: Knock Retard &amp; Control" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x5AC52)" address="5ac52" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Knock retard recovery rate scaling factor across throttle angle and vehicle speed (nominal 128 / 1.00x). -->
+    <table name="Maximum Knock Retard Angle Recovery Rate vs Throttle Angle / VSS (0x5AC52)" address="5ac52" category="Ignition Timing: Limits &amp; Safety Clamps" type="2D" scaling="Percent128"/>
     <!-- Role: Minimum engine torque limit floor during Clutch 1 (Gears 1/3/5) shift handover in routine 0x0AB964 (outputs to RAM 0x80852E). -->
     <table name="TC-SST Clutch 1 Torque Reduction Minimum Floor vs Engine RPM (0x5ACE2)" address="5ace2" category="Transmission: TC-SST Dual Clutch Control" type="2D" scaling="uint8"/>
     <!-- Role: Dynamic torque reduction ceiling clamp enforced during Clutch 1 engagement in routine 0x0AB99C (outputs to RAM 0x80852E). -->
@@ -287,14 +287,14 @@
     <table name="Vehicle Moving Detection Speed Floor vs Engine RPM (0x5AD9A)" address="5ad9a" category="Vehicle Speed &amp; Gear State Machine" type="2D" scaling="uint8"/>
     <!-- Role: Dynamic maximum spark advance ceiling clamp enforced during active driving in routine 0x206F0, preventing over-advance on throttle tip-in. -->
     <table name="Maximum Ignition Timing Advance Clamp vs Throttle Position / VSS (0x5ADA6)" address="5ada6" category="Ignition Timing: Limits &amp; Safety Clamps" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Throttle Position (TPS) / Vehicle Speed (0x5B0AA)" address="5b0aa" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Dynamic ceiling clamp (110) restricting maximum spark advance during abrupt tip-in transients. -->
+    <table name="Throttle Tip-In Spark Advance Transient Clamp vs Throttle Angle / VSS (0x5B0AA)" address="5b0aa" category="Ignition Timing: Limits &amp; Safety Clamps" type="2D" scaling="uint8"/>
     <!-- Role: Hard upper bound clamp on injector pulse width during starter cranking to prevent plug wetting and flooding. -->
     <table name="Engine Cranking Fuel Pulse Width Ceiling vs RPM (0x5BB3E)" address="5bb3e" category="Fuel: Cranking &amp; Starting" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5BD4C)" address="5bd4c" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5BD58)" address="5bd58" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: RPM-dependent enrichment curve (255 tapering to 139) active during phase 1 engine warmup. -->
+    <table name="Primary Warmup Fuel Enrichment Multiplier vs Engine RPM (0x5BD4C)" address="5bd4c" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
+    <!-- Role: Timer counter governing loop intervals for phase 1 warmup fuel enrichment decay. -->
+    <table name="Primary Warmup Fuel Enrichment Decay Interval vs Engine RPM (0x5BD58)" address="5bd58" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
     <!-- Role: Secondary coolant temperature fuel enrichment adder applied across warmup stages. -->
     <table name="Secondary Warmup Fuel Enrichment Adder vs ECT (0x5BD64)" address="5bd64" category="Fuel: Cold Start &amp; Warmup Enrichments" type="2D" scaling="uint8"/>
     <!-- Role: Loop interval governing decay of secondary warmup fuel enrichment. -->
@@ -377,12 +377,12 @@
     <table name="EVAP Purge Solenoid Minimum Flow Clamp vs Purge Airflow (0x5C85C)" address="5c85c" category="Emissions: EVAP Purge &amp; Vapor Control" type="2D" scaling="uint8"/>
     <!-- Role: Multiplicative rate factor governing how quickly throttle dashpot airflow decays back to base target when lifting off the throttle to idle. -->
     <table name="DBW Throttle Dashpot Airflow Decay Rate vs Engine RPM (0x5C9BE)" address="5c9be" category="Drive-by-Wire: Idle Airflow Control" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5CA66)" address="5ca66" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5CA92)" address="5ca92" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5CA9E)" address="5ca9e" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Initial airflow adder (115 ramping to 131) preloaded into dashpot filter on throttle lift-off. -->
+    <table name="DBW Throttle Dashpot Initial Airflow Offset vs Engine RPM (0x5CA66)" address="5ca66" category="Idle Control: Dashpot &amp; Airflow Decay" type="2D" scaling="uint8"/>
+    <!-- Role: Dashpot airflow decay rate (17 ramping to 21) applied while vehicle is in gear to cushion decel. -->
+    <table name="DBW Throttle Dashpot Decay Slew Rate (In-Gear) vs Engine RPM (0x5CA92)" address="5ca92" category="Idle Control: Dashpot &amp; Airflow Decay" type="2D" scaling="uint8"/>
+    <!-- Role: Dashpot airflow decay rate (17 ramping to 21) applied while in neutral to prevent idle undershoot. -->
+    <table name="DBW Throttle Dashpot Decay Slew Rate (Neutral) vs Engine RPM (0x5CA9E)" address="5ca9e" category="Idle Control: Dashpot &amp; Airflow Decay" type="2D" scaling="uint8"/>
     <!-- Role: Linear scale factor across RPM applied in sensor sampling pipeline 0x131C8 (outputs to RAM 0x80A5E4). -->
     <table name="Vehicle Speed Dwell / Sampling Rate Factor vs Engine RPM (0x5CBD6)" address="5cbd6" category="Vehicle Speed &amp; Sensor Filtering" type="2D" scaling="uint8"/>
     <!-- Role: Engine speed anti-stall airflow multiplier. Steps up to 1.55x (+55% airflow) below 700 RPM to catch undershooting idle, tapering to 1.00x at operating speed. -->
@@ -399,8 +399,8 @@
     <table name="Smart EC Boost Target Multiplier (Alternate Mode 1 / High Boost) vs Engine RPM (0x5CD40)" address="5cd40" category="Boost Control: Smart EC &amp; RAX Electronics" type="2D" scaling="uint8"/>
     <!-- Role: Alternate boost target multiplier evaluated in routine 0x02C710 (outputs to RAM 0x808C76/0x808C78) for valet / low boost map switching. -->
     <table name="Smart EC Boost Target Multiplier (Alternate Mode 2 / Low Boost) vs Engine RPM (0x5CD54)" address="5cd54" category="Boost Control: Smart EC &amp; RAX Electronics" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5CFEA)" address="5cfea" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Boost error integral deadband threshold (1 to 2) preventing closed loop boost hunting. -->
+    <table name="Smart EC Electronic Boost Control Integral Deadband vs Engine RPM (0x5CFEA)" address="5cfea" category="Boost Control: Smart EC &amp; RAX Electronics" type="2D" scaling="uint8"/>
     <!-- Role: Minimum allowable floor for predicted manifold pressure on throttle tip-out. -->
     <table name="Transient MAP Prediction Lower Bound vs RPM (0x5D252)" address="5d252" category="Speed Density: Transient MAP Prediction" type="2D" scaling="uint8"/>
     <!-- Role: Decay rate of predicted manifold pressure during rapid throttle lifts in low gears (prevents boost spike calculation errors). -->
@@ -411,8 +411,8 @@
     <table name="Transient Throttle Slew Limit vs RPM (Gear 1-2) (0x5D2E6)" address="5d2e6" category="Drive-by-Wire: Transient Throttle" type="2D" scaling="uint8"/>
     <!-- Role: Limits throttle blade opening rate in 3rd gear and higher. -->
     <table name="Transient Throttle Slew Limit vs RPM (Gear 3+) (0x5D2F2)" address="5d2f2" category="Drive-by-Wire: Transient Throttle" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] RAM 0xC5F2 (0x5D390)" address="5d390" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Dynamic rate multiplier scaling asynchronous tip-in injection pulse width across throttle delta. -->
+    <table name="Transient Throttle Tip-In Acceleration Slew Multiplier vs Throttle Delta (0x5D390)" address="5d390" category="Fuel: Transient Fueling" type="2D" scaling="uint8"/>
     <!-- Role: Upper bound error tolerance on closed-loop injector pulse width before setting correction flags. -->
     <table name="Closed Loop IPW Error Threshold High vs RPM (0x5D4D4)" address="5d4d4" category="Fuel: Closed Loop Feedback" type="2D" scaling="uint8"/>
     <!-- Role: Lower bound error tolerance on closed-loop injector pulse width. -->
@@ -439,20 +439,20 @@
     <table name="Manifold Pressure Filter Alpha Coefficient vs Engine Load (0x5EF3A)" address="5ef3a" category="Intake &amp; Manifold Pressure Filtering" type="2D" scaling="Percent128"/>
     <!-- Role: Low-pass smoothing rate factor applied when reducing wastegate solenoid duty cycle to suppress boost oscillation and overshoot. -->
     <table name="Wastegate Duty Cycle (WGDC) Downward Rate Filter vs Engine RPM (0x5EFB6)" address="5efb6" category="Turbo Boost Control: Closed-Loop PID" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5EFD8)" address="5efd8" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5EFE2)" address="5efe2" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5EFEC)" address="5efec" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5EFF6)" address="5eff6" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Vehicle Speed / Gear Axis (0x5F5E4)" address="5f5e4" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5F5EE)" address="5f5ee" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5F5F8)" address="5f5f8" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Upward duty cycle ramp rate filter for primary boost solenoid in 1st and 2nd gears (128 to 255). -->
+    <table name="Wastegate Solenoid 1 Upward Duty Slew Rate Filter (Gears 1-2) vs Engine RPM (0x5EFD8)" address="5efd8" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="Percent128"/>
+    <!-- Role: Upward duty cycle ramp rate filter for primary boost solenoid in 3rd through 5th gears (128 to 255). -->
+    <table name="Wastegate Solenoid 1 Upward Duty Slew Rate Filter (Gears 3-5) vs Engine RPM (0x5EFE2)" address="5efe2" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="Percent128"/>
+    <!-- Role: Upward duty cycle ramp rate filter for secondary boost solenoid in 1st and 2nd gears (52 to 255). -->
+    <table name="Wastegate Solenoid 2 Upward Duty Slew Rate Filter (Gears 1-2) vs Engine RPM (0x5EFEC)" address="5efec" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="Percent128"/>
+    <!-- Role: Upward duty cycle ramp rate filter for secondary boost solenoid in 3rd through 5th gears (52 to 255). -->
+    <table name="Wastegate Solenoid 2 Upward Duty Slew Rate Filter (Gears 3-5) vs Engine RPM (0x5EFF6)" address="5eff6" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="Percent128"/>
+    <!-- Role: Engine load hysteresis deadband applied across gears to stabilize fuel cut exit. -->
+    <table name="Decel Fuel Cut Load Hysteresis Delta vs Vehicle Speed / Gear (0x5F5E4)" address="5f5e4" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="Percent128"/>
+    <!-- Role: Manifold pressure vacuum ceiling (nominal 128 / 1.00x) below which DFCO is permitted in gear. -->
+    <table name="Decel Fuel Cut Manifold Pressure Inhibit Floor (In-Gear) vs Engine RPM (0x5F5EE)" address="5f5ee" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="Percent128"/>
+    <!-- Role: Manifold pressure vacuum ceiling (nominal 128 / 1.00x) below which DFCO is permitted in neutral. -->
+    <table name="Decel Fuel Cut Manifold Pressure Inhibit Floor (Neutral) vs Engine RPM (0x5F5F8)" address="5f5f8" category="Fuel: Decel Cut-Off (DFCO)" type="2D" scaling="Percent128"/>
     <!-- Role: Engine load threshold (divided by 4) above which decel fuel cut is inhibited and injector firing is forced ON. -->
     <table name="Decel Fuel Cut Load Inhibit Ceiling vs Engine RPM (0x5F604)" address="5f604" category="Fuel: Decel Fuel Cut-Off (DFCO)" type="2D" scaling="uint8"/>
     <!-- Role: Loop counter loaded into RAM 0x80A950 upon fuel cut activation, decremented each loop upon recovery before fuel delivery resumes. -->
@@ -469,14 +469,14 @@
     <table name="Minimum Vehicle Speed Validation Threshold vs Engine RPM (0x5F96E)" address="5f96e" category="Vehicle Speed &amp; Sensor Filtering" type="2D" scaling="uint8"/>
     <!-- Role: Fraction of fuel that puddles on the intake port walls vs dynamic throttle angle. Decreases as throttle opens due to increased air velocity. -->
     <table name="Wall-Wetting Puddle Retention Factor vs Throttle Angle (0x5F9D0)" address="5f9d0" category="Fuel: Wall-Wetting &amp; Port Dynamics" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5FA12)" address="5fa12" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5FA20)" address="5fa20" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5FF80)" address="5ff80" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x5FF8C)" address="5ff8c" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Intake port fuel puddle retention delay cycles before film evaporation compensation kicks in. -->
+    <table name="Wall-Wetting Puddle Evaporation Decay Delay vs Engine RPM (0x5FA12)" address="5fa12" category="Fuel: Transient Fueling" type="2D" scaling="uint8"/>
+    <!-- Role: Port fuel puddle evaporation rate coefficient (224 tapering to 79) across engine speed. -->
+    <table name="Wall-Wetting Fuel Film Evaporation Rate vs Engine RPM (0x5FA20)" address="5fa20" category="Fuel: Transient Fueling" type="2D" scaling="uint8"/>
+    <!-- Role: Maximum positive rate-of-climb clamp (nominal 128 / 1.00x) limiting transient load spikes on tip-in. -->
+    <table name="Transient Engine Load Slew Rate Ceiling (Tip-In) vs Engine RPM (0x5FF80)" address="5ff80" category="MAF/MAP Load Calculation &amp; Smoothing" type="2D" scaling="Percent128"/>
+    <!-- Role: Maximum negative rate-of-fall clamp (nominal 128 / 1.00x) damping transient load collapse on throttle lift. -->
+    <table name="Transient Engine Load Slew Rate Floor (Tip-Out) vs Engine RPM (0x5FF8C)" address="5ff8c" category="MAF/MAP Load Calculation &amp; Smoothing" type="2D" scaling="Percent128"/>
     <!-- Role: Clamps the maximum allowable change in calculated engine load per ECU task cycle during rapid spool or tip-in. -->
     <table name="Transient Load Slew Clamp vs Engine Load (0x5FF96)" address="5ff96" category="Intake &amp; Manifold Pressure Filtering" type="2D" scaling="uint8"/>
     <!-- Role: Alternator field regulation target voltage curve across RPM evaluated in routine 0x088F84 (outputs to RAM 0x804B06). -->
@@ -487,12 +487,12 @@
     <table name="Smart Alternator FR Terminal Maximum Field Duty vs Engine RPM (0x60038)" address="60038" category="Electrical: Alternator Regulation &amp; Battery" type="2D" scaling="uint8"/>
     <!-- Role: Minimum engine speed floor for shift lockout protection evaluated in routine 0x0A1794 (outputs to RAM 0x80905E). -->
     <table name="TCM Shift Lockout / Gear Protection Speed Floor vs Engine RPM (0x60048)" address="60048" category="Transmission: Rationality &amp; Diagnostics" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Fast Engine Coolant Temp (ECT) (0x600EE)" address="600ee" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Smoothing filter factor (141 down to 128) applied to fast ECT ADC channel to reject sensor jitter. -->
+    <table name="Fast Engine Coolant Temperature Slew Smoothing Factor vs Fast ECT (0x600EE)" address="600ee" category="Sensor Scaling &amp; Calibration" type="2D" scaling="Percent128"/>
     <!-- Role: High-speed Mode 23 telemetry sample window factor across TPS and vehicle speed evaluated in routine 0x02B5C8 (outputs to RAM 0x8096AE). -->
     <table name="RAX Fast Logging Telemetry Bandwidth Window vs Throttle Position / VSS (0x6025C)" address="6025c" category="RAX Fast Logging &amp; Telemetry" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Vehicle Speed / Gear Axis (0x60268)" address="60268" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Dwell delay timer before re-enabling closed loop STFT feedback following open loop exit. -->
+    <table name="Closed Loop O2 Feedback Reactivation Delay vs Vehicle Speed / Gear (0x60268)" address="60268" category="Fuel: Closed Loop Feedback" type="2D" scaling="uint8"/>
     <!-- Role: Update frequency rate for closed-loop short term fuel trim (STFT) accumulation across RPM. Drops to 0 above 5000 RPM to lock out feedback. -->
     <table name="Closed Loop STFT Fuel Trim Accumulator Update Rate vs RPM (0x60BFA)" address="60bfa" category="Fuel: Closed Loop Feedback" type="2D" scaling="uint8"/>
     <!-- Role: Scales acceleration enrichment pulse width based on rapid positive manifold pressure spikes (Delta MAP). Centered at 128 (1.000); ramps up to 137 (+7%) on hard throttle stab. -->
@@ -509,14 +509,14 @@
     <table name="Dynamic Load Filter MIVEC RPM Correction Factor vs Engine RPM (0x611A2)" address="611a2" category="Load Calculation &amp; Lag Filtering" type="2D" scaling="Percent128"/>
     <!-- Role: Low-pass smoothing rate factor applied when reducing secondary wastegate solenoid duty cycle to suppress boost spike oscillation (routine 0x16EB4). -->
     <table name="Secondary Wastegate Solenoid WGDC Downward Rate Filter vs Engine RPM (0x61258)" address="61258" category="Turbo Boost Control: Closed-Loop PID" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine Load (0x6187A)" address="6187a" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x61A38)" address="61a38" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine RPM (0x61B82)" address="61b82" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] Engine Load (0x61EFE)" address="61efe" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Load-dependent duty offset applied to secondary wastegate solenoid under high manifold pressure. -->
+    <table name="Secondary Boost Solenoid Duty Target Offset vs Engine Load (0x6187A)" address="6187a" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="uint8"/>
+    <!-- Role: RPM-dependent upper duty cycle clamp enforcing maximum allowable duty on secondary solenoid. -->
+    <table name="Secondary Boost Solenoid Duty Ceiling vs Engine RPM (0x61A38)" address="61a38" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="uint8"/>
+    <!-- Role: RPM-dependent lower duty cycle floor preventing secondary solenoid valve flutter. -->
+    <table name="Secondary Boost Solenoid Dynamic Duty Floor vs Engine RPM (0x61B82)" address="61b82" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="uint8"/>
+    <!-- Role: Engine load activation switching threshold for secondary bleed solenoid operation. -->
+    <table name="Secondary Wastegate Solenoid High-Load Activation Threshold vs Engine Load (0x61EFE)" address="61efe" category="Boost Control: Wastegate Duty Cycle (WGDC)" type="2D" scaling="uint8"/>
     <!-- Role: Deadband noise rejection threshold (8 to 10) for longitudinal G-sensor in routine 0x06CF2C (outputs to RAM 0x809D24). -->
     <table name="Longitudinal G-Sensor Deadband Filter vs Raw Acceleration (0x63C58)" address="63c58" category="Chassis Dynamics &amp; S-AWC Gateway" type="2D" scaling="uint8"/>
     <!-- Role: Linearization scaling curve (78 to 108) applied to longitudinal G-sensor in routine 0x06D2D0 (outputs to RAM 0x8086A2). -->
@@ -547,6 +547,6 @@
     <table name="Steering Angle Yaw Rate Compensation Gain vs Raw Sensor Value (0x64DFE)" address="64dfe" category="Chassis Dynamics &amp; S-AWC Gateway" type="2D" scaling="Percent128"/>
     <!-- Role: Zero-point thermal drift compensation offset curve (249 down to 239) for lateral G in routine 0x071D0C (outputs to RAM 0x80A178). -->
     <table name="Lateral G-Sensor Thermal Drift Offset vs Raw Sensor Value (0x64F68)" address="64f68" category="Chassis Dynamics &amp; S-AWC Gateway" type="2D" scaling="uint8"/>
-    <!-- Confidence: Tier 3: Structural Descriptor | Call Sites: 0 -->
-    <table name="[Tier 3] RAM 0xEE64 (0x66148)" address="66148" category="Discovered: Unreferenced / Indirect Pointer Table" type="2D" scaling="Percent128"/>
+    <!-- Role: Plausibility diagnostic filter (0 ramping to 44) monitoring ACD hydraulic solenoid current feedback. -->
+    <table name="S-AWC Center Differential Solenoid Current Plausibility Filter vs Current (0x66148)" address="66148" category="Chassis Dynamics &amp; S-AWC Gateway" type="2D" scaling="uint8"/>
 </rom>
