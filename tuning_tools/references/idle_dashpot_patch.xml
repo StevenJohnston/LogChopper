@@ -1,0 +1,15 @@
+<rom>
+	<!-- EcuFlash XML Extension: Evo X 4B11T Throttle Dashpot & Rolling Idle Parameters -->
+	<!-- Add these table definitions to 59580004 2013 USDM Lancer Evolution X 5MT.xml or TephraMOD-59580304.xml -->
+
+	<table name="Throttle Dashpot Catch Floor RPM" category="Idle" address="5495c" type="1D" level="2" scaling="RPMTarget"/>
+	<table name="Throttle Dashpot Step Decrement" category="Idle" address="5495e" type="1D" level="2" scaling="uint16"/>
+	<table name="Throttle Dashpot Decay Loop Interval" category="Idle" address="54960" type="1D" level="2" scaling="uint16"/>
+	<table name="Throttle Dashpot Initial Hold Delay #1" category="Idle" address="54962" type="1D" level="2" scaling="uint16"/>
+	<table name="Throttle Dashpot Initial Hold Delay #2" category="Idle" address="54966" type="1D" level="2" scaling="uint16"/>
+
+	<table name="Rolling Idle Speed High Threshold" category="Idle" address="541c8" type="1D" level="2" scaling="uint16"/>
+	<table name="Rolling Idle Speed Low Threshold (Hysteresis)" category="Idle" address="541ca" type="1D" level="2" scaling="uint16"/>
+	<table name="Rolling Idle Stop Delay Timer" category="Idle" address="5428c" type="1D" level="2" scaling="uint16"/>
+	<table name="Rolling Idle Minimum ECT Lockout" category="Idle" address="53c82" type="1D" level="2" scaling="TempC"/>
+</rom>

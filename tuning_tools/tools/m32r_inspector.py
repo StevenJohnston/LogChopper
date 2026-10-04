@@ -135,16 +135,16 @@ def disassemble_instruction(word, pc, symbols=None):
                 return [f"lduh    {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]})"], 4
 
         if op_major == 0xA:
-            r_src = (b1 >> 4) & 0xF
+            subop = (b1 >> 4) & 0xF
+            r_src = b1 & 0xF
             simm16 = sign_extend((b2 << 8) | b3, 16)
-            subop = b1 & 0xF
+            ann = f" /* RAM 0x{0x80C000 + simm16:06X} */" if r_src == 13 else ""
             if subop == 0x0:
-                ann = f" /* RAM 0x{0x80C000 + simm16:06X} */" if r_src == 13 else ""
                 return [f"st      {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]}){ann}"], 4
             elif subop == 0x1:
-                return [f"stb     {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]})"], 4
+                return [f"stb     {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]}){ann}"], 4
             elif subop == 0x2:
-                return [f"sth     {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]})"], 4
+                return [f"sth     {REG_NAMES[r_dest]}, @({simm16}, {REG_NAMES[r_src]}){ann}"], 4
 
         # conditional branches with 16-bit displacement
         if op_major == 0xB:
