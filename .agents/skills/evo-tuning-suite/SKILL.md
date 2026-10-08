@@ -193,6 +193,7 @@ python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.
 - Targets **Cold-Witnessed Baseline AFR**, enforcing thermal decoupling rather than cross-coupling temperature multipliers to base model errors.
 - Automatically computes thermal drift: $\Delta_{\text{thermal}} = \frac{\text{AFR}_{\text{hot}}}{\text{AFR}_{\text{cold\_witnessed}}}$.
 - Enforces strict EcuFlash Cold-to-Hot orientation (Row 0 = $-10^\circ\text{C}$ / $14^\circ\text{F}$, Row 6 = $100^\circ\text{C}$ / $212^\circ\text{F}$), preventing dangerous table inversions.
+- Enforces **Strict 2D Monotonicity**: guarantees compensation strictly increases with temperature down rows ($Mult(r+1, c) \ge Mult(r, c)$) and strictly increases with vacuum across columns ($Mult(r, c) \ge Mult(r, c+1)$); locks lowest temperatures ($-10^\circ\text{C}$ and $5^\circ\text{C}$) at $100.0\%$.
 - Outputs tab-delimited paste buffers ready for immediate insertion into EcuFlash.
 
 ---
@@ -252,24 +253,28 @@ $$\text{ChosenCalc} = \text{clamp}(MAFCalcs_{\text{filtered}}, \text{Lower}, \te
 Analysis of LogChopper's classic balancer reveals destructive instability under inverted vacuum conditions ($MAFCalcs > MAPCalcs$):
 - **The Classic Error**: When $MAFCalcs > MAPCalcs$, classic LogChopper applies $C_{\text{MAF}} = \frac{MAPCalcs \times AFR\_ERR}{TARGET\_RATIO \times MAFCalcs}$.
   Since $\frac{MAPCalcs}{TARGET\_RATIO \times MAFCalcs} \le \frac{1.0}{1.05} \approx 0.952$, this artificially **reduces MAF Scaling even when the engine is running lean**! Lowering MAF reduces base injector pulse width ($IPW$), starving the engine and causing subsequent flashes to drift even leaner.
-- **The Ground Truth Airflow Principle**:
-  Because the ECU calculates fuel from the lower of the two sensors ($\min(MAFCalcs, MAPCalcs)$):
+- **The Ground Truth Airflow & AFR = AFRMAP Targeting Principle**:
+  The `High Octane Fuel Map` (`0x55027`) defines the sacred target AFR ($AFRMAP$). **Never modify the fuel map to compensate for airflow model errors.**
+  We plan and calibrate strictly to target $\mathbf{\text{AFR} = AFRMAP}$ by correcting the sensor load calculation tables:
   1. **Ground Truth Airflow ($\text{Load}_{\text{true}}$)**:
      The wideband O2 sensor directly measures the fueling error of whichever sensor was active:
      $$\mathbf{\text{Load}_{\text{true}} = \min(MAFCalcs, MAPCalcs) \times AFR\_ERR}$$
      where $AFR\_ERR = \left(1.0 - \frac{STFT + CurrentLTFT}{100.0}\right) \times \frac{AFR}{AFRMAP}$.
-  2. **Regime-Targeted Assignment**:
-     - **In Vacuum ($\text{MAP} \le 80\text{ kPa}$)**: MAF is the fuel master, MAP is the $1.05\times$ ceiling:
-       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.05 \times \text{Load}_{\text{true}}$$
-       $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}, \quad C_{\text{MAP}} = \frac{1.05 \times \text{Load}_{\text{true}}}{MAPCalcs}$$
-     - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the fuel master, MAF is the $1.053\times$ ($1/0.95$) headroom:
-       $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.95}$$
-       $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{0.95 \times MAFCalcs}$$
+  2. **Regime-Targeted Assignment (3-Tier Target Ratio Ramp)**:
+     *Detailed Specification: [`tuning_tools/references/load_clamping_and_afr_targeting_guide.md`](file:///Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My%20Drive/Evoman/tuning_tools/references/load_clamping_and_afr_targeting_guide.md)*
+     - **In Vacuum ($\text{MAP} \le 80\text{ kPa}$)**: MAF is fuel master (governs $\text{AFR} = AFRMAP$), MAP is $1.20\times$ ceiling (absorbs $\pm 18\%$ dynamic cam overlap scatter):
+       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.20 \times \text{Load}_{\text{true}}$$
+       $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}, \quad C_{\text{MAP}} = \frac{1.20 \times \text{Load}_{\text{true}}}{MAPCalcs}$$
+     - **At Atmospheric Crossover ($\text{MAP} = 100\text{ kPa}$)**: Neutral handshake:
+       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.00 \times \text{Load}_{\text{true}}$$
+     - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the Speed Density VE table and fuel master (governs $\text{AFR} = AFRMAP$), MAF is $1.25\times$ ($1/0.80$) anti-chatter headroom:
+       $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.80} = 1.25 \times \text{Load}_{\text{true}}$$
+       $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{1.25 \times \text{Load}_{\text{true}}}{MAFCalcs}$$
   3. **Continuous Regime Blending**:
-     Using continuous weighting $W = \text{clamp}\left(\frac{120.0 - \text{MAP}}{40.0}, 0.0, 1.0\right)$:
-     $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}} \times \left(W + \frac{1.0 - W}{TARGET\_RATIO}\right)}{MAFCalcs}$$
-     $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}} \times \left(W \times TARGET\_RATIO + (1.0 - W)\right)}{MAPCalcs}$$
-  This completely eliminates circular dependencies, stops the clamp starvation trap, and sets the exact 5% buffer in a single flash without overshoot.
+     Using target ratio ramp $R(\text{MAP}) = \text{clamp}(1.20 - 0.010 \times (\text{MAP} - 80), 0.80, 1.20)$:
+     - When $R(\text{MAP}) \ge 1.00$ (Vacuum to Crossover): $Target\_MAF = \text{Load}_{\text{true}}$, $Target\_MAP = R(\text{MAP}) \times \text{Load}_{\text{true}}$
+     - When $R(\text{MAP}) < 1.00$ (Crossover to Boost): $Target\_MAP = \text{Load}_{\text{true}}$, $Target\_MAF = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$
+  This completely eliminates circular dependencies, stops the clamp starvation trap in vacuum, and firmly locks into Speed Density under boost without chattering.
 
 ### 7. Thermal Decoupling & Cold-Witnessed Invariance Principle
 - **Decoupled Architecture**: The `Fuel Compensation MAT vs MAP` table (`0x60FCD`) has only one physical responsibility: **Thermal Invariance** ($\frac{\partial \text{AFR}}{\partial \text{MAT}} = 0$). It ensures that high manifold temperatures ($40^\circ\text{C}\text{--}60^\circ\text{C}+$) do not cause AFR to drift from the cold/reference baseline ($20^\circ\text{C}$).
@@ -290,6 +295,11 @@ Analysis of LogChopper's classic balancer reveals destructive instability under 
   - Row 5: $80^\circ\text{C}$ ($176^\circ\text{F}$) -> Factory ranges 115.0% down to 100.0%.
   - Row 6: $100^\circ\text{C}$ ($212^\circ\text{F}$) -> Factory ranges 117.0% down to 100.0%.
 - **Why Compensation Rises With MAT**: Mitsubishi factory calibration adds fuel as intake manifold temperature rises (from 100% at $14^\circ\text{F}$ up to 117% at $212^\circ\text{F}$ in vacuum) to counteract charge heating, reduced volumetric efficiency, fuel puddle evaporation, and detonation sensitivity under heat soak.
+- **Strict 2D Monotonicity Rule**:
+  - **Cold Baseline Floor (Rows 0 & 1)**: Row 0 ($-10^\circ\text{C}$) and Row 1 ($5^\circ\text{C}$) MUST remain locked at **100.0% across all MAP columns**.
+  - **With Temperature (down rows)**: $Mult(r+1, c) \ge Mult(r, c)$. Compensation must strictly increase (or stay flat) as temperature rises. Never introduce temperature dips down a column.
+  - **With Vacuum (across columns from boost to vacuum)**: $Mult(r, c) \ge Mult(r, c+1)$. Compensation must strictly increase with vacuum (taper monotonically down toward $100.0\%$ in boost). Never introduce vacuum dips across a row.
+  - **Zero Dips Mandate**: Any non-monotonic dip creates artificial thermal pockets, causing unpredictable AFR swings across weather and driving conditions.
 - **ROM 11 Over-Inflation**: ROM 11 pushed rows 3–6 up to 124%, directly causing the noon 5% rich drift. Trimming rows 3–6 back toward the factory curve eliminates the heat-soak rich drift.
 
 ### 9. EcuFlash 3D Table GUI Grid Orientation Standards (RPM Rows vs MAP/Load Columns)

@@ -147,6 +147,24 @@ def analyze_thermal_drift(cold_log, hot_log, rom_path):
                       f"Thermal Drift={((drift_ratio - 1.0) * 100):+5.1f}% | "
                       f"Cell: {current_val:5.1f}% -> {target_val:5.1f}%")
 
+    # Enforce Cold Baseline Floor: Rows 0 (-10C) and 1 (5C) must remain 100.0% across all MAP columns
+    for r in (0, 1):
+        for c in range(10):
+            recommended_table[r][c] = 100.0
+
+    # Enforce Strict 2D Monotonicity Law:
+    # 1. With Temperature (down rows): Mult(r+1, c) >= Mult(r, c)
+    for c in range(10):
+        for r in range(1, 7):
+            if recommended_table[r][c] < recommended_table[r-1][c]:
+                recommended_table[r][c] = recommended_table[r-1][c]
+
+    # 2. With Vacuum (across columns from boost to vacuum): Mult(r, c) >= Mult(r, c+1)
+    for r in range(7):
+        for c in range(8, -1, -1):
+            if recommended_table[r][c] < recommended_table[r][c+1]:
+                recommended_table[r][c] = recommended_table[r][c+1]
+
     print("\n" + "=" * 80)
     print("[STEP 2] RECOMMENDED 'Fuel Compensation MAT vs MAP' TABLE (FOR ECUFLASH)")
     print("=" * 80)
