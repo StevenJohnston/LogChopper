@@ -49,6 +49,18 @@ def run_decompile(rom_path, out_dir, target_addr=None, target_name=None):
 
     headless_bin = Path(GHIDRA_HOME) / "support" / "analyzeHeadless"
 
+    # Automatically strip 328-byte .srf Tactrix header if present
+    import_path = Path(rom_path)
+    with open(rom_path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        total_len = f.tell()
+    if total_len == 1048576 + 328 or str(rom_path).endswith(".srf"):
+        stripped_bin = temp_proj_dir / f"{Path(rom_path).stem}_raw.bin"
+        with open(rom_path, "rb") as f_in, open(stripped_bin, "wb") as f_out:
+            f_in.seek(328)
+            f_out.write(f_in.read(1048576))
+        import_path = stripped_bin
+
     # Build script arguments: [outDir, 0xAddress, FunctionName]
     script_args = [str(out_dir)]
     if target_addr:
@@ -59,7 +71,7 @@ def run_decompile(rom_path, out_dir, target_addr=None, target_name=None):
         str(headless_bin),
         str(temp_proj_dir),
         "decompile_session",
-        "-import", str(rom_path),
+        "-import", str(import_path),
         "-processor", "m32r:2:default",
         "-cspec", "default",
         "-scriptPath", str(ref_dir),

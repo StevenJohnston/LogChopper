@@ -54,11 +54,13 @@ def extract_map_table(rom_bytes, table_def, name="MAP based Load Calc #2 - Cold/
     raw_load = struct.unpack(f">{total_elems}H", rom_bytes[addr:addr + total_elems * 2])
     scaled_load = [(r * 10.0 / 512.0) * 10.0 / 32.0 for r in raw_load]
     
-    # swapxy: stored as 20 MAP blocks of 19 RPM values each
-    # matrix[map_idx][rpm_idx]
+    # EcuFlash GUI Grid (swapxy="true"):
+    # Stored column-major as 20 MAP blocks of 19 RPM values each.
+    # In EcuFlash GUI, RPM is ROWS (19 rows) and MAP is COLUMNS (20 cols).
+    # matrix[rpm_idx][map_idx] = scaled_load[map_idx * y_elems + rpm_idx]
     matrix = []
-    for m in range(x_elems):
-        row = scaled_load[m * y_elems : (m + 1) * y_elems]
+    for r in range(y_elems):
+        row = [scaled_load[m * y_elems + r] for m in range(x_elems)]
         matrix.append(row)
         
     return {
@@ -66,7 +68,7 @@ def extract_map_table(rom_bytes, table_def, name="MAP based Load Calc #2 - Cold/
         "type": "3D",
         "map_axis": map_kpa,
         "rpm_axis": rpm,
-        "matrix_map_rows_rpm_cols": matrix,
+        "matrix_rpm_rows_map_cols": matrix,
         "raw": list(raw_load)
     }
 
@@ -74,7 +76,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract calibration tables from Evo X ROM (.srf/.bin)")
     parser.add_argument("rom", help="Path to ROM file (.srf or .bin)")
     parser.add_argument("--table", choices=["all", "maf", "map"], default="all", help="Table to extract")
-    parser.add_argument("--format", choices=["table", "tsv", "json"], default="table", help="Output format")
+    parser.add_argument("--format", choices=["table", "tsv", "paste", "json"], default="table", help="Output format (tsv=with headers, paste=direct EcuFlash clipboard)")
     args = parser.parse_args()
     
     if not os.path.exists(args.rom):
@@ -101,7 +103,10 @@ def main():
         
     if "maf" in res:
         maf = res["maf"]
-        if args.format == "tsv":
+        if args.format == "paste":
+            # Direct single-line horizontal paste for EcuFlash MAF Scaling Horizontal
+            print("\t".join([f"{val:.2f}" for val in maf["values"]]))
+        elif args.format == "tsv":
             print("# Voltage\tMAF_Airflow_g_per_s")
             for v, val in zip(maf["volts"], maf["values"]):
                 print(f"{v:.3f}\t{val:.2f}")
@@ -114,20 +119,24 @@ def main():
                     
     if "map" in res:
         map_tbl = res["map"]
-        if args.format == "tsv":
-            print("# MAP based Load Calc #2 TSV (Rows = MAP kPa, Cols = RPM)")
-            header = "\t".join(["MAP_kPa"] + [str(r) for r in map_tbl["rpm_axis"]])
+        if args.format == "paste":
+            # Direct clipboard paste for EcuFlash (19 RPM rows x 20 MAP cols, no headers)
+            for row in map_tbl["matrix_rpm_rows_map_cols"]:
+                print("\t".join([f"{x:.1f}" for x in row]))
+        elif args.format == "tsv":
+            print("# MAP based Load Calc #2 TSV (Rows = RPM, Cols = MAP kPa)")
+            header = "\t".join(["RPM"] + [f"{m:.1f}" for m in map_tbl["map_axis"]])
             print(header)
-            for m_val, row in zip(map_tbl["map_axis"], map_tbl["matrix_map_rows_rpm_cols"]):
+            for r_val, row in zip(map_tbl["rpm_axis"], map_tbl["matrix_rpm_rows_map_cols"]):
                 row_str = "\t".join([f"{x:.1f}" for x in row])
-                print(f"{m_val:.1f}\t{row_str}")
+                print(f"{r_val}\t{row_str}")
         else:
             print("\n================ MAP BASED LOAD CALC #2 (0x605ac) ================")
-            header = "MAP\\RPM | " + " ".join([f"{r:5d}" for r in map_tbl["rpm_axis"][:10]]) + " ..."
+            header = "RPM\\MAP | " + " ".join([f"{m:5.1f}" for m in map_tbl["map_axis"][:8]]) + " ..."
             print(header)
-            for m_val, row in zip(map_tbl["map_axis"], map_tbl["matrix_map_rows_rpm_cols"]):
-                row_str = " ".join([f"{x:5.1f}" for x in row[:10]])
-                print(f"{m_val:5.1f} kPa | {row_str} ...")
+            for r_val, row in zip(map_tbl["rpm_axis"], map_tbl["matrix_rpm_rows_map_cols"]):
+                row_str = " ".join([f"{x:5.1f}" for x in row[:8]])
+                print(f"{r_val:5d} RPM | {row_str} ...")
 
 if __name__ == "__main__":
     main()

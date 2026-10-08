@@ -40,8 +40,8 @@ Detailed JSON memory specifications:
 | **MAP Load Calc #2 (Cold)** | `0x605ac` | `0x606f4` | 20 MAP x 19 RPM | `uint16` (big-endian), `x * 100 / 1638.4` (`swapxy="true"`) | Load % |
 | **MAP Load Calc #3** | `0x602aa` | `0x603f2` | 20 MAP x 19 RPM | `uint16` (big-endian), `x * 100 / 1638.4` (`swapxy="true"`) | Load % |
 | **MAP Table MAP Axis** | `0x6344a` | `0x63592` | 20 cells | `uint16` (big-endian), `((x * 2556 / 3800) + 0.5) / 2` | kPa |
-| **MAP Table RPM Axis** | `0x6341e` | `0x63566` | 19 cells | `uint16` (big-endian), `x * 1000 / 256` | RPM |
-| **Open Loop Fuel Map #1** | `0x57508` | `0x57650` | 16 Load x 19 RPM | `uint8`, `14.7 * 128 / x` | Target AFR |
+| **High Octane Fuel Map** | `0x55027` | `0x5516f` | 21 Load x 16 RPM | `uint8`, `14.7 * 128 / x` | Target AFR |
+| **Calibration Fuel Map** | `0x57713` | `0x5785b` | 41 Load x 19 RPM | `uint8`, `x / 1.28` (Percent128) | Multiplier % |
 | **ROM Checksum** | `0xbfff0` | `0xc0138` | 4 bytes | 32-bit CRC (`mitsucan`) | Hex |
 
 ---
@@ -149,6 +149,52 @@ Automatically scans `roms/` and `scans/`, sorting by timestamp and pairing the l
 python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/match_roms_and_logs.py" [limit]
 ```
 
+### Tool 12: `rom_memory_differ.py`
+Full 1MB byte-by-byte ROM memory differ with automated EcuFlash XML symbol mapping and decompiled M32R firmware routine cross-referencing.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/rom_memory_differ.py" \
+  "rom_old.srf" "rom_new.srf" [--all] [--json]
+```
+- Scans the full 1MB flash image, groups changed address ranges, and maps them to tables and symbols.
+- Links modified memory blocks directly to decompiled C routines in `tuning_tools/decompiled_c/`.
+- Explains the exact mechanical and ECU control-loop consequences of each parameter change.
+
+### Tool 13: `log_scorer.py`
+Automated datalog scoring and calibration health evaluation suite.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/log_scorer.py" \
+  "log1.csv" ["log2.csv" ...] [--json]
+```
+- Evaluates telemetry on an objective 0–100 scale across 4 core pillars:
+  1. **Fuel Delivery Accuracy (/40 pts)**: Median AFR error, RMSE, and error band coverage.
+  2. **Load Balance & Envelope Coherence (/30 pts)**: Target ratio tracking, vacuum inversion rate, ceiling clamping rate.
+  3. **Drivability Smoothness (/20 pts)**: Idle RPM variance, idle AFR variance, cruise AFR scatter.
+  4. **Engine Safety (/10 pts)**: Knock count and lean-under-boost detection.
+- Provides multi-log comparison tables to determine whether sequential calibration flashes are progressing, deteriorating, or oscillating.
+
+### Tool 14: `fill_log_afrmap.py`
+Reconstructs and interpolates missing `AFRMAP` values in EvoScan datalogs directly from the ROM's `High Octane Fuel Map` (`0x55027`, 21 Load rows x 16 RPM columns).
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/fill_log_afrmap.py" \
+  "log1.csv" ["log2.csv" ...] [--rom "path/to/rom.srf"]
+```
+- Performs the exact bilinear interpolation of `uint8` raw table values mapped against `Load` and `RPM` matching ECU firmware routine `0x022A48`.
+- Converts raw byte interpolation to AFR via $14.7 \times 128 / \text{round}(val)$, matching RAX fast logging output to within $0.0002\text{ AFR}$ accuracy.
+- Automatically creates `.csv.bak` backups before modifying the log in place.
+
+### Tool 15: `mat_thermal_analyzer.py`
+Decoupled thermal compensation analyzer that isolates pure manifold air temperature drift relative to Cold-Witnessed baseline AFR.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/mat_thermal_analyzer.py" \
+  --cold-log "scans/morning_baseline.csv" \
+  --hot-log "scans/noon_heatsoaked.csv" \
+  --rom "roms/latest_rom.srf"
+```
+- Targets **Cold-Witnessed Baseline AFR**, enforcing thermal decoupling rather than cross-coupling temperature multipliers to base model errors.
+- Automatically computes thermal drift: $\Delta_{\text{thermal}} = \frac{\text{AFR}_{\text{hot}}}{\text{AFR}_{\text{cold\_witnessed}}}$.
+- Enforces strict EcuFlash Cold-to-Hot orientation (Row 0 = $-10^\circ\text{C}$ / $14^\circ\text{F}$, Row 6 = $100^\circ\text{C}$ / $212^\circ\text{F}$), preventing dangerous table inversions.
+- Outputs tab-delimited paste buffers ready for immediate insertion into EcuFlash.
+
 ---
 
 ## 2.1 Ghidra Decompiler & Firmware Analysis Environment
@@ -201,6 +247,68 @@ $$\text{ChosenCalc} = \text{clamp}(MAFCalcs_{\text{filtered}}, \text{Lower}, \te
   $$y[n] = \frac{\alpha \cdot y[n-1] + (256 - \alpha) \cdot x[n]}{256}$$
   where $\alpha$ is dynamically retrieved from `Load Ramp Rate #1 (Load>70)` (`0x54AD0`, raw `0x00E6` = 89.8% lag) or boost error tables `0x5D68C`/`0x5D6EC`.
 - **Tuning Rule**: If `MAF Scaling` is increased without raising `MAP based Load Calc #1 (Hot)` (`0x608AE`), the ECU will **clamp engine load down to MAPCalcs**, causing fuel and ignition timing to hit an artificial ceiling.
+
+### 6. The "Dual Pull-Down" Flaw & Ground Truth Airflow Balancing
+Analysis of LogChopper's classic balancer reveals destructive instability under inverted vacuum conditions ($MAFCalcs > MAPCalcs$):
+- **The Classic Error**: When $MAFCalcs > MAPCalcs$, classic LogChopper applies $C_{\text{MAF}} = \frac{MAPCalcs \times AFR\_ERR}{TARGET\_RATIO \times MAFCalcs}$.
+  Since $\frac{MAPCalcs}{TARGET\_RATIO \times MAFCalcs} \le \frac{1.0}{1.05} \approx 0.952$, this artificially **reduces MAF Scaling even when the engine is running lean**! Lowering MAF reduces base injector pulse width ($IPW$), starving the engine and causing subsequent flashes to drift even leaner.
+- **The Ground Truth Airflow Principle**:
+  Because the ECU calculates fuel from the lower of the two sensors ($\min(MAFCalcs, MAPCalcs)$):
+  1. **Ground Truth Airflow ($\text{Load}_{\text{true}}$)**:
+     The wideband O2 sensor directly measures the fueling error of whichever sensor was active:
+     $$\mathbf{\text{Load}_{\text{true}} = \min(MAFCalcs, MAPCalcs) \times AFR\_ERR}$$
+     where $AFR\_ERR = \left(1.0 - \frac{STFT + CurrentLTFT}{100.0}\right) \times \frac{AFR}{AFRMAP}$.
+  2. **Regime-Targeted Assignment**:
+     - **In Vacuum ($\text{MAP} \le 80\text{ kPa}$)**: MAF is the fuel master, MAP is the $1.05\times$ ceiling:
+       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.05 \times \text{Load}_{\text{true}}$$
+       $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}, \quad C_{\text{MAP}} = \frac{1.05 \times \text{Load}_{\text{true}}}{MAPCalcs}$$
+     - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the fuel master, MAF is the $1.053\times$ ($1/0.95$) headroom:
+       $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.95}$$
+       $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{0.95 \times MAFCalcs}$$
+  3. **Continuous Regime Blending**:
+     Using continuous weighting $W = \text{clamp}\left(\frac{120.0 - \text{MAP}}{40.0}, 0.0, 1.0\right)$:
+     $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}} \times \left(W + \frac{1.0 - W}{TARGET\_RATIO}\right)}{MAFCalcs}$$
+     $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}} \times \left(W \times TARGET\_RATIO + (1.0 - W)\right)}{MAPCalcs}$$
+  This completely eliminates circular dependencies, stops the clamp starvation trap, and sets the exact 5% buffer in a single flash without overshoot.
+
+### 7. Thermal Decoupling & Cold-Witnessed Invariance Principle
+- **Decoupled Architecture**: The `Fuel Compensation MAT vs MAP` table (`0x60FCD`) has only one physical responsibility: **Thermal Invariance** ($\frac{\partial \text{AFR}}{\partial \text{MAT}} = 0$). It ensures that high manifold temperatures ($40^\circ\text{C}\text{--}60^\circ\text{C}+$) do not cause AFR to drift from the cold/reference baseline ($20^\circ\text{C}$).
+- **The Direct Targeting Anti-Pattern**: Never calibrate MAT cells to directly target `AFRMAP` (e.g. 14.70). If the base engine model has a baseline error at $20^\circ\text{C}$ (e.g., running 14.51 AFR), pulling extra fuel in the MAT table creates cross-coupling. When the base MAF table is later retuned, the MAT table will carry a permanent "ghost bias" and over-correct in varying climates.
+- **2-Step Calibration Protocol**:
+  1. **Isolate Thermal Drift**: $\Delta_{\text{thermal}} = \frac{\text{AFR}_{\text{hot}}}{\text{AFR}_{\text{cold\_witnessed}}}$.
+  2. **Achieve Thermal Invariance**: Multiply hot MAT cells by $\Delta_{\text{thermal}}$ so that hot AFR perfectly tracks cold witnessed AFR.
+  3. **Base Model Convergence**: Fix the remaining global error from `AFRMAP` (14.70) strictly at the root via **MAF Scaling** and **MAP based Load Calc** (LogChopper).
+
+### 8. EcuFlash Table Architecture & swapxy Column-Major Reality
+- **swapxy Column-Major Layout**: In EcuFlash XML, `Fuel Compensation MAT vs MAP` uses `swapxy="true"`. This transposes the memory buffer so that raw binary memory is stored column-major: `offset = map_col * 7 + mat_row`.
+- **True EcuFlash GUI Grid (Cold-to-Hot from top to bottom)**:
+  - Row 0: $-10^\circ\text{C}$ ($14^\circ\text{F}$) -> Factory is **100.0% across all MAP readings**.
+  - Row 1: $5^\circ\text{C}$ ($41^\circ\text{F}$) -> Factory is **100.0% across all MAP readings**.
+  - Row 2: $20^\circ\text{C}$ ($68^\circ\text{F}$) -> Factory ranges 106.1% (vacuum) down to 100.0% (boost).
+  - Row 3: $40^\circ\text{C}$ ($104^\circ\text{F}$) -> Factory ranges 109.0% down to 100.0%.
+  - Row 4: $60^\circ\text{C}$ ($140^\circ\text{F}$) -> Factory ranges 113.1% down to 100.0%.
+  - Row 5: $80^\circ\text{C}$ ($176^\circ\text{F}$) -> Factory ranges 115.0% down to 100.0%.
+  - Row 6: $100^\circ\text{C}$ ($212^\circ\text{F}$) -> Factory ranges 117.0% down to 100.0%.
+- **Why Compensation Rises With MAT**: Mitsubishi factory calibration adds fuel as intake manifold temperature rises (from 100% at $14^\circ\text{F}$ up to 117% at $212^\circ\text{F}$ in vacuum) to counteract charge heating, reduced volumetric efficiency, fuel puddle evaporation, and detonation sensitivity under heat soak.
+- **ROM 11 Over-Inflation**: ROM 11 pushed rows 3–6 up to 124%, directly causing the noon 5% rich drift. Trimming rows 3–6 back toward the factory curve eliminates the heat-soak rich drift.
+
+### 9. EcuFlash 3D Table GUI Grid Orientation Standards (RPM Rows vs MAP/Load Columns)
+- **Universal EcuFlash Convention**: In EcuFlash, all 3D engine tables (`MAP based Load Calc #1 & #2`, `High Octane Fuel Map`, `High Octane Timing Map`, `MIVEC Intake/Exhaust`, etc.) display:
+  - **Vertical Rows = Engine RPM**
+  - **Horizontal Columns = MAP / Load (or TPS / Airflow)**
+- **MAP based Load Calc Architecture (`0x608AE` / `0x605AC`)**:
+  - **Rows**: **19 RPM Rows** (`500, 750, 1000, 1250, 1500, 1750, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000 RPM`).
+  - **Columns**: **20 MAP Columns** (`13.7, 22.1, 35.6, 49.0, 62.5, 75.9, 89.4, 102.8, 116.3, 129.7, 143.2, 156.6, 170.1, 183.5, 197.0, 210.4, 223.9, 237.4, 250.8, 304.6 kPa`).
+  - **Grid Size**: Exactly **19 Rows × 20 Columns = 380 Cells**.
+- **Memory Layout vs GUI Rendering (`swapxy="true"`)**:
+  - In raw M32R firmware, the 380 words are stored **column-major**: `offset = map_col * 19 + rpm_row`.
+  - **The Transposition Anti-Pattern**: Slicing the binary memory by contiguous chunks (`scaled[m * 19 : (m + 1) * 19]`) yields 20 slices of 19 values. Emitting these directly as table rows creates a transposed **20 Rows × 19 Columns** matrix. When pasting into EcuFlash, the software immediately fails with a clipboard dimension mismatch.
+  - **Mandatory Clipboard Format**: All paste blocks generated for `MAP based Load Calc` MUST be formatted as **19 lines (one line per RPM row) with 20 tab-separated values per line**:
+    ```python
+    for r in range(19):  # RPM rows
+        row = [scaled_load[m * 19 + r] for m in range(20)]  # MAP columns
+        print("\t".join(f"{x:.1f}" for x in row))
+    ```
 
 ---
 

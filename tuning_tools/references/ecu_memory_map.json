@@ -140,6 +140,64 @@
         "to_expr": "x * 1000.0 / 256.0",
         "units": "RPM"
       }
+    },
+    "High Octane Fuel Map": {
+      "address": "0x55027",
+      "type": "3D",
+      "swapxy": true,
+      "scaling_name": "AFR",
+      "to_expr": "14.7 * 128.0 / x",
+      "from_expr": "14.7 * 128.0 / x",
+      "units": "AFR",
+      "storage_type": "uint8",
+      "endian": "big",
+      "x_axis": {
+        "name": "Load",
+        "address": "0x617bc",
+        "elements": 21,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 5.0 / 16.0",
+        "units": "Load %"
+      },
+      "y_axis": {
+        "name": "RPM",
+        "address": "0x61796",
+        "elements": 16,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 1000.0 / 256.0",
+        "units": "RPM"
+      }
+    },
+    "Calibration Fuel Map": {
+      "address": "0x57713",
+      "type": "3D",
+      "swapxy": true,
+      "scaling_name": "Percent128",
+      "to_expr": "x / 1.28",
+      "from_expr": "x * 1.28",
+      "units": "%",
+      "storage_type": "uint8",
+      "endian": "big",
+      "x_axis": {
+        "name": "Load",
+        "address": "0x621bc",
+        "elements": 41,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 5.0 / 16.0",
+        "units": "Load %"
+      },
+      "y_axis": {
+        "name": "RPM",
+        "address": "0x62190",
+        "elements": 19,
+        "storage_type": "uint16",
+        "endian": "big",
+        "to_expr": "x * 1000.0 / 256.0",
+        "units": "RPM"
+      }
     }
   },
   "ram_memory_map": {
@@ -179,7 +237,14 @@
     "RAM_MAP_Load_Calc_Hot": { "address": "0x0080A900", "type": "uint16", "units": "Load %", "description": "Interpolated load from MAP Load Calc #1 (Hot)" },
     "RAM_MAP_Load_Calc_Cold": { "address": "0x0080A8FE", "type": "uint16", "units": "Load %", "description": "Interpolated load from MAP Load Calc #2 (Cold)" },
     "RAM_MAP_Load_Calc_Table3": { "address": "0x0080A8FC", "type": "uint16", "units": "Load %", "description": "Interpolated load from MAP Load Calc #3" },
-    "RAM_MAP_3D_Table_Interpolated": { "address": "0x00808816", "type": "uint16", "units": "Load %", "description": "Blended 3D MAP surface load from Tables #1, #2, and #3" }
+    "RAM_MAP_3D_Table_Interpolated": { "address": "0x00808816", "type": "uint16", "units": "Load %", "description": "Blended 3D MAP surface load from Tables #1, #2, and #3" },
+    "RAM_Target_Idle_RPM": { "address": "0x00808B44", "type": "uint16", "units": "RPM", "description": "Final selected target idle RPM following ECT curves and state floor clamps" },
+    "RAM_Idle_Moving_State_Flags": { "address": "0x00809528", "type": "uint16", "units": "bitmask", "description": "Moving/rolling vehicle state bits (bit 1 = 0x2, bit 2 = 0x4, bit 9 = 0x200, bit 10 = 0x400)" },
+    "RAM_Vehicle_Speed_Moving_Average": { "address": "0x00808838", "type": "uint16", "units": "km/h*4", "description": "Smoothed vehicle speed register for idle and transmission logic" },
+    "RAM_Vehicle_Speed_VSS": { "address": "0x0080883B", "type": "uint8", "units": "km/h", "description": "Vehicle speed sensor instantaneous input" },
+    "RAM_Idle_Throttle_Target_Ramped": { "address": "0x0080AA6E", "type": "uint16", "units": "RPM target", "description": "Ramped target RPM for DBW idle airflow throttle follower" },
+    "RAM_Idle_Airflow_Dashpot_Floor": { "address": "0x0080AA6C", "type": "uint16", "units": "RPM target", "description": "Calculated dashpot catch floor for DBW throttle blade" },
+    "RAM_Engine_State_Bitmask_1": { "address": "0x00808646", "type": "uint16", "units": "bitmask", "description": "Engine operational state (bit 5 = 0x20 A/C ON, bit 7 = 0x80 Closed Throttle Idle Switch)" }
   },
   "core_firmware_routines": {
     "maf_scaling_and_airflow_calc": { "address": "0x03860C", "description": "Interpolates 130-cell MAF scaling curve from ADC volts and accumulates cylinder airflow" },
@@ -192,6 +257,12 @@
     "ipw_minimum_clamp_pipeline": { "address": "0x030B2C", "description": "Minimum IPW clamping and multi-cylinder pulse width dispatch" },
     "injector_pulse_width_calc": { "address": "0x024924", "description": "Decel Fuel Cut-Off (DFCO) and rev limiter IPW zeroing" },
     "tephramod_load_dispatcher": { "address": "0x0FBA70", "description": "TephraMOD v3 knock throttle saver load clamp" },
-    "rax_fast_logging": { "address": "0x0D0200", "description": "RAX Fast Logging 32-variable bitfield packing routine" }
+    "rax_fast_logging": { "address": "0x0D0200", "description": "RAX Fast Logging 32-variable bitfield packing routine" },
+    "idle_target_rpm_selector": { "address": "0x025C3C", "description": "Evaluates ECT curves (#1-#9) and state floor clamps (Target Idle #1-#14)" },
+    "idle_throttle_airflow_calc": { "address": "0x07CB18", "description": "DBW idle airflow dashpot and throttle follower decay state machine" },
+    "idle_ignition_timing_compensation_evaluator": { "address": "0x02125C", "description": "Closed-loop idle spark timing feedback (Comp 1.1-2.2) and VSS retard lockout" },
+    "idle_ignition_timing_control": { "address": "0x04BF18", "description": "Primary idle spark timing error accumulator and proportional-integral loop" },
+    "state_flag_routine_0x1ea14": { "address": "0x01EA14", "description": "Speed hysteresis and delay timer for moving/rolling state flag" },
+    "idle_subsystem_dispatcher_0x2e8c4": { "address": "0x02E8C4", "description": "Periodic task loop dispatcher for idle, speed calculation, and DBW scheduling" }
   }
 }
