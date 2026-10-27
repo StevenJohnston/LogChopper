@@ -127,4 +127,5 @@ export enum Aggregator {
   MIN = "MIN",
   MAX = "MAX",
   SUM = "SUM",
+  STDDEV = "STDDEV",
 }

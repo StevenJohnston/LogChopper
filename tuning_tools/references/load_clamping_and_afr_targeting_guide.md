@@ -103,6 +103,22 @@ A foundational principle of this calibration architecture is that **we target $\
    - The ECU indexes lower load columns in the ignition map, **advancing spark timing by $3^\circ\text{--}5^\circ$ under boost, inducing severe knock/detonation**.
    - Correct method: MAP Load must equal true physical air mass ($100\%$ VE), and MAF must be raised $+25\%$ above it.
 
+### 3.4 Three Structural Anti-Patterns Discovered in Past Calibration Passes
+1. **Cross-Regime MAF Bin Pollution (`2.00V–2.81V` / `26–90 g/s`, Bins `52–73`)**:
+   - A 1D MAF voltage bin between `2.00V` and `2.81V` (`26–90 g/s`) is shared across two distinct engine states:
+     - **Mid/High-RPM Vacuum & Crossover (`3,000–5,000 RPM` at `50–100 kPa`)**, where `MAFCalcs` is the **100% active fuel master** and must equal $1.00 \times \text{Load}_{\text{true}}$.
+     - **Low/Mid-RPM Spool (`2,000–3,500 RPM` at `105–130 kPa`)**, where $\text{Target Ratio} < 1.00$.
+   - **The Bug**: Previous balancer scripts applied $\text{Target\_MAF} = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$ to every sample with $\text{MAP} > 100\text{ kPa}$, inflating `MAF Scaling` by $+5\%\text{ to }+25\%$ in `Bins 58–73` (`2.27V–2.85V`). Whenever the car operated at `3,000–5,000 RPM` in vacuum (`50–95 kPa`), those inflated MAF bins caused $+4\%\text{ to }+8\%$ rich errors.
+   - **Mandatory Rule**: Calibrate `Bins 35–73` (`1.37V–2.85V`) strictly to **pure physical airflow** ($C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}$ from $\text{MAP} \le 100\text{ kPa}$ samples). Only pure boost MAF bins (`>= 2.89V` / `>= 109 g/s`, `Idx >= 74`, where $\min(\text{MAP}) \ge 110\text{ kPa}$) carry the $1.25\times$ ($1 / 0.80$) Speed Density headroom.
+2. **The "Flat-RPM VE Table" Clamping Anti-Pattern in `MAP based Load Calc`**:
+   - **The Bug**: In ROMs 17–24, a previous maintainer flattened `MAP based Load Calc` vertically across RPM from `3,000 RPM` to `8,000 RPM` in vacuum and crossover columns (`35.6 kPa = 18.6%`, `49.0 kPa = 29.9%`, `62.5 kPa = 42.5%`, `75.9 kPa = 58.5%`) and shrunk low-confidence high-RPM cells toward `1.0` (the flat table).
+   - Because physical Volumetric Efficiency (VE) with GSC S2 camshafts and MIVEC rises $+20\%\text{ to }+35\%$ from `1,500 RPM` to `4,500+ RPM` at constant MAP, `MAFCalcs` climbed above the flat `MAPCalcs` ceiling above `3,000 RPM` in vacuum—clamping 38% of high-RPM vacuum samples and causing `16.0–16.5 AFR` lean spikes.
+   - **Mandatory Rule**: Every constant-MAP column in `MAP based Load Calc` must preserve a smooth, monotonically non-decreasing VE curve from `2,000 RPM` to `8,000 RPM`. Unobserved or partial-confidence high-RPM cells must be projected along the `V3.18` dyno VE slope ($\text{Prior}[r][m] = \text{Map}[r-1][m] \times \max\left(1.0, \frac{\text{V3.18}[r][m]}{\text{V3.18}[r-1][m]}\right)$), never flattened.
+3. **The Low-Voltage Idle/Decel MAF Shelf Anti-Pattern (`1.21V–1.49V`, Bins `31–38`)**:
+   - **The Bug**: Previous passes inflated `MAF Scaling` at `Bins 31–37` (`1.21V–1.45V`) by $+8.5\%\text{ to }+113\%$ above `V3.18` (e.g., `Bin 33 = 4.78 vs 2.24 g/s`, `Bin 36 = 5.42 vs 4.36 g/s`, `Bin 37 = 5.62 vs 5.18 g/s`) and introduced flat steps (`5.39 -> 5.39 g/s` at `Bins 35–36` and `7.63 -> 7.65 g/s` at `Bins 39–40`).
+   - When fully warmed up (`ECT >= 86°C`), stationary unloaded idle settles to `50.0 kPa` and `1.44V–1.46V` (`Bins 36–37`), where that artificial shelf forced idle to `13.20–13.40 AFR` (`-9.5%` rich) regardless of ambient `MAT`.
+   - **Mandatory Rule**: Keep `Bins 31–40` (`1.21V–1.56V`) strictly smooth and aligned with physical idle airflow (`~5.1–5.3 g/s` at `1.41V–1.45V`), without flat steps or low-voltage bulges.
+
 ---
 
 ## 4. Ground Truth Airflow Assignment Protocol

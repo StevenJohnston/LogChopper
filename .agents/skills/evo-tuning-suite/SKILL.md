@@ -196,6 +196,15 @@ python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.
 - Enforces **Strict 2D Monotonicity**: guarantees compensation strictly increases with temperature down rows ($Mult(r+1, c) \ge Mult(r, c)$) and strictly increases with vacuum across columns ($Mult(r, c) \ge Mult(r, c+1)$); locks lowest temperatures ($-10^\circ\text{C}$ and $5^\circ\text{C}$) at $100.0\%$.
 - Outputs tab-delimited paste buffers ready for immediate insertion into EcuFlash.
 
+### Tool 16: `timing_mivec_remapper.py`
+Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the `V3.18` dyno reference ROM with conservative lower-only safety mode.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/timing_mivec_remapper.py" \
+  --target-rom "roms/latest_rom.srf" --paste-timing --lower-only
+```
+- Compensates for load coordinate shifts whenever `MAF Scaling Horizontal` or `MAP based Load Calc` tables are modified.
+- Enforces `--lower-only` conservative safety rule: $Timing_{\text{safe}}(r,c) = \min(Timing_{\text{current}}(r,c), Timing_{\text{remapped}}(r,c))$ (zero accidental advance added).
+
 ---
 
 ## 2.1 Ghidra Decompiler & Firmware Analysis Environment
@@ -270,10 +279,12 @@ Analysis of LogChopper's classic balancer reveals destructive instability under 
      - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the Speed Density VE table and fuel master (governs $\text{AFR} = AFRMAP$), MAF is $1.25\times$ ($1/0.80$) anti-chatter headroom:
        $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.80} = 1.25 \times \text{Load}_{\text{true}}$$
        $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{1.25 \times \text{Load}_{\text{true}}}{MAFCalcs}$$
-  3. **Continuous Regime Blending**:
+  3. **Continuous Regime Blending & Cross-Regime MAF Bin Isolation**:
      Using target ratio ramp $R(\text{MAP}) = \text{clamp}(1.20 - 0.010 \times (\text{MAP} - 80), 0.80, 1.20)$:
      - When $R(\text{MAP}) \ge 1.00$ (Vacuum to Crossover): $Target\_MAF = \text{Load}_{\text{true}}$, $Target\_MAP = R(\text{MAP}) \times \text{Load}_{\text{true}}$
-     - When $R(\text{MAP}) < 1.00$ (Crossover to Boost): $Target\_MAP = \text{Load}_{\text{true}}$, $Target\_MAF = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$
+     - When $R(\text{MAP}) < 1.00$ (Crossover to Boost): $Target\_MAP = \text{Load}_{\text{true}}$, $Target\_MAF = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$ **ONLY for pure boost MAF bins (`>= 2.89V` / `>= 109 g/s`, `Idx >= 74`)**.
+     - **Critical Cross-Regime Isolation Rule**: Shared MAF bins (`Idx 35–73`, `1.37V–2.85V`) operate in mid/high-RPM vacuum (`3,000–5,000 RPM` at `50–100 kPa`) where `MAFCalcs` is the active fuel master. Never inflate `Idx <= 73` using $1 / R(\text{MAP})$ from low-RPM spool (`100–130 kPa`) samples; calibrate `Idx <= 73` strictly to $C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}$ from $\text{MAP} \le 100\text{ kPa}$ samples.
+     - **3D VE RPM Slope Preservation**: Never flatten `MAP based Load Calc` vertically across RPM above `3,000 RPM` in vacuum/crossover. Always project unobserved or partial-confidence high-RPM cells along `V3.18`'s physical VE RPM slope.
   This completely eliminates circular dependencies, stops the clamp starvation trap in vacuum, and firmly locks into Speed Density under boost without chattering.
 
 ### 7. Thermal Decoupling & Cold-Witnessed Invariance Principle
@@ -347,7 +358,7 @@ flowchart TD
    - Record:
      - Median AFR error (convergence towards 1.0000)
      - Idle AFR (14.7 target) and Cruise AFR (14.7 target)
-     - Mean Load Ratio vs target curve (target: 1.05 at vacuum, 0.95 at boost)
+     - Mean Load Ratio vs 3-Tier Target Curve (target: 1.20 at vacuum $\le 80\text{ kPa}$, 1.00 at $100\text{ kPa}$ crossover, 0.80 at boost $\ge 120\text{ kPa}$)
      - Knock events (ensure 0 knock counts across steady state)
 4. **Step 4: Transition Verification**:
    - Run `rom_log_verifier.py` across the flash transition.

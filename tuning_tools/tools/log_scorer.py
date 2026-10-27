@@ -4,7 +4,7 @@ log_scorer.py - Automated Datalog Scoring & Drivability Evaluation Suite for Evo
 
 Evaluates EvoScan datalogs against calibration objectives:
   1. Fuel Delivery Accuracy & Convergence (Target AFRMAP tracking, RMSE, Error bands)
-  2. MAF vs MAP Load Envelope Balance (Target ratio 1.05/0.95, Inversion avoidance, Clamping rate)
+  2. MAF vs MAP Load Envelope Balance (3-Tier Target Ratio 1.20/1.00/0.80, Inversion avoidance, Clamping rate)
   3. Idle & Drivability Smoothness (RPM variance, Timing stability, Transient jitter)
   4. Engine Safety & Knock (Knock events, High-load lean excursions)
 
@@ -21,11 +21,11 @@ import sys
 
 def target_ratio(kpa):
     if kpa <= 80.0:
-        return 1.05
+        return 1.20
     elif kpa >= 120.0:
-        return 0.95
+        return 0.80
     else:
-        return 1.05 - 0.0025 * (kpa - 80.0)
+        return 1.20 - 0.010 * (kpa - 80.0)
 
 def stddev(values):
     if len(values) < 2:

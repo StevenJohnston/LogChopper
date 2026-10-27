@@ -209,7 +209,7 @@ flowchart TD
      - Median AFR error (target is 1.0000)
      - Steady Idle AFR (target is 14.70)
      - Steady Cruise AFR (target is 14.70)
-     - MAP/MAF ratio vs target curve (target is 1.05 at $\le 80\text{ kPa}$, 0.95 at $\ge 120\text{ kPa}$)
+     - MAP/MAF ratio vs 3-Tier Target Curve (target is 1.20 at $\le 80\text{ kPa}$, 1.00 at $100\text{ kPa}$, 0.80 at $\ge 120\text{ kPa}$)
      - Inverted state ratio ($MAF < MAP$ vs $MAP < MAF$)
 4. **Transition Verification**:
    - Run `tools/rom_log_verifier.py` across the transition.

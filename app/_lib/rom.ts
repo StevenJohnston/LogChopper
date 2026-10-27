@@ -605,6 +605,35 @@ export function FillLogTable(
         }
       );
       break;
+    case Aggregator.STDDEV:
+      newTable = duplicateTable<string | number, LogRecord[]>(
+        table,
+        (logRecords) => {
+          const records = filterRecords(logRecords);
+          let wSum = 0;
+          let xwSum = 0;
+          const validRecords: { val: number; w: number }[] = [];
+          for (const r of records) {
+            const n = Number(r[field]);
+            if (!isNaN(n)) {
+              let w = r.weight !== undefined ? r.weight : 1;
+              if (field === "weight") w = 1;
+              validRecords.push({ val: n, w });
+              wSum += w;
+              xwSum += n * w;
+            }
+          }
+          if (validRecords.length < 2 || wSum <= 0) return 0;
+          const mean = xwSum / wSum;
+          let varianceSum = 0;
+          for (const item of validRecords) {
+            varianceSum += item.w * Math.pow(item.val - mean, 2);
+          }
+          const variance = varianceSum / wSum;
+          return Math.sqrt(variance);
+        }
+      );
+      break;
     default:
       console.log("FillLogTable missing Aggregator", aggregator);
   }

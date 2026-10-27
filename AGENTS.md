@@ -41,6 +41,13 @@ All tools reside in `tuning_tools/tools/`:
 - `m32r_inspector.py`: M32R MCU disassembler, vector dumper, and symbol inspector.
 - `export_ghidra_symbols.py`: Export symbol maps and Ghidra labeling scripts.
 - `match_roms_and_logs.py`: Auto-match and sort latest ROMs and their associated chronological logs.
+- `fill_log_afrmap.py`: Reconstruct and populate missing `AFRMAP` values in EvoScan CSV logs directly from the ROM's `High Octane Fuel Map` (`0x55027`).
+- `multi_rom_secant_balancer.py`: Multi-ROM bracketed secant solver & anti-rectification balancer with dynamic exhaust transport-lag alignment, unclamped MAF filtering, 5-frame exhaust-window moving average, and post-smoothing bracket invariance.
+- `timing_mivec_remapper.py`: Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the V3.18 reference ROM with runtime `MAPCalcs` scaling (`K_MAP_RUNTIME = 1.090`), conservative lower-only safety mode, and `--filter-flutter-knock` integration.
+- `bov_flutter_knock_detector.py`: Automated classifier that decouples mechanical BOV flutter / rapid cycling chatter knock from genuine in-cylinder ignition timing knock based on high-frequency airflow volatility and directional reversals.
+- `datalog_classifier.py`: Multi-domain per-record telemetry classifier that enriches every datalog row with continuous stationarity confidence (0.0–1.0), operational regimes, knock root cause (BOV flutter vs timing knock vs lash), dynamic transport-lag-aligned AFR error, load clamping states, and subsystem usability flags.
+- `ingest_experience.py`: Ingestion engine for `calibration_experience.db` (SQLite) indexing ROM tables (MAF, MAP Load Calc 1 & 2, High/Low Timing, Injector Scaling & Latency, MAT comp) and multi-dimensional performance summaries.
+- `experience_query.py`: Calibration Experience Database query engine supporting forward validation / pre-flash veto ("Have we tried this value before?"), reverse diagnostic lookup ("When did this operating point run best?"), and multi-domain audits (injectors, thermal invariance, operational anomaly events).
 
 ---
 
@@ -81,7 +88,7 @@ All tools reside in `tuning_tools/tools/`:
   - **Rows**: **19 RPM Rows** (`500, 750, 1000, 1250, 1500, 1750, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000 RPM`).
   - **Columns**: **20 MAP Columns** (`13.7, 22.1, 35.6, 49.0, 62.5, 75.9, 89.4, 102.8, 116.3, 129.7, 143.2, 156.6, 170.1, 183.5, 197.0, 210.4, 223.9, 237.4, 250.8, 304.6 kPa`).
   - **Grid Size**: Exactly **19 Rows × 20 Columns = 380 Cells**.
-- **Memory Layout vs GUI Rendering (`swapxy="true"`)**:
+- **Memory Layout vs GUI Rendering (`swapxy="true"`) & `#1 / #2` Table Parity**:
   - In raw M32R firmware, the 380 words are stored **column-major**: `offset = map_col * 19 + rpm_row`.
   - **The Transposition Anti-Pattern**: Slicing the binary memory by contiguous chunks (`scaled[m * 19 : (m + 1) * 19]`) yields 20 slices of 19 values. Emitting these directly as table rows creates a transposed **20 Rows × 19 Columns** matrix. When pasting into EcuFlash, the software immediately fails with a clipboard dimension mismatch.
   - **Mandatory Clipboard Format**: All paste blocks generated for `MAP based Load Calc` MUST be formatted as **19 lines (one line per RPM row) with 20 tab-separated values per line**:
@@ -90,6 +97,7 @@ All tools reside in `tuning_tools/tools/`:
         row = [scaled_load[m * 19 + r] for m in range(20)]  # MAP columns
         print("\t".join(f"{x:.1f}" for x in row))
     ```
+  - **Dual-Table `#1` (`0x608AE`) & `#2` (`0x605AC`) Parity Rule**: The ECU blends `MAP based Load Calc #1 - Hot/Interpolated` (`0x608AE`) and `MAP based Load Calc #2 - Cold/Interpolated` (`0x605AC`). Always verify that `#1` and `#2` are identical in the ROM (`rom_differ.py` and `timing_mivec_remapper.py` check both addresses), and instruct the user to paste the `19 × 20` block into **BOTH** `#1` and `#2` in EcuFlash.
 
 ---
 
@@ -113,8 +121,7 @@ All tools reside in `tuning_tools/tools/`:
 To prevent chronic vacuum clamping while ensuring clean transition to Speed Density in boost without boundary chatter:
 - **$\le 80\text{ kPa}$ (Vacuum / Cruise / Idle)**: **Target Ratio = 1.20** *(1.18–1.22)*.
   - Absorbs the $\pm 18\%$ dynamic scatter caused by GSC S2 camshafts. Keeps ceiling clamping $< 5\%$, allowing pure MAF fuel and spark control.
-- **$100\text{ kPa}$ (Atmospheric Crossover)**: **Target Ratio = 1.00** *(0.98–1.02)*.
-  - Natural neutral transition point between vacuum and positive boost gauge pressure.
+- **$100\text{ kPa}$ (Atmospheric Crossover)**: **Target Ratio = 1.00** *(0.98–1.02)* (**with `1.06x` Anti-Rectification Ceiling at `Col 7 = 102.8 kPa`**, see Safeguard #5 below).
 - **$\ge 120\text{ kPa}$ (Boost / WOT)**: **Target Ratio = 0.80** *(0.80–0.85)*.
   - Pure Speed Density master ($MAPCalcs < MAFCalcs$). MAF sits 25% above MAP as headroom, preventing rapid spool boundary chatter.
 
@@ -123,4 +130,69 @@ To prevent chronic vacuum clamping while ensuring clean transition to Speed Dens
 - **`MAP based Load Calc` MUST ALWAYS equal 100% of True Physical Load ($\text{Load}_{\text{true}}$)**.
 - Achieve the 0.80 ratio by **setting MAF Scaling 25% higher than true load** ($MAF = 1.25 \times \text{Load}_{\text{true}}$).
 - **NEVER** achieve 0.80 by deflating $MAPCalcs$ below actual cylinder charge, as this will artificially advance ignition timing under boost and induce severe knock/detonation.
+
+### 4. Mandatory Structural Safeguards & Multi-ROM Secant Process (`multi_rom_secant_balancer.py`)
+1. **Cross-Regime MAF Bin Isolation (`<= 2.85V` vs `>= 2.89V`)**:
+   - MAF voltage bins `Idx 35–73` (`1.37V–2.85V`, `5–102 g/s`) are shared between mid/high-RPM vacuum (`3,000–5,000 RPM` at `50–100 kPa`, where `MAFCalcs` is the active fuel master) and low-RPM spool (`100–130 kPa`).
+   - **Never** apply the boost headroom multiplier ($1 / R(\text{MAP})$) to `Idx <= 73` using `MAP > 100 kPa` spool samples, as doing so inflates `2.00V–2.85V` and forces high-RPM vacuum rich. Calibrate `Idx <= 73` strictly from $\text{MAP} \le 105\text{ kPa}$ samples. Only pure boost bins (`Idx >= 74`, `>= 2.89V`) carry the $1.25\times$ ($1 / 0.80$) Speed Density headroom.
+2. **Unclamped MAF Filtering (`MAPCalcs >= 0.99 * MAFCalcs`)**:
+   - Because the wideband O2 sensor averages exhaust gas over a `~0.25s` (`5-frame`) mixing window while `MAFCalcs` has cycle-to-cycle GSC S2 cam pulsation ($\pm 8\%$), computing $\frac{\min(\text{MAFCalcs}_t, \text{MAPCalcs}_t) \times \overline{\text{AFR\_ERR}}}{\text{MAFCalcs}_t}$ on *clamped* frames (`MAPCalcs < MAFCalcs`) divides by clipped upper pulsation peaks of `MAFCalcs` and introduces a fake `-3% to -5%` rich bias in `Idx 60–67` (`2.35V–2.62V`).
+   - **Rule**: Accumulate pure MAF bins (`Idx <= 73`, `MAP <= 105 kPa`) strictly from **unclamped frames** (`MAPCalcs >= 0.99 * MAFCalcs`), where $C_{\text{MAF}} = \text{AFR\_ERR}$ directly with zero $\min(\cdot, \cdot)$ rectification bias.
+3. **Multi-ROM Bracketed Secant Solver with Post-Smoothing Bracket Invariance**:
+   - Whenever sequential flashes (`ROM N-2`, `ROM N-1`, `ROM N`) bracket `1.0000` at MAF bin $i$ (one flash rich $e_{\text{rich}} < 1.0$, one flash lean $e_{\text{lean}} > 1.0$), solve for the zero-error value via linear secant root-finding:
+     $$M_i^* = M_{i,\text{curr}} + \text{conf}_i \cdot \text{clamp}\left(\frac{1.0 - e_{\text{curr}}}{e_{\text{prev}} - e_{\text{curr}}}, 0.15, 0.85\right) \cdot (M_{i,\text{prev}} - M_{i,\text{curr}})$$
+   - Even after 3-point multiplier smoothing across `Idx 36–72`, clamp every bracketed bin strictly inside $[M_{\text{lean}} + 0.10\Delta M, M_{\text{rich}} - 0.10\Delta M]$ so neighbor smoothing can never push a bin outside its empirically tested `[Lean, Rich]` boundary. Where all flashes lie on the same side of `1.0000`, apply `0.45` damping (since empirical AFR gain on ID1300x + 3.5" intake is `1.5x–1.8x`).
+4. **Exhaust-Window-Matched `TrueLoad` & Crossover Anti-Rectification Guard (`Col 6 = 89.4 kPa`, `Col 7 = 102.8 kPa`)**:
+   - Compute `TrueLoad` for `MAP based Load Calc` using a **5-frame (`~0.25s`) moving average** of `ChosenCalc` and `MAPCalcs` ($\overline{\text{TrueLoad}}_i = \overline{\text{ChosenCalc}}_{i-2..i+2} \times \text{AFR\_ERR}_{i+\text{lag}}$) aligned by dynamic exhaust transport delay $\Delta t = \text{clamp}\left(\frac{0.35}{\sqrt{\max(0.3, \text{RPM} \times \text{MAP} / 100000)}}, 0.10\text{s}, 0.45\text{s}\right)$, with stationary idle down-weighted (`w = 0.05`).
+   - Because `Idx <= 73` (`<= 2.85V`) has no `1.25x` boost headroom, `MAFCalcs` sits at `~1.00 × TrueLoad` with $\pm 8\%$ pulsation across `90–115 kPa` (`2.35V–2.68V`). By Jensen's Inequality ($\mathbb{E}[\min(X,Y)] = \mu - \frac{\sigma}{\sqrt{\pi}} < \mu$), setting `MAPCalcs == TrueLoad` (`Ratio = 1.00`) at `102.8 kPa` causes $\min(\text{MAFCalcs}, \text{MAPCalcs})$ to clip every upward MAF peak while passing every downward trough—clamping up to `87%` of crossover frames, starving fuel (`15.1–15.5 AFR`), and advancing spark into knock at `105–115 kPa`.
+   - **Rule**: Target **`1.20 × TrueLoad_5frame`** in vacuum (`Cols 2–5`: `35.6–75.9 kPa`), **`1.14 × TrueLoad_5frame`** at `Col 6 (89.4 kPa)` (`~70–75%` load), and **`1.06 × TrueLoad_5frame`** at `Col 7 (102.8 kPa)` (`~81–85%` load, aligned with `V3.18`). In positive boost (`Col 8 = 116.3 kPa`, `Col 9 = 129.7 kPa`), **never deflate `MAP based Load Calc` below the knock-free `ROM 25` / `V3.18` floor (`~100.0%` at `116.3 kPa`, `~115.2%` at `129.7 kPa`) based on rich transient spool samples (`AFRErr < 1.0`)**.
+5. **3D VE RPM Slope Preservation & No Low-Voltage Idle Shelf**:
+   - Never flatten `MAP based Load Calc` vertically across RPM above `2,000 RPM`; always preserve a non-decreasing VE curve along `V3.18`'s RPM slope.
+   - Never inflate `Idx 31–38` (`1.21V–1.49V`) above the physical warm `50 kPa` idle curve (`~4.9–5.2 g/s` at `1.41V–1.45V`, `Idx 36–37`).
+
+---
+
+## 6. Load Shift Timing & MIVEC Synchronization (Conservative Rule)
+
+Whenever `MAF Scaling Horizontal` or `MAP based Load Calc` tables are recalculated (e.g. via LogChopper, balancer iterations, or wideband AFR targeting), the ECU's calculated engine load coordinates shift across the operating range. Because the ECU indexes Ignition Timing and MIVEC directly from this calculated load, the delivered spark advance and cam phase angles will drift away from the vehicle's safe dyno calibration (`V3.18.srf`).
+
+### Mandatory Recalculation Rule & Runtime `MAPCalcs` Scaling (`K_MAP_RUNTIME = 1.090`)
+1. **Whenever MAF or MAP load calculation tables are modified, you MUST recalculate the Ignition Timing tables using `tuning_tools/tools/timing_mivec_remapper.py`.**
+2. **Runtime `MAPCalcs` Coordinate Scaling**: Raw `MAP based Load Calc` table values (`x / 163.84`) are multiplied in the ECU by `(256 + rom[0x5494C]) / 256 = 1.05078` and by intake air density compensation (`~1.037` nominal), yielding runtime `MAPCalcs ≈ 1.090 × TableValue`. `timing_mivec_remapper.py` applies `K_MAP_RUNTIME = 1.090` so `LOAD_TIMING_AXIS` (`0–320%`) maps to the true manifold pressure operating point.
+
+### Conservative Mode Mandate (`--lower-only`), Knock Inception & BOV Flutter Decoupling
+When synchronizing timing tables following MAF/MAP updates, **always run with the conservative lower-only rule**:
+$$Timing_{\text{safe}}(r, c) = \min(Timing_{\text{current}}(r, c), Timing_{\text{remapped}}(r, c))$$
+$$LowTiming_{\text{safe}}(r, c) = \min(LowTiming_{\text{current}}(r, c), Timing_{\text{safe}}(r, c) - 1)$$
+
+- **Zero Accidental Advance**: Never introduce added timing advance when compensating for airflow/load recalculations. Any cell where the remapped timing is higher than current calibration must be held at the current value (0° advance added).
+- **Knock Inception Filtering ($\Delta \text{KnockSum} > 0$)**: The ECU's `KnockSum` channel is a rolling decay accumulator. Only transition frames where `KnockSum` increases ($\Delta \text{KnockSum} > 0$) represent genuine knock inception. Decay frames must never contaminate downstream cells as the engine sweeps across RPM and load.
+- **BOV Flutter Knock Decoupling (`bov_flutter_knock_detector.py` / `--filter-flutter-knock`)**:
+  - Under part-throttle spool (`TPS 25%–55%`, `MAP 95–135 kPa`), high charge pipe pressure against a partially open throttle body can cause the BOV to rapidly cycle / flutter open and closed (5–15 Hz).
+  - This cycling creates **acoustic valve impact chatter** and **violent airflow reversion oscillations** ($\Delta MAFV \ge 0.28\text{V}$, multiple directional reversals), which register as false knock or transient airflow slosh.
+  - This is a pneumatic/hardware boundary condition that **cannot be tuned around via ignition timing**. Never retard ignition timing for BOV flutter events! Run `bov_flutter_knock_detector.py` to isolate them, address BOV spring preload or reference plumbing, and pass `--filter-flutter-knock` to `timing_mivec_remapper.py`.
+- **Direct Knock-Corridor Safety Retard**: If any datalog records genuine, non-flutter `KnockSum` inception in a specific cell cluster, apply an explicit `-1°` safety retard to those cells in `High Octane` and `Low Octane` Timing on top of `--lower-only`.
+- **Boost Protection**: Boost cells ($\ge 120\%$ Load) retain their safe existing timing floors without running extra advance.
+- **Command Reference**:
+  ```bash
+  # Run the full Multi-ROM Bracketed Secant & Anti-Rectification Balancer:
+  python3 tuning_tools/tools/multi_rom_secant_balancer.py \
+    --target-rom "roms/<LATEST_ROM>.srf" --logs scans/<LATEST_LOG1>.csv scans/<LATEST_LOG2>.csv \
+    --prev-rom1 "roms/<PREV_ROM1>.srf" --prev-logs1 scans/<PREV_LOG1>.csv \
+    --prev-rom2 "roms/<PREV_ROM2>.srf" --prev-logs2 scans/<PREV_LOG2>.csv \
+    --export-dir /tmp/next_rom_exports
+
+  # Diagnose Knock Events (Classify BOV Flutter vs True Timing Knock):
+  python3 tuning_tools/tools/bov_flutter_knock_detector.py scans/<LATEST_LOG1>.csv scans/<LATEST_LOG2>.csv
+
+  # Synchronize Timing (--lower-only) with BOV Flutter Filter active:
+  python3 tuning_tools/tools/timing_mivec_remapper.py \
+    --target-rom "roms/<LATEST_ROM>.srf" \
+    --maf-table /tmp/next_rom_exports/new_maf_scaling.tsv \
+    --map-table /tmp/next_rom_exports/new_map_load_calc.tsv \
+    --knock-logs scans/<LATEST_LOG1>.csv scans/<LATEST_LOG2>.csv \
+    --filter-flutter-knock \
+    --paste-timing --lower-only
+  ```
+
 
