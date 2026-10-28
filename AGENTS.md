@@ -14,6 +14,10 @@ Whenever performing telemetry analysis, balancer simulation, fuel/load verificat
    - Once $ROM_{N+1}$ is written/flashed, any subsequent logs recorded after $ROM_{N+1}$ belong to $ROM_{N+1}$ until an even newer ROM is created.
    - Always verify timestamps (`ls -lt` or `os.path.getmtime`) before pairing a log with a ROM.
 
+3. **No ROM Binary Creation Rule (Clipboard Paste Buffers Only)**:
+   - **NEVER generate, create, or write `.srf` or `.bin` ROM files into the `roms/` directory.**
+   - Only output the new calibration values as formatted clipboard paste blocks and export files (`.tsv` / `.txt`). The user will manually copy and paste them into EcuFlash directly.
+
 ---
 
 ## 2. Platform & Hardware Configuration
