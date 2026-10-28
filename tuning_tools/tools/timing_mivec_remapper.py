@@ -341,6 +341,10 @@ def main():
                         help="Optional CSV datalogs to detect KnockSum > 0 and apply -1 deg safety retard to affected cells")
     parser.add_argument("--filter-flutter-knock", action="store_true",
                         help="Filter out BOV flutter / rapid cycling knock so only true timing knock triggers safety retard")
+    parser.add_argument("--min-knock-frequency", type=float, default=0.25,
+                        help="Minimum cell visit knock frequency to treat single-count knock as frequent (default: 0.25 / 25%%)")
+    parser.add_argument("--force-retard-all-knock", action="store_true",
+                        help="Force timing retard even on isolated single-count (KnockSum=1) knock events")
     parser.add_argument("--export-dir", default=None,
                         help="Optional directory to save exported table files (.txt and .tsv)")
     parser.add_argument("--all", action="store_true",
@@ -421,7 +425,26 @@ def main():
 
     if args.knock_logs:
         knock_cells = {}
+        cell_visits = {}
         flutter_ignored = []
+        isolated_single_knock = []
+
+        # Count total cell visits in all provided logs
+        for log_path in args.knock_logs:
+            if os.path.exists(log_path):
+                with open(log_path, "r", encoding="latin1") as f:
+                    reader = csv.DictReader(f)
+                    for r in reader:
+                        try:
+                            rpm = float(r.get("RPM", 0) or 0)
+                            load = float(r.get("Load", 0) or 0)
+                            if rpm >= 500 and load >= 10.0:
+                                r_idx = min(range(len(RPM_TIMING_AXIS)), key=lambda i: abs(RPM_TIMING_AXIS[i] - rpm))
+                                c_idx = min(range(len(LOAD_TIMING_AXIS)), key=lambda i: abs(LOAD_TIMING_AXIS[i] - load))
+                                cell_visits[(r_idx, c_idx)] = cell_visits.get((r_idx, c_idx), 0) + 1
+                        except (ValueError, KeyError):
+                            continue
+
         if args.filter_flutter_knock:
             try:
                 import bov_flutter_knock_detector as bfd
@@ -436,7 +459,9 @@ def main():
                             if ev["category"] == "BOV_FLUTTER":
                                 flutter_ignored.append((rpm, load, ev["row"], ev["file"], ev["mafv_range"]))
                             else:
-                                knock_cells[(r_idx, c_idx)] = knock_cells.get((r_idx, c_idx), 0) + int(ev["delta_knock"])
+                                if (r_idx, c_idx) not in knock_cells:
+                                    knock_cells[(r_idx, c_idx)] = []
+                                knock_cells[(r_idx, c_idx)].append(ev)
             except ImportError:
                 pass
         else:
@@ -445,7 +470,7 @@ def main():
                     with open(log_path, "r", encoding="latin1") as f:
                         reader = csv.DictReader(f)
                         prev_knk = 0.0
-                        for r in reader:
+                        for row_idx, r in enumerate(reader, 1):
                             try:
                                 knk = float(r.get("KnockSum", 0) or 0)
                                 if knk > prev_knk:
@@ -454,7 +479,12 @@ def main():
                                     load = float(r["Load"])
                                     r_idx = min(range(len(RPM_TIMING_AXIS)), key=lambda i: abs(RPM_TIMING_AXIS[i] - rpm))
                                     c_idx = min(range(len(LOAD_TIMING_AXIS)), key=lambda i: abs(LOAD_TIMING_AXIS[i] - load))
-                                    knock_cells[(r_idx, c_idx)] = knock_cells.get((r_idx, c_idx), 0) + int(delta_k)
+                                    if (r_idx, c_idx) not in knock_cells:
+                                        knock_cells[(r_idx, c_idx)] = []
+                                    knock_cells[(r_idx, c_idx)].append({
+                                        "rpm": rpm, "load": load, "delta_knock": delta_k,
+                                        "total_knock": knk, "row": row_idx, "file": os.path.basename(log_path)
+                                    })
                                 prev_knk = knk
                             except (ValueError, KeyError):
                                 continue
@@ -466,16 +496,46 @@ def main():
                 print(f"    • Ignored: Row {row:5d} in {fn} (RPM {rpm:.0f}, Load {load:.1f}%, MAF Swing {swing:.3f}V) -> BOV chatter, no timing retard applied.")
             print("~"*80)
 
-        if knock_cells:
+        # Separate frequent/confident knock from isolated single-count knock
+        confident_knock_cells = {}
+        for (r_idx, c_idx), ev_list in sorted(knock_cells.items()):
+            rpm_val = RPM_TIMING_AXIS[r_idx]
+            load_val = LOAD_TIMING_AXIS[c_idx]
+            visits = cell_visits.get((r_idx, c_idx), 0)
+            inceptions = len(ev_list)
+            max_delta = max(float(e.get("delta_knock", 1) or 1) for e in ev_list)
+            max_knk = max(float(e.get("total_knock", 1) or 1) for e in ev_list)
+            freq_pct = (inceptions / max(1, visits)) * 100.0
+
+            # Isolated single-count check:
+            # If knock is only a single count (KnockSum <= 1 and delta <= 1), single occurrence,
+            # and occurred infrequently (< min_knock_frequency, e.g. < 25%), do NOT retard timing.
+            is_isolated_single = (max_knk <= 1.0 and inceptions == 1 and freq_pct < (args.min_knock_frequency * 100.0) and not args.force_retard_all_knock)
+
+            if is_isolated_single:
+                isolated_single_knock.append((rpm_val, load_val, inceptions, max_knk, visits, freq_pct, ev_list[0]["file"], ev_list[0]["row"]))
+            else:
+                confident_knock_cells[(r_idx, c_idx)] = (inceptions, max_delta, max_knk, visits, freq_pct)
+
+        if isolated_single_knock:
+            print("\n" + "="*80)
+            print(f"[i] ISOLATED SINGLE-COUNT KNOCK (HELD UNCHANGED PER FREQUENCY CONFIDENCE RULE):")
+            print("    Recorded in database, but timing table held unchanged because knock was only")
+            print("    a single count of 1 that did not happen frequently across visits:")
+            for rpm_val, load_val, inceptions, max_knk, visits, freq_pct, fn, row in isolated_single_knock:
+                print(f"    • RPM {rpm_val:4d} @ Load {load_val:5.1f}%: 1 count of {max_knk:.0f} in {fn} (row {row}) across {visits} visits ({freq_pct:4.2f}% rate). Timing held.")
+            print("="*80)
+
+        if confident_knock_cells:
             print("\n" + "!"*80)
-            print(f"[!] TRUE TIMING KNOCK SAFETY RETARD: Identified {len(knock_cells)} genuine calibration knock cell(s):")
-            for (r_idx, c_idx), count in sorted(knock_cells.items()):
+            print(f"[!] TRUE FREQUENT TIMING KNOCK SAFETY RETARD: Identified {len(confident_knock_cells)} confident knock cell(s):")
+            for (r_idx, c_idx), (inceptions, max_delta, max_knk, visits, freq_pct) in sorted(confident_knock_cells.items()):
                 rpm_val = RPM_TIMING_AXIS[r_idx]
                 load_val = LOAD_TIMING_AXIS[c_idx]
                 old_hi = remap_high[r_idx][c_idx]
                 remap_high[r_idx][c_idx] -= 1
                 remap_low[r_idx][c_idx] = min(remap_low[r_idx][c_idx], remap_high[r_idx][c_idx] - 1)
-                print(f"    • RPM {rpm_val:4d} @ Load {load_val:5.1f}% ({count:2d} inception event(s)): {old_hi:2d} deg -> {remap_high[r_idx][c_idx]:2d} deg (-1 deg)")
+                print(f"    • RPM {rpm_val:4d} @ Load {load_val:5.1f}% ({inceptions:2d} inceptions, max={max_knk:.0f}, {visits} visits, {freq_pct:4.1f}% freq): {old_hi:2d} deg -> {remap_high[r_idx][c_idx]:2d} deg (-1 deg)")
             print("!"*80)
 
     # 5. Output Remapped Paste Buffers

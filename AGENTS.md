@@ -171,7 +171,9 @@ $$LowTiming_{\text{safe}}(r, c) = \min(LowTiming_{\text{current}}(r, c), Timing_
   - Under part-throttle spool (`TPS 25%–55%`, `MAP 95–135 kPa`), high charge pipe pressure against a partially open throttle body can cause the BOV to rapidly cycle / flutter open and closed (5–15 Hz).
   - This cycling creates **acoustic valve impact chatter** and **violent airflow reversion oscillations** ($\Delta MAFV \ge 0.28\text{V}$, multiple directional reversals), which register as false knock or transient airflow slosh.
   - This is a pneumatic/hardware boundary condition that **cannot be tuned around via ignition timing**. Never retard ignition timing for BOV flutter events! Run `bov_flutter_knock_detector.py` to isolate them, address BOV spring preload or reference plumbing, and pass `--filter-flutter-knock` to `timing_mivec_remapper.py`.
-- **Direct Knock-Corridor Safety Retard**: If any datalog records genuine, non-flutter `KnockSum` inception in a specific cell cluster, apply an explicit `-1°` safety retard to those cells in `High Octane` and `Low Octane` Timing on top of `--lower-only`.
+- **Direct Knock-Corridor Safety Retard & Isolated Single-Count Confidence Rule**:
+  - **Isolated Single Count (KnockSum = 1)**: If a datalog records an isolated knock count of 1 that does not repeat or occur frequently across cell visits (< 25% frequency / not a majority), it must be logged and stored in `calibration_experience.db` for historical tracking, but **held unchanged in the ignition timing tables** (0° retard applied).
+  - **Frequent / Confident Detonation**: Apply an explicit `-1°` safety retard to cells in `High Octane` and `Low Octane` Timing (on top of `--lower-only`) only when knock is confident and frequent (e.g. multi-count detonation spike $\Delta\text{KnockSum} \ge 2$, repeated knock across multiple independent passes, or high visit frequency $\ge 25\%$).
 - **Boost Protection**: Boost cells ($\ge 120\%$ Load) retain their safe existing timing floors without running extra advance.
 - **Command Reference**:
   ```bash
