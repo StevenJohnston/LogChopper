@@ -281,6 +281,26 @@ def parse_log_timestamp(path):
     return os.path.getmtime(path)
 
 
+def get_matching_rom_id_and_path(log_time, db_path):
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT rom_id, file_path, file_mtime FROM roms ORDER BY file_mtime ASC;")
+    rom_rows = cur.fetchall()
+    conn.close()
+    if not rom_rows:
+        return None, None
+    best_id, best_path = None, None
+    for i in range(len(rom_rows)):
+        r_id, r_path, r_mtime = rom_rows[i]
+        next_mtime = rom_rows[i + 1][2] if (i + 1 < len(rom_rows)) else float("inf")
+        if r_mtime <= log_time < next_mtime:
+            best_id, best_path = r_id, r_path
+            break
+    if not best_id and rom_rows:
+        best_id, best_path = rom_rows[-1][0], rom_rows[-1][1]
+    return best_id, best_path
+
+
 def ingest_classified_datalog(csv_path, db_path, target_rom_id=None):
     if not os.path.exists(csv_path):
         print(f"[!] File not found: {csv_path}", file=sys.stderr)
@@ -295,18 +315,7 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None):
     # Match ROM if not explicitly provided
     rom_id = target_rom_id
     if rom_id is None:
-        cur.execute("SELECT rom_id, file_mtime FROM roms ORDER BY file_mtime ASC;")
-        rom_rows = cur.fetchall()
-        # Find ROM with latest mtime <= log_time (Chronological Association Rule:
-        # A scan with mtime T belongs to ROM_i if mtime(ROM_i) <= T < mtime(ROM_{i+1}))
-        best_rom = None
-        for i in range(len(rom_rows)):
-            r_id, r_mtime = rom_rows[i]
-            next_mtime = rom_rows[i + 1][1] if (i + 1 < len(rom_rows)) else float("inf")
-            if r_mtime <= log_time < next_mtime:
-                best_rom = r_id
-                break
-        rom_id = best_rom or (rom_rows[-1][0] if rom_rows else None)
+        rom_id, _ = get_matching_rom_id_and_path(log_time, db_path)
 
     with open(csv_path, "r", encoding="latin1") as f:
         reader = list(csv.DictReader(f))
@@ -318,7 +327,6 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None):
         return None
 
     duration = float(reader[-1].get("LogEntrySeconds", 0) or 0) - float(reader[0].get("LogEntrySeconds", 0) or 0)
-    log_time = os.path.getmtime(csv_path)
 
     cur.execute("SELECT log_id FROM datalogs WHERE log_name = ?", (log_name,))
     existing = cur.fetchone()
@@ -461,9 +469,15 @@ def main():
     parser.add_argument("--roms", nargs="*", help="List of ROM files to ingest (.srf/.bin)")
     parser.add_argument("--logs", nargs="*", help="List of classified datalog CSVs to ingest (*_classified.csv)")
     parser.add_argument("--auto-classify-logs", nargs="*", help="List of raw CSV logs to auto-classify and ingest")
+    parser.add_argument("--target-rom", help="Optional explicit target ROM to pair with datalogs (.srf/.bin)")
     args = parser.parse_args()
 
     init_db(args.db)
+
+    # Ingest target ROM if specified
+    explicit_rom_id = None
+    if args.target_rom:
+        explicit_rom_id = ingest_rom(args.target_rom, args.db)
 
     # Ingest ROMs
     if args.roms:
@@ -473,20 +487,27 @@ def main():
     # Ingest Classified Logs
     if args.logs:
         for l_path in args.logs:
-            ingest_classified_datalog(l_path, args.db)
+            ingest_classified_datalog(l_path, args.db, target_rom_id=explicit_rom_id)
 
     # Auto classify raw logs if requested
     if args.auto_classify_logs:
         from datalog_classifier import DatalogClassifier
         for raw_path in args.auto_classify_logs:
+            log_time = parse_log_timestamp(raw_path)
+            r_id = explicit_rom_id
+            r_path = args.target_rom
+            if not r_path:
+                r_id, r_path = get_matching_rom_id_and_path(log_time, args.db)
             print(f"[*] Classifying raw log: {raw_path}")
-            cl = DatalogClassifier(raw_path)
+            if r_path:
+                print(f"    -> Using matching ROM: {os.path.basename(r_path)} (ID: {r_id})")
+            cl = DatalogClassifier(raw_path, rom_path=r_path)
             cl.load_and_parse()
             cl.classify_all()
             base = os.path.splitext(raw_path)[0]
             out_csv = f"{base}_classified.csv"
             cl.export_csv(out_csv)
-            ingest_classified_datalog(out_csv, args.db)
+            ingest_classified_datalog(out_csv, args.db, target_rom_id=r_id)
 
 
 if __name__ == "__main__":

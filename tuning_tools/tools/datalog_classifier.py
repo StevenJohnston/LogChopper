@@ -3,18 +3,24 @@
 datalog_classifier.py - Multi-Domain Telemetry Classifier & Diagnostic Enrichment Engine
 
 Performs per-record physical classification and diagnostic tagging on EvoScan datalogs:
-  1. Combustion Domain: Knock inception isolation and root-cause classification
+  1. ROM Table Precomputations: Directly evaluates and appends the ECU ROM calibration table
+     calling values for every row (MAF scaling, 3D MAP VE load, MAT vs MAP comp multiplier,
+     High/Low Octane timing targets, total timing retard, battery latency, and AFRMAP target).
+  2. Gear & Transmission Domain: RPM/Speed ratio gear detection (Gears 1-5, Neutral, Stationary)
+     and shift transition flagging.
+  3. Decel Overrun & Fuel Leakage Domain: Closed-throttle overrun decel fuel cut (DFCO) status,
+     detecting unexpected fueling leakage when injectors should be cut off.
+  4. Speed Smoothing & Virtual Dyno Domain: 5-frame moving-average smoothed speed, continuous
+     longitudinal acceleration (G-force), and calculated instantaneous Wheel HP (WHP) and Torque (WTQ).
+  5. MIVEC VVT & Drive-By-Wire Domain: Intake/Exhaust cam target tracking error, DBW pedal vs blade
+     throttle cut detection, and Injector Duty Cycle (IDC) headroom monitoring.
+  6. Combustion Domain: Knock inception isolation and root-cause classification
      (GENUINE_TIMING, BOV_FLUTTER, DRIVETRAIN_LASH, SHIFT_KNOCK) with confidence scoring.
-  2. Fueling Domain: Dynamic exhaust transport-lag alignment, wideband AFR error tracking,
+  7. Fueling & Transport Lag Domain: Dynamic exhaust transport-lag alignment, wideband AFR error,
      and Closed-Loop fuel trim authority (STFT + LTFT).
-  3. Injector Dynamics Domain: Pulse width, battery voltage, and deadtime latency sensitivity.
-  4. Thermal Domain: Manifold air temp (MAT), coolant temp (ECT), and thermal drift tracking.
-  5. Airflow & Speed Density Domain: MAF vs MAP load envelope clamping states and ratios.
-  6. Operational Regimes & Usability: Multi-variable stationarity scoring (0.0-1.0) and
-     subsystem usability flags (usable_for_maf, usable_for_ve, usable_for_injector)
-     with explicit rejection reasons for non-usable frames.
+  8. Airflow & Speed Density Domain: MAF vs MAP load envelope clamping states and ratios.
 
-Outputs an enriched CSV (*_classified.csv) with all original columns plus 12+ diagnostic
+Outputs an enriched CSV (*_classified.csv) with all original columns plus 25+ diagnostic
 columns, an operational event ledger (*_events.json), and a structured summary.
 """
 
@@ -39,83 +45,166 @@ def safe_float(val, default=0.0):
         return default
 
 
-def get_fuel_map(rom_path):
-    """Loads High Octane Fuel Map (0x55027) from ROM for AFRMAP reconstruction."""
-    header_len = 328 if rom_path.lower().endswith(".srf") else 0
-    with open(rom_path, "rb") as f:
-        f.seek(header_len)
-        d = f.read()
-
-    load_raw = struct.unpack(">21H", d[0x617bc:0x617bc + 42])
-    load_axis = [r * 10.0 / 32.0 for r in load_raw]
-
-    rpm_raw = struct.unpack(">16H", d[0x61796:0x61796 + 32])
-    rpm_axis = [r * 1000.0 / 256.0 for r in rpm_raw]
-
-    raw_bytes = struct.unpack(">336B", d[0x55027:0x55027 + 336])
-    table = [list(raw_bytes[l * 16:(l + 1) * 16]) for l in range(21)]
-
-    return load_axis, rpm_axis, table
-
-
-def interpolate_afrmap(load, rpm, load_axis, rpm_axis, table):
-    """Firmware-accurate bilinear interpolation of target AFR from ROM table."""
-    l_val = max(load_axis[0], min(load_axis[-1], load))
-    r_val = max(rpm_axis[0], min(rpm_axis[-1], rpm))
-
-    l_idx = 0
-    while l_idx < len(load_axis) - 2 and load_axis[l_idx + 1] <= l_val:
-        l_idx += 1
-    l_frac = (l_val - load_axis[l_idx]) / (load_axis[l_idx + 1] - load_axis[l_idx])
-
-    r_idx = 0
-    while r_idx < len(rpm_axis) - 2 and rpm_axis[r_idx + 1] <= r_val:
-        r_idx += 1
-    r_frac = (r_val - rpm_axis[r_idx]) / (rpm_axis[r_idx + 1] - rpm_axis[r_idx])
-
-    c00 = table[l_idx][r_idx]
-    c01 = table[l_idx][r_idx + 1]
-    c10 = table[l_idx + 1][r_idx]
-    c11 = table[l_idx + 1][r_idx + 1]
-
-    top = c00 * (1.0 - r_frac) + c01 * r_frac
-    bot = c10 * (1.0 - r_frac) + c11 * r_frac
-    raw_val = top * (1.0 - l_frac) + bot * l_frac
-
-    if raw_val <= 0:
-        return 14.7
-    return round(14.7 * 128.0 / raw_val, 2)
+def interp1d(x_val, xp, fp):
+    """1D piecewise linear interpolation with boundary clamping."""
+    if not xp or not fp or len(xp) != len(fp):
+        return 0.0
+    if x_val <= xp[0]:
+        return float(fp[0])
+    if x_val >= xp[-1]:
+        return float(fp[-1])
+    for i in range(len(xp) - 1):
+        if xp[i] <= x_val <= xp[i + 1]:
+            x0, x1 = xp[i], xp[i + 1]
+            y0, y1 = fp[i], fp[i + 1]
+            if x1 == x0:
+                return float(y0)
+            return float(y0 + (x_val - x0) * (y1 - y0) / (x1 - x0))
+    return float(fp[-1])
 
 
-def estimate_latency_ms(vbatt):
+def interp2d(x_val, y_val, x_axis, y_axis, grid):
     """
-    Standard ID1300x / Evo X latency approximation as a function of battery voltage:
-    4.69V: 3.81ms, 7.03V: 3.25ms, 9.38V: 1.68ms, 11.72V: 1.095ms, 14.06V: 0.795ms, 16.41V: 0.555ms
+    Bilinear 2D interpolation with boundary clamping.
+    grid is 2D list: grid[row_y][col_x]
     """
-    if vbatt <= 7.0:
-        return 3.50
-    elif vbatt <= 9.4:
-        return 3.25 - (vbatt - 7.0) * (3.25 - 1.68) / 2.4
-    elif vbatt <= 11.7:
-        return 1.68 - (vbatt - 9.4) * (1.68 - 1.10) / 2.3
-    elif vbatt <= 14.1:
-        return 1.10 - (vbatt - 11.7) * (1.10 - 0.795) / 2.4
-    elif vbatt <= 16.4:
-        return 0.795 - (vbatt - 14.1) * (0.795 - 0.555) / 2.3
-    else:
-        return 0.50
+    if not x_axis or not y_axis or not grid:
+        return 0.0
+
+    x_clamped = max(x_axis[0], min(x_axis[-1], x_val))
+    y_clamped = max(y_axis[0], min(y_axis[-1], y_val))
+
+    # Bracket X (cols)
+    xi = 0
+    while xi < len(x_axis) - 2 and x_axis[xi + 1] <= x_clamped:
+        xi += 1
+    x_frac = (x_clamped - x_axis[xi]) / (x_axis[xi + 1] - x_axis[xi]) if x_axis[xi + 1] != x_axis[xi] else 0.0
+
+    # Bracket Y (rows)
+    yi = 0
+    while yi < len(y_axis) - 2 and y_axis[yi + 1] <= y_clamped:
+        yi += 1
+    y_frac = (y_clamped - y_axis[yi]) / (y_axis[yi + 1] - y_axis[yi]) if y_axis[yi + 1] != y_axis[yi] else 0.0
+
+    c00 = grid[yi][xi]
+    c01 = grid[yi][xi + 1]
+    c10 = grid[yi + 1][xi]
+    c11 = grid[yi + 1][xi + 1]
+
+    top = c00 * (1.0 - x_frac) + c01 * x_frac
+    bot = c10 * (1.0 - x_frac) + c11 * x_frac
+    return float(top * (1.0 - y_frac) + bot * y_frac)
+
+
+class RomTableEvaluator:
+    """Extracts and evaluates ECU ROM tables directly for telemetry row augmentation."""
+    def __init__(self, rom_path):
+        self.rom_path = rom_path
+        self.loaded = False
+        self.load_rom()
+
+    def load_rom(self):
+        if not self.rom_path or not os.path.exists(self.rom_path):
+            return
+        header_len = 328 if self.rom_path.lower().endswith(".srf") else 0
+        with open(self.rom_path, "rb") as f:
+            f.seek(header_len)
+            d = f.read()
+
+        try:
+            # 1. MAF Scaling Horizontal (0x5757A) + Volts (0x61FD0)
+            maf_raw = struct.unpack(">130H", d[0x5757A:0x5757A + 260])
+            v_raw = struct.unpack(">130H", d[0x61FD0:0x61FD0 + 260])
+            self.maf_volts = [round(x * 5.0 / 1023.0, 3) for x in v_raw]
+            self.maf_vals = [x / 100.0 for x in maf_raw]
+
+            # 2. MAP based Load Calc #1 (0x608AE) + MAP axis (0x6344A) + RPM axis (0x6341E)
+            m_axis_raw = struct.unpack(">20H", d[0x6344A:0x6344A + 40])
+            self.map_kpa_axis = [round(((x * 2556.0 / 3800.0) + 0.5) / 2.0, 1) for x in m_axis_raw]
+            r_axis_raw = struct.unpack(">19H", d[0x6341E:0x6341E + 38])
+            self.rpm_map_axis = [round(x * 1000.0 / 256.0) for x in r_axis_raw]
+            raw_map = struct.unpack(">380H", d[0x608AE:0x608AE + 760])
+            # Grid stored column-major: map_col * 19 + rpm_row -> grid[row_rpm][col_map]
+            self.map_load_grid = [[(raw_map[m * 19 + r] * 10.0 / 512.0) * 10.0 / 32.0 for m in range(20)] for r in range(19)]
+
+            # 3. High Octane Fuel Map (0x55027) + Load axis (0x617BC) + RPM axis (0x61796)
+            load_fuel_raw = struct.unpack(">21H", d[0x617BC:0x617BC + 42])
+            self.load_fuel_axis = [r * 10.0 / 32.0 for r in load_fuel_raw]
+            rpm_fuel_raw = struct.unpack(">16H", d[0x61796:0x61796 + 32])
+            self.rpm_fuel_axis = [r * 1000.0 / 256.0 for r in rpm_fuel_raw]
+            raw_fuel = struct.unpack(">336B", d[0x55027:0x55027 + 336])
+            self.fuel_grid = [[14.7 * 128.0 / max(1, raw_fuel[l * 16 + r]) for r in range(16)] for l in range(21)]
+
+            # 4. High & Low Octane Timing (0x55957, 0x55B59) + Load axis (0x61836) + RPM axis (0x61802)
+            load_tim_raw = struct.unpack(">22H", d[0x61836:0x61836 + 44])
+            self.load_tim_axis = [round(r * 10.0 / 32.0, 1) for r in load_tim_raw]
+            rpm_tim_raw = struct.unpack(">23H", d[0x61802:0x61802 + 46])
+            self.rpm_tim_axis = [round(r * 1000.0 / 256.0) for r in rpm_tim_raw]
+            raw_hitim = struct.unpack(">506b", d[0x55957:0x55957 + 506])
+            raw_lotim = struct.unpack(">506b", d[0x55B59:0x55B59 + 506])
+            # Timing stored column-major: load_col * 23 + rpm_row -> grid[row_rpm][col_load]
+            self.hitim_grid = [[float(raw_hitim[c * 23 + r]) for c in range(22)] for r in range(23)]
+            self.lotim_grid = [[float(raw_lotim[c * 23 + r]) for c in range(22)] for r in range(23)]
+
+            # 5. Fuel Compensation MAT vs MAP (0x60FCD) + MAT axis (0x634C0) + MAP axis (0x634D4)
+            mat_raw = struct.unpack(">7H", d[0x634C0:0x634C0 + 14])
+            self.mat_axis = [x - 40 for x in mat_raw]  # -10, 5, 20, 40, 60, 80, 100 C
+            map_mat_raw = struct.unpack(">10H", d[0x634D4:0x634D4 + 20])
+            self.map_mat_axis = [round(((x * 2556.0 / 3800.0) + 0.5) / 2.0, 1) for x in map_mat_raw]
+            raw_mat = struct.unpack(">70B", d[0x60FCD:0x60FCD + 70])
+            # Stored column-major: map_col * 7 + mat_row -> grid[row_mat][col_map]
+            self.mat_comp_grid = [[(raw_mat[m * 7 + r] + 385.0) / 512.0 * 100.0 for m in range(10)] for r in range(7)]
+
+            # 6. Injector Latency vs Battery Voltage (0x556D0)
+            self.vbatt_axis = [4.69, 7.03, 9.38, 11.72, 14.06, 16.41, 18.66]
+            raw_lat = struct.unpack(">7B", d[0x556D0:0x556D0 + 7])
+            self.latency_vals = [r * 0.015 for r in raw_lat]
+
+            self.loaded = True
+        except Exception as e:
+            print(f"[!] Warning: Could not fully parse tables from ROM {self.rom_path}: {e}", file=sys.stderr)
+
+    def eval_maf(self, mafv):
+        if not self.loaded:
+            return 0.0
+        return round(interp1d(mafv, self.maf_volts, self.maf_vals), 2)
+
+    def eval_map_load_calc(self, rpm, kpa):
+        if not self.loaded:
+            return 0.0
+        return round(interp2d(kpa, rpm, self.map_kpa_axis, self.rpm_map_axis, self.map_load_grid), 1)
+
+    def eval_mat_comp(self, mat, kpa):
+        if not self.loaded:
+            return 100.0
+        return round(interp2d(kpa, mat, self.map_mat_axis, self.mat_axis, self.mat_comp_grid), 2)
+
+    def eval_afrmap(self, load, rpm):
+        if not self.loaded:
+            return 14.7
+        return round(interp2d(rpm, load, self.rpm_fuel_axis, self.load_fuel_axis, self.fuel_grid), 2)
+
+    def eval_timing_high(self, load, rpm):
+        if not self.loaded:
+            return 0.0
+        return round(interp2d(load, rpm, self.load_tim_axis, self.rpm_tim_axis, self.hitim_grid), 1)
+
+    def eval_timing_low(self, load, rpm):
+        if not self.loaded:
+            return 0.0
+        return round(interp2d(load, rpm, self.load_tim_axis, self.rpm_tim_axis, self.lotim_grid), 1)
+
+    def eval_latency(self, vbatt):
+        if not self.loaded:
+            return 0.795
+        return round(interp1d(vbatt, self.vbatt_axis, self.latency_vals), 3)
 
 
 class DatalogClassifier:
     def __init__(self, log_path, rom_path=None):
         self.log_path = log_path
         self.rom_path = rom_path
-        self.fuel_table_data = None
-        if rom_path and os.path.exists(rom_path):
-            try:
-                self.fuel_table_data = get_fuel_map(rom_path)
-            except Exception as e:
-                print(f"[!] Warning: Could not load fuel map from ROM {rom_path}: {e}", file=sys.stderr)
+        self.rom_evaluator = RomTableEvaluator(rom_path) if rom_path else None
 
         self.raw_rows = []
         self.parsed = []
@@ -132,7 +221,6 @@ class DatalogClassifier:
         if n == 0:
             raise ValueError(f"Log file is empty: {self.log_path}")
 
-        # Extract standard numeric channels
         for i, r in enumerate(self.raw_rows):
             sec = safe_float(r.get("LogEntrySeconds"), 0.0)
             rpm = safe_float(r.get("RPM"), 0.0)
@@ -157,11 +245,15 @@ class DatalogClassifier:
             ect = safe_float(r.get("ECT"), 0.0)
             mat = safe_float(r.get("MAT"), 0.0)
             wgdc = safe_float(r.get("WGDC_Active"), 0.0)
+            invvt_tgt = safe_float(r.get("InVVTtarget"), 0.0)
+            exvvt_tgt = safe_float(r.get("ExVVTtarget"), 0.0)
+            invvt_act = safe_float(r.get("InVVTactual"), 0.0)
+            exvvt_act = safe_float(r.get("ExVVTactual"), 0.0)
 
-            # Reconstruct AFRMAP if missing or invalid and ROM available
-            if (afrmap <= 5.0 or afrmap > 20.0) and self.fuel_table_data:
+            # Reconstruct AFRMAP if missing or invalid using ROM evaluator
+            if (afrmap <= 5.0 or afrmap > 20.0) and self.rom_evaluator and self.rom_evaluator.loaded:
                 eff_load = load if load > 0 else max(mafc, mapc)
-                afrmap = interpolate_afrmap(eff_load, rpm, self.fuel_table_data[0], self.fuel_table_data[1], self.fuel_table_data[2])
+                afrmap = self.rom_evaluator.eval_afrmap(eff_load, rpm)
             elif afrmap <= 5.0 or afrmap > 20.0:
                 afrmap = 14.7
 
@@ -188,6 +280,10 @@ class DatalogClassifier:
                 "ect": ect,
                 "mat": mat,
                 "wgdc": wgdc,
+                "invvt_tgt": invvt_tgt,
+                "exvvt_tgt": exvvt_tgt,
+                "invvt_act": invvt_act,
+                "exvvt_act": exvvt_act,
             })
 
     def classify_all(self):
@@ -195,7 +291,7 @@ class DatalogClassifier:
         if n == 0:
             return
 
-        # 1. Precalculate derivatives: dTPS/dt, dMAP/dt, dMAFV/dt, dRPM/dt, dKnock
+        # 1. Continuous Physical Derivatives
         derivatives = []
         for i in range(n):
             if i == 0:
@@ -225,18 +321,16 @@ class DatalogClassifier:
                     "d_knock": max(0.0, curr["knock"] - prev["knock"]),
                 })
 
-        # 2. Precalculate dynamic exhaust transport lag and forward-aligned AFR
+        # 2. Dynamic Exhaust Transport Delay & Forward-Aligned AFR
         aligned_afr_data = []
         for i in range(n):
             curr = self.parsed[i]
             rpm = max(500.0, curr["rpm"])
             kpa = max(20.0, curr["kpa"])
-            # Dynamic exhaust transport delay: tau = clamp(0.35 / sqrt(RPM * MAP / 100000), 0.10, 0.45)
             denom = math.sqrt(max(0.3, rpm * kpa / 100000.0))
             tau = max(0.10, min(0.45, 0.35 / denom))
             target_time = curr["sec"] + tau
 
-            # Search forward for row closest to target_time
             best_idx = i
             best_diff = 999.0
             j = i
@@ -258,7 +352,7 @@ class DatalogClassifier:
                 "aligned_afr_error": round(afr_err, 4),
             })
 
-        # 3. Identify and classify knock inceptions
+        # 3. Knock Inceptions & Root-Cause Classification
         knock_classifications = ["NONE"] * n
         knock_confidences = [0.0] * n
 
@@ -275,19 +369,16 @@ class DatalogClassifier:
                 mafv_range = max(mafv_vals) - min(mafv_vals)
                 tps_range = max(tps_vals) - min(tps_vals)
 
-                # Count MAF reversals in window
                 diffs = [mafv_vals[k + 1] - mafv_vals[k] for k in range(len(mafv_vals) - 1)]
                 reversals = 0
                 for k in range(len(diffs) - 1):
                     if diffs[k] * diffs[k + 1] < -0.005:
                         reversals += 1
 
-                # Rapid lift-off check
                 pre_tps = self.parsed[max(0, i - 3)]["tps"]
                 post_tps = self.parsed[min(n - 1, i + 3)]["tps"]
                 tps_slope = post_tps - pre_tps
 
-                # Classify
                 k_class = "GENUINE_TIMING"
                 k_conf = 0.85
 
@@ -313,7 +404,6 @@ class DatalogClassifier:
                 knock_classifications[i] = k_class
                 knock_confidences[i] = k_conf
 
-                # Record into operational events ledger
                 self.operational_events.append({
                     "event_type": f"KNOCK_{k_class}",
                     "log_id": os.path.basename(self.log_path),
@@ -340,12 +430,163 @@ class DatalogClassifier:
                     }
                 })
 
-        # 4. Operational Regimes, Load Clamping, and Multi-Domain Tagging
-        regime_counts = {}
-        usability_counts = {"maf": 0, "ve": 0, "injector": 0}
+        # 4. Speed Smoothing & Longitudinal Acceleration
+        # 5-frame moving average of vehicle speed
+        smooth_speeds = []
+        for i in range(n):
+            w_start = max(0, i - 2)
+            w_end = min(n, i + 3)
+            sub = [self.parsed[k]["speed"] for k in range(w_start, w_end)]
+            smooth_speeds.append(sum(sub) / len(sub))
 
-        # Track DFCO state machine with 0.5s recovery tail
+        smooth_accels_g = [0.0] * n
+        for i in range(1, n):
+            dt = derivatives[i]["dt"]
+            # dv in m/s
+            dv_ms = (smooth_speeds[i] - smooth_speeds[i - 1]) / 3.6
+            a_ms2 = dv_ms / dt if dt > 0.001 else 0.0
+            smooth_accels_g[i] = a_ms2 / 9.80665
+
+        # 5. Gear Detection (USDM 5MT: Final Drive 4.687, Circumference ~2.03m)
+        gear_labels = []
+        shift_flags = []
+        for i in range(n):
+            curr = self.parsed[i]
+            rpm = curr["rpm"]
+            spd = smooth_speeds[i]
+            d = derivatives[i]
+
+            if spd < 3.5:
+                gear_labels.append("IDLE_STATIONARY")
+                shift_flags.append(0)
+            else:
+                ratio = rpm / max(1.0, spd)
+                # Check gear ratio bounds
+                if 115.0 <= ratio <= 155.0:
+                    gear = "1"
+                elif 72.0 <= ratio <= 98.0:
+                    gear = "2"
+                elif 51.0 <= ratio <= 69.0:
+                    gear = "3"
+                elif 38.0 <= ratio <= 50.0:
+                    gear = "4"
+                elif 27.0 <= ratio <= 37.0:
+                    gear = "5"
+                else:
+                    gear = "NEUTRAL"
+
+                # Check if shifting (clutch disengagement / RPM plunge during rolling)
+                is_shifting = 0
+                if gear == "NEUTRAL" or (d["d_rpm"] < -450.0 and curr["tps"] < 25.0 and spd > 15.0):
+                    is_shifting = 1
+
+                gear_labels.append(gear)
+                shift_flags.append(is_shifting)
+
+        # 6. Decel Overrun Fuel Leakage Diagnostics
+        decel_statuses = []
         last_dfco_time = -999.0
+        min_app = min(r["app"] for r in self.parsed) if self.parsed else 0.0
+
+        for i in range(n):
+            curr = self.parsed[i]
+            spd = smooth_speeds[i]
+            rpm = curr["rpm"]
+            tps = curr["tps"]
+            ipw = curr["ipw"]
+            sec = curr["sec"]
+            gear = gear_labels[i]
+            is_shifting = shift_flags[i]
+
+            is_dfco_cut = (ipw <= 0.05 or curr["afr"] >= 19.0)
+            if is_dfco_cut:
+                last_dfco_time = sec
+
+            is_recovery = (sec - last_dfco_time) <= 0.50 and not is_dfco_cut
+
+            # Overrun decel state: Rolling in gear above 1400 RPM with closed accelerator pedal
+            is_closed_pedal = (curr["app"] <= min_app + 1.5) if ("APP" in self.raw_rows[0] and curr["app"] >= 0.0) else (tps <= 14.5)
+            in_gear_driving = gear in ("GEAR_1", "GEAR_2", "GEAR_3", "GEAR_4", "GEAR_5") and not is_shifting
+
+            if is_closed_pedal and spd > 12.0 and rpm > 1400.0:
+                if is_dfco_cut:
+                    status = "CUT_ACTIVE"
+                elif in_gear_driving:
+                    status = "UNEXPECTED_FUELING"
+                    # Log unexpected fuel leakage during overrun decel as operational event
+                    if i % 15 == 0:  # sample every ~0.5s to prevent event spam
+                        self.operational_events.append({
+                            "event_type": "OVERRUN_FUEL_LEAKAGE",
+                            "log_id": os.path.basename(self.log_path),
+                            "row_idx": i,
+                            "time_sec": round(sec, 3),
+                            "rpm": round(rpm, 1),
+                            "map_kpa": round(curr["kpa"], 1),
+                            "tps": round(tps, 1),
+                            "mafv": round(curr["mafv"], 3),
+                            "ipw_ms": round(ipw, 2),
+                            "vbatt": round(curr["vbatt"], 2),
+                            "mat_c": round(curr["mat"], 1),
+                            "ect_c": round(curr["ect"], 1),
+                            "afr": round(curr["afr"], 2),
+                            "afrmap": round(curr["afrmap"], 2),
+                            "severity": round(ipw, 2),
+                            "classification": "DECEL_INJECTOR_LEAK",
+                            "confidence": 0.85,
+                            "detail_json": {"ipw_during_decel": round(ipw, 2)}
+                        })
+                else:
+                    status = "COAST_NEUTRAL"
+            elif is_recovery:
+                status = "DFCO_RECOVERY"
+            else:
+                status = "NORMAL_DRIVING"
+
+            decel_statuses.append(status)
+
+        # 7. Virtual Dyno Horsepower & Wheel Torque Calculation
+        # Vehicle physics constants (2013 Evo X 5MT)
+        M_VEHICLE = 1705.0        # kg (curb + driver)
+        RHO_AIR = 1.204          # kg/m3
+        CD_AERO = 0.35           # Drag coefficient
+        AREA_FRONT = 2.29        # m2 frontal area
+        CRR_ROLLING = 0.015      # Rolling resistance coefficient
+
+        wheel_hps = []
+        wheel_tqs = []
+        dyno_usables = []
+
+        for i in range(n):
+            curr = self.parsed[i]
+            spd_kmh = smooth_speeds[i]
+            v_ms = spd_kmh / 3.6
+            a_g = smooth_accels_g[i]
+            a_ms2 = a_g * 9.80665
+            rpm = curr["rpm"]
+            gear = gear_labels[i]
+            shift = shift_flags[i]
+
+            # Calculate tractive forces
+            f_inertial = M_VEHICLE * a_ms2
+            f_aero = 0.5 * RHO_AIR * CD_AERO * AREA_FRONT * (v_ms ** 2)
+            f_roll = CRR_ROLLING * M_VEHICLE * 9.80665
+            f_total = f_inertial + f_aero + f_roll
+
+            power_w = max(0.0, f_total * v_ms)
+            whp = power_w / 745.7
+            wtq = (whp * 5252.0 / max(1.0, rpm)) if rpm > 500.0 else 0.0
+
+            # Usable for clean dyno pull: 3rd or 4th gear, WOT, positive boost, non-shifting, positive acceleration
+            is_dyno = (gear in ("3", "4") and curr["tps"] >= 80.0 and curr["kpa"] >= 120.0
+                       and a_g >= 0.05 and shift == 0 and curr["ect"] >= 75.0)
+
+            wheel_hps.append(round(whp, 1) if whp > 5.0 else 0.0)
+            wheel_tqs.append(round(wtq, 1) if wtq > 5.0 else 0.0)
+            dyno_usables.append(1 if is_dyno else 0)
+
+        # 8. Multi-Domain Assembly & ROM Table Lookups
+        regime_counts = {}
+        usability_counts = {"maf": 0, "ve": 0, "injector": 0, "dyno": 0}
 
         for i in range(n):
             curr = self.parsed[i]
@@ -353,15 +594,15 @@ class DatalogClassifier:
             align = aligned_afr_data[i]
             k_cls = knock_classifications[i]
             k_conf = knock_confidences[i]
+            spd = smooth_speeds[i]
+            accel_g = smooth_accels_g[i]
+            gear = gear_labels[i]
+            shift = shift_flags[i]
+            decel = decel_statuses[i]
 
-            # DFCO Detection: IPW == 0 or AFR saturated lean
-            is_dfco_frame = (curr["ipw"] <= 0.05 or curr["afr"] >= 19.0)
-            if is_dfco_frame:
-                last_dfco_time = curr["sec"]
-
-            is_dfco_recovery = (curr["sec"] - last_dfco_time) <= 0.50 and not is_dfco_frame
-
-            # Coolant Warmup
+            # DFCO & Warmup
+            is_dfco_frame = (decel == "CUT_ACTIVE")
+            is_dfco_recovery = (decel == "DFCO_RECOVERY")
             is_warm = curr["ect"] >= 75.0
 
             # Stationarity Score (0.0 to 1.0)
@@ -369,22 +610,18 @@ class DatalogClassifier:
             map_penalty = abs(d["d_map"]) / 12.0
             rpm_penalty = abs(d["d_rpm"]) / 250.0
             tot_penalty = tps_penalty + map_penalty + rpm_penalty
+            stationarity = 0.0 if is_dfco_frame else max(0.0, min(1.0, 1.0 - tot_penalty))
 
-            if is_dfco_frame:
-                stationarity = 0.0
-            else:
-                stationarity = max(0.0, min(1.0, 1.0 - tot_penalty))
-
-            # Operating Regime Determination
+            # Operational Regime Determination
             if is_dfco_frame:
                 regime = "DFCO"
             elif is_dfco_recovery:
                 regime = "DFCO_RECOVERY"
-            elif curr["speed"] < 2.0 and curr["tps"] <= 15.0 and abs(d["d_rpm"]) < 120.0:
+            elif spd < 2.0 and curr["tps"] <= 15.0 and abs(d["d_rpm"]) < 120.0:
                 regime = "STEADY_IDLE"
-            elif curr["speed"] >= 15.0 and stationarity >= 0.70 and curr["kpa"] <= 95.0:
+            elif spd >= 15.0 and stationarity >= 0.70 and curr["kpa"] <= 95.0 and shift == 0:
                 regime = "STEADY_CRUISE"
-            elif curr["tps"] >= 65.0 and d["d_tps"] >= -1.0 and curr["kpa"] >= 115.0:
+            elif curr["tps"] >= 65.0 and d["d_tps"] >= -1.0 and curr["kpa"] >= 115.0 and shift == 0:
                 regime = "WOT_BOOST"
             elif (95.0 <= curr["kpa"] <= 125.0) and d["d_map"] > 15.0:
                 regime = "SPOOL_RAMP"
@@ -403,30 +640,43 @@ class DatalogClassifier:
             ratio = (mapc / mafc) if mafc > 0 else 1.0
 
             if curr["kpa"] <= 85.0:
-                if mapc >= 0.99 * mafc:
-                    clamp_state = "UNCLAMPED"
-                else:
-                    clamp_state = "VACUUM_CEILING_CLAMPED"
+                clamp_state = "UNCLAMPED" if mapc >= 0.99 * mafc else "VACUUM_CEILING_CLAMPED"
             elif curr["kpa"] >= 120.0:
-                if mapc <= 0.95 * mafc:
-                    clamp_state = "BOOST_SPEED_DENSITY"
-                else:
-                    clamp_state = "BOOST_FLOOR_CLAMPED"
+                clamp_state = "BOOST_SPEED_DENSITY" if mapc <= 0.95 * mafc else "BOOST_FLOOR_CLAMPED"
             else:
                 clamp_state = "CROSSOVER_TRANSITION"
 
-            # Injector Dynamics Metrics
+            # Fuel Trims & Injector Dynamics
             total_trim = curr["stft"] + curr["ltft"]
             is_closed_loop = (abs(curr["stft"]) > 0.01 or abs(curr["afrmap"] - 14.7) < 0.1) and curr["ipw"] > 0.1
-            est_lat = estimate_latency_ms(curr["vbatt"])
-            lat_sens = est_lat / max(0.1, curr["ipw"])
+            idc_pct = (curr["rpm"] * curr["ipw"] / 1200.0) * 100.0
 
-            # Thermal Drift relative to nominal 20°C baseline
-            # (Rough delta tracking: AFR drift per deg C above 20°C)
-            mat_delta = curr["mat"] - 20.0
-            thermal_drift = (align["aligned_afr"] - 14.70) if (regime == "STEADY_CRUISE" and is_closed_loop) else 0.0
+            # MIVEC & DBW Mismatches
+            in_vvt_err = curr["invvt_act"] - curr["invvt_tgt"]
+            ex_vvt_err = curr["exvvt_act"] - curr["exvvt_tgt"]
+            dbw_cut = curr["app"] - curr["tps"]
 
-            # Usability Logic & Rejection Reasons
+            # ROM Table Calling Values Precomputations
+            rom_maf_gs = 0.0
+            rom_map_ve = 0.0
+            rom_mat_comp = 100.0
+            rom_afrmap = curr["afrmap"]
+            rom_hi_tim = 0.0
+            rom_lo_tim = 0.0
+            rom_tim_retard = 0.0
+            rom_latency = 0.795
+
+            if self.rom_evaluator and self.rom_evaluator.loaded:
+                rom_maf_gs = self.rom_evaluator.eval_maf(curr["mafv"])
+                rom_map_ve = self.rom_evaluator.eval_map_load_calc(curr["rpm"], curr["kpa"])
+                rom_mat_comp = self.rom_evaluator.eval_mat_comp(curr["mat"], curr["kpa"])
+                rom_afrmap = self.rom_evaluator.eval_afrmap(curr["load"] if curr["load"] > 0 else max(mafc, mapc), curr["rpm"])
+                rom_hi_tim = self.rom_evaluator.eval_timing_high(curr["load"], curr["rpm"])
+                rom_lo_tim = self.rom_evaluator.eval_timing_low(curr["load"], curr["rpm"])
+                rom_tim_retard = round(curr["timing"] - rom_hi_tim, 1)
+                rom_latency = self.rom_evaluator.eval_latency(curr["vbatt"])
+
+            # Usability Flags & Rejection Reasons
             usable_maf = False
             usable_ve = False
             usable_inj = False
@@ -438,9 +688,10 @@ class DatalogClassifier:
                 rej_reasons.append("DFCO")
             elif is_dfco_recovery:
                 rej_reasons.append("DFCO_RECOVERY")
+            if shift == 1:
+                rej_reasons.append("SHIFT_ACTIVE")
 
-            # Check MAF usability (Strict Steady Cruise/Idle in vacuum, unclamped)
-            if is_warm and not is_dfco_frame and not is_dfco_recovery:
+            if is_warm and not is_dfco_frame and not is_dfco_recovery and shift == 0:
                 if k_cls == "BOV_FLUTTER":
                     rej_reasons.append("BOV_FLUTTER")
                 elif clamp_state == "VACUUM_CEILING_CLAMPED":
@@ -453,47 +704,50 @@ class DatalogClassifier:
                     usable_maf = True
                     usability_counts["maf"] += 1
 
-            # Check VE usability (Steady or clean monotonic WOT ramp)
-            if is_warm and not is_dfco_frame and not is_dfco_recovery:
+            if is_warm and not is_dfco_frame and not is_dfco_recovery and shift == 0:
                 if (stationarity >= 0.60 or regime in ("WOT_BOOST", "STEADY_CRUISE", "STEADY_IDLE")) and k_cls != "BOV_FLUTTER":
                     usable_ve = True
                     usability_counts["ve"] += 1
 
-            # Check Injector usability (Warm, Closed-Loop, high stationarity, stable Vbatt)
-            if is_warm and is_closed_loop and not is_dfco_frame and not is_dfco_recovery:
+            if is_warm and is_closed_loop and not is_dfco_frame and not is_dfco_recovery and shift == 0:
                 if stationarity >= 0.75 and abs(d["d_tps"]) <= 1.5:
                     usable_inj = True
                     usability_counts["injector"] += 1
 
+            if dyno_usables[i] == 1:
+                usability_counts["dyno"] += 1
+
             rejection_str = ";".join(rej_reasons) if rej_reasons else "NONE"
 
-            # Check for non-knock operational anomaly events:
-            # 1. Lean boost excursion (MAP >= 120 kPa, aligned AFR > AFRMAP + 0.6 for significant boost)
-            if curr["kpa"] >= 120.0 and align["aligned_afr"] >= (curr["afrmap"] + 0.6) and curr["ipw"] > 3.0:
-                self.operational_events.append({
-                    "event_type": "LEAN_EXCURSION_BOOST",
-                    "log_id": os.path.basename(self.log_path),
-                    "row_idx": i,
-                    "time_sec": round(curr["sec"], 3),
-                    "rpm": round(curr["rpm"], 1),
-                    "map_kpa": round(curr["kpa"], 1),
-                    "tps": round(curr["tps"], 1),
-                    "mafv": round(curr["mafv"], 3),
-                    "ipw_ms": round(curr["ipw"], 2),
-                    "vbatt": round(curr["vbatt"], 2),
-                    "mat_c": round(curr["mat"], 1),
-                    "ect_c": round(curr["ect"], 1),
-                    "afr": round(align["aligned_afr"], 2),
-                    "afrmap": round(curr["afrmap"], 2),
-                    "severity": round(align["aligned_afr"] - curr["afrmap"], 2),
-                    "classification": "LEAN_BOOST",
-                    "confidence": 0.90,
-                    "detail_json": {"error_pct": round(align["aligned_afr_error"] * 100 - 100, 1)}
-                })
-
-            # Assemble enriched row
+            # Assemble Enriched Row
             row_dict = dict(self.raw_rows[i])
             row_dict.update({
+                # Precomputed ROM Table Lookups
+                "diag_rom_maf_gs": f"{rom_maf_gs:.2f}",
+                "diag_rom_map_ve_load": f"{rom_map_ve:.1f}",
+                "diag_rom_mat_comp_mult": f"{rom_mat_comp:.2f}",
+                "diag_rom_timing_high": f"{rom_hi_tim:.1f}",
+                "diag_rom_timing_low": f"{rom_lo_tim:.1f}",
+                "diag_rom_timing_retard_total": f"{rom_tim_retard:.1f}",
+                "diag_rom_latency_ms": f"{rom_latency:.3f}",
+                "diag_rom_afrmap": f"{rom_afrmap:.2f}",
+                # Gear & Shift State
+                "diag_gear": gear,
+                "diag_shift_active": str(shift),
+                # Decel Overrun Fuel Leakage
+                "diag_decel_fuel_status": decel,
+                # Speed Smoothing & Virtual Dyno
+                "diag_smooth_speed_kmh": f"{spd:.1f}",
+                "diag_smooth_accel_g": f"{accel_g:.3f}",
+                "diag_wheel_hp": f"{wheel_hps[i]:.1f}",
+                "diag_wheel_tq": f"{wheel_tqs[i]:.1f}",
+                "diag_usable_for_dyno": str(dyno_usables[i]),
+                # VVT, DBW, and IDC Diagnostics
+                "diag_in_vvt_error": f"{in_vvt_err:.2f}",
+                "diag_ex_vvt_error": f"{ex_vvt_err:.2f}",
+                "diag_dbw_throttle_cut": f"{dbw_cut:.1f}",
+                "diag_idc_pct": f"{idc_pct:.1f}",
+                # Core Engine States & Regimes
                 "diag_steady_confidence": f"{stationarity:.3f}",
                 "diag_operating_regime": regime,
                 "diag_knock_class": k_cls,
@@ -504,8 +758,6 @@ class DatalogClassifier:
                 "diag_aligned_afr": f"{align['aligned_afr']:.2f}",
                 "diag_aligned_afr_error": f"{align['aligned_afr_error']:.4f}",
                 "diag_total_fuel_trim": f"{total_trim:.2f}",
-                "diag_latency_sensitivity": f"{lat_sens:.3f}",
-                "diag_thermal_drift_delta": f"{thermal_drift:.2f}",
                 "diag_usable_for_maf": "1" if usable_maf else "0",
                 "diag_usable_for_ve": "1" if usable_ve else "0",
                 "diag_usable_for_injector": "1" if usable_inj else "0",
@@ -518,6 +770,8 @@ class DatalogClassifier:
             "duration_sec": round(self.parsed[-1]["sec"] - self.parsed[0]["sec"], 1),
             "regimes": regime_counts,
             "usable_samples": usability_counts,
+            "peak_wheel_hp": max(wheel_hps) if wheel_hps else 0.0,
+            "peak_wheel_tq": max(wheel_tqs) if wheel_tqs else 0.0,
             "knock_events_total": sum(1 for k in knock_classifications if k != "NONE"),
             "knock_by_class": {
                 c: sum(1 for k in knock_classifications if k == c)
@@ -534,7 +788,7 @@ class DatalogClassifier:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(self.classified_rows)
-        print(f"[+] Exported classified datalog ({len(self.classified_rows):,} rows) to: {out_path}")
+        print(f"[+] Exported fully enriched datalog ({len(self.classified_rows):,} rows) to: {out_path}")
 
     def export_events_json(self, out_path):
         with open(out_path, "w", encoding="utf-8") as f:
@@ -564,7 +818,6 @@ def main():
     classifier.load_and_parse()
     classifier.classify_all()
 
-    # Determine default CSV output name
     base_name = os.path.splitext(os.path.basename(args.input_log))[0]
     out_dir = os.path.dirname(args.input_log)
     csv_out = args.export_csv or os.path.join(out_dir, f"{base_name}_classified.csv")
@@ -575,18 +828,19 @@ def main():
     if args.export_summary:
         classifier.export_summary_json(args.export_summary)
 
-    # Print high-impact summary
     s = classifier.summary_stats
-    print("\n" + "=" * 65)
-    print("           MULTI-DOMAIN TELEMETRY CLASSIFICATION SUMMARY")
-    print("=" * 65)
+    print("\n" + "=" * 68)
+    print("        EXPANDED MULTI-DOMAIN TELEMETRY CLASSIFICATION")
+    print("=" * 68)
     print(f"Total Records: {s['total_records']:,} | Duration: {s['duration_sec']:.1f}s ({s['duration_sec']/60:.1f} min)")
+    print(f"Peak Virtual Dyno: {s['peak_wheel_hp']:.1f} WHP | {s['peak_wheel_tq']:.1f} WTQ (lb-ft)")
+
     print("\n[+] Operating Regimes Breakdown:")
     for regime, count in sorted(s["regimes"].items(), key=lambda x: -x[1]):
         pct = (count / s['total_records']) * 100
         print(f"  - {regime:<20}: {count:>6,} frames ({pct:>5.1f}%)")
 
-    print("\n[+] Subsystem Usability for Base Calibration:")
+    print("\n[+] Subsystem Usability for Calibration & Diagnostics:")
     for sub, count in s["usable_samples"].items():
         pct = (count / s['total_records']) * 100
         print(f"  - Usable for {sub.upper():<10}: {count:>6,} frames ({pct:>5.1f}%)")
@@ -600,7 +854,7 @@ def main():
         print("    * No knock inceptions detected!")
 
     print(f"\n[+] Total Operational Anomaly Events: {s['operational_events_count']}")
-    print("=" * 65)
+    print("=" * 68)
 
 
 if __name__ == "__main__":

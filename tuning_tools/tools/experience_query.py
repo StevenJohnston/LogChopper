@@ -211,6 +211,106 @@ def run_reverse_match(db_path, rpm, map_kpa, mat=None, target_metric="min_afr_er
     conn.close()
 
 
+def run_find_similar(db_path, rpm, map_kpa, mafv=None, mat=None, vbatt=None, top_k=5, events_only=False):
+    conn = get_conn(db_path)
+    cur = conn.cursor()
+
+    print("\n" + "=" * 65)
+    print("      STATE-SPACE k-NN SIMILARITY SEARCH (VECTOR RETRIEVAL)")
+    print(f"      Target: RPM={rpm:.0f}, MAP={map_kpa:.1f} kPa" +
+          (f", MAFV={mafv:.3f}V" if mafv is not None else "") +
+          (f", MAT={mat:.1f}°C" if mat is not None else "") +
+          (f", Vbatt={vbatt:.1f}V" if vbatt is not None else ""))
+    print("=" * 65)
+
+    if events_only:
+        cur.execute("""
+        SELECT 
+            e.event_id, e.log_id, e.rom_id, r.rom_name, e.event_type,
+            e.time_sec, e.rpm, e.map_kpa, e.mafv, e.mat_c, e.vbatt,
+            e.afr, e.afrmap, e.classification, e.confidence, e.severity
+        FROM operational_events e
+        JOIN roms r ON e.rom_id = r.rom_id
+        """)
+        rows = cur.fetchall()
+        if not rows:
+            print("[*] No operational anomaly events recorded in database.")
+            conn.close()
+            return
+
+        scored = []
+        for row in rows:
+            eid, lid, rid, rname, etype, tsec, r_rpm, r_map, r_mafv, r_mat, r_vbatt, afr, afrmap, cls, conf, sev = row
+            d_sq = ((r_rpm - rpm) / 800.0) ** 2 + ((r_map - map_kpa) / 25.0) ** 2
+            if mafv is not None and r_mafv is not None:
+                d_sq += ((r_mafv - mafv) / 0.4) ** 2
+            if mat is not None and r_mat is not None:
+                d_sq += ((r_mat - mat) / 15.0) ** 2
+            if vbatt is not None and r_vbatt is not None:
+                d_sq += ((r_vbatt - vbatt) / 1.0) ** 2
+            dist = math.sqrt(d_sq)
+            sim_pct = 100.0 / (1.0 + dist)
+            scored.append((dist, sim_pct, row))
+
+        scored.sort(key=lambda x: x[0])
+        print(f"\n[+] Nearest {min(top_k, len(scored))} Operational Anomaly Events:")
+        for rank, (dist, sim_pct, r) in enumerate(scored[:top_k], 1):
+            eid, lid, rid, rname, etype, tsec, r_rpm, r_map, r_mafv, r_mat, r_vbatt, afr, afrmap, cls, conf, sev = r
+            print(f"\n  #{rank}. Similarity: {sim_pct:5.1f}% (Dist: {dist:.2f}) | {etype} ({cls})")
+            print(f"      ROM {rid}: {rname[:35]}")
+            print(f"      Operating State : {r_rpm:5.0f} RPM | {r_map:5.1f} kPa | MAFV={r_mafv:.3f}V | MAT={r_mat:.1f}°C")
+            print(f"      Outcome         : AFR={afr:4.1f} (Target {afrmap:4.1f}) | Severity={sev:.1f} | Conf={conf:.2f}")
+
+    else:
+        cur.execute("""
+        SELECT 
+            s.summary_id, s.log_id, s.rom_id, r.rom_name, s.regime,
+            s.rpm_bucket, s.map_bucket, s.mafv_bucket, s.mat_bucket, s.vbatt_bucket,
+            s.sample_count, s.steady_sample_count, s.avg_afr, s.avg_afrmap,
+            s.avg_afr_error, s.avg_total_trim, s.clamping_rate,
+            s.knock_count_genuine, s.knock_count_flutter, s.avg_timing
+        FROM regime_summaries s
+        JOIN roms r ON s.rom_id = r.rom_id
+        """)
+        rows = cur.fetchall()
+        if not rows:
+            print("[*] No regime performance summaries recorded in database.")
+            conn.close()
+            return
+
+        scored = []
+        for row in rows:
+            (sid, lid, rid, rname, regime, r_rpm, r_map, r_mafv, r_mat, r_vbatt,
+             samples, steady, avg_afr, afrmap, err, trim, clamp, k_gen, k_flut, timing) = row
+
+            d_sq = ((r_rpm - rpm) / 800.0) ** 2 + ((r_map - map_kpa) / 25.0) ** 2
+            if mafv is not None and r_mafv is not None:
+                d_sq += ((r_mafv - mafv) / 0.4) ** 2
+            if mat is not None and r_mat is not None:
+                d_sq += ((r_mat - mat) / 15.0) ** 2
+            if vbatt is not None and r_vbatt is not None:
+                d_sq += ((r_vbatt - vbatt) / 1.0) ** 2
+            dist = math.sqrt(d_sq)
+            sim_pct = 100.0 / (1.0 + dist)
+            scored.append((dist, sim_pct, row))
+
+        scored.sort(key=lambda x: x[0])
+        print(f"\n[+] Top {min(top_k, len(scored))} Nearest Historical Operating States:")
+        for rank, (dist, sim_pct, r) in enumerate(scored[:top_k], 1):
+            (sid, lid, rid, rname, regime, r_rpm, r_map, r_mafv, r_mat, r_vbatt,
+             samples, steady, avg_afr, afrmap, err, trim, clamp, k_gen, k_flut, timing) = r
+            err_pct = (err - 1.0) * 100.0
+            print(f"\n  #{rank}. Similarity: {sim_pct:5.1f}% (Dist: {dist:.2f}) | Regime: {regime}")
+            print(f"      ROM {rid}: {rname[:38]}")
+            print(f"      State Coordinates: {r_rpm:5.0f} RPM | {r_map:5.1f} kPa | MAFV={r_mafv:5.3f}V | MAT={r_mat:2d}°C | Vbatt={r_vbatt:4.1f}V")
+            print(f"      Fuel Delivery    : AFR={avg_afr:5.2f} (Target {afrmap:5.2f}, Err: {err_pct:+5.2f}%) | Trim={trim:+5.1f}%")
+            print(f"      Ignition / Knock : Timing Adv={timing:4.1f}° | Genuine Knock={k_gen} | Flutter Knock={k_flut}")
+            print(f"      Clamping / Count : Clamping={clamp:4.1f}% | Evidence={samples} frames ({steady} steady)")
+
+    print("\n" + "=" * 65)
+    conn.close()
+
+
 def run_audit_injectors(db_path):
     conn = get_conn(db_path)
     cur = conn.cursor()
@@ -371,7 +471,7 @@ def main():
     p_fwd.add_argument("--axis-x", type=float, required=True, help="X Axis coordinate (e.g. Volts, MAP kPa, Vbatt)")
     p_fwd.add_argument("--axis-y", type=float, default=0.0, help="Y Axis coordinate (e.g. RPM, MAT °C)")
     p_fwd.add_argument("--proposed", type=float, required=True, help="Proposed table cell value to test")
-    p_fwd.add_argument("--tolerance-pct", type=float, default=5.0, help="Veto warning proximity tolerance (default: 5.0%)")
+    p_fwd.add_argument("--tolerance-pct", type=float, default=5.0, help="Veto warning proximity tolerance (default: 5.0%%)")
 
     # 2. reverse-match
     p_rev = subparsers.add_parser("reverse-match", help="Reverse diagnostic search: find best historical ROM for operating point")
@@ -381,13 +481,23 @@ def main():
     p_rev.add_argument("--metric", default="min_afr_error", choices=["min_afr_error", "zero_knock", "trim_balance"])
     p_rev.add_argument("--top-k", type=int, default=3, help="Number of winning ROMs to display (default: 3)")
 
-    # 3. audit-injectors
+    # 3. find-similar
+    p_sim = subparsers.add_parser("find-similar", help="State-space k-NN search: find nearest operating states or events")
+    p_sim.add_argument("--rpm", type=float, required=True, help="Engine RPM target")
+    p_sim.add_argument("--map", type=float, required=True, help="Manifold pressure MAP kPa target")
+    p_sim.add_argument("--mafv", type=float, help="Optional MAF Sensor Voltage target (e.g. 2.50V)")
+    p_sim.add_argument("--mat", type=float, help="Optional MAT °C")
+    p_sim.add_argument("--vbatt", type=float, help="Optional Battery Voltage (e.g. 13.8V)")
+    p_sim.add_argument("--top-k", type=int, default=5, help="Number of nearest neighbors to return (default: 5)")
+    p_sim.add_argument("--events-only", action="store_true", help="Search operational anomaly events ledger instead of regimes")
+
+    # 4. audit-injectors
     subparsers.add_parser("audit-injectors", help="Analyze trims vs battery voltage and pulse width for latency/scaling tuning")
 
-    # 4. audit-thermal
+    # 5. audit-thermal
     subparsers.add_parser("audit-thermal", help="Analyze AFR drift across MAT temperatures for heat-soak comp tuning")
 
-    # 5. audit-events
+    # 6. audit-events
     subparsers.add_parser("audit-events", help="Inspect all recorded anomaly events (knock, flutter, lean boost excursions)")
 
     args = parser.parse_args()
@@ -396,6 +506,8 @@ def main():
         run_forward_check(args.db, args.table, args.axis_x, args.axis_y, args.proposed, args.tolerance_pct)
     elif args.subcommand == "reverse-match":
         run_reverse_match(args.db, args.rpm, args.map, args.mat, args.metric, args.top_k)
+    elif args.subcommand == "find-similar":
+        run_find_similar(args.db, args.rpm, args.map, args.mafv, args.mat, args.vbatt, args.top_k, args.events_only)
     elif args.subcommand == "audit-injectors":
         run_audit_injectors(args.db)
     elif args.subcommand == "audit-thermal":
