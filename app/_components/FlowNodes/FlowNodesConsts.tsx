@@ -19,12 +19,14 @@ import { RomSelectorType } from "./RomSelector/RomSelectorTypes";
 import { TableRemapData, TableRemapType } from "@/app/_components/FlowNodes/TableRemap/TableRemapTypes";
 import { TableLookupType, TableLookupData } from "@/app/_components/FlowNodes/TableLookup/TableLookupTypes";
 import { SteadyStateFilterData, SteadyStateFilterType } from "@/app/_components/FlowNodes/SteadyStateFilter/SteadyStateFilterTypes";
+import { MatVarietyFilterData, MatVarietyFilterType } from "@/app/_components/FlowNodes/MatVarietyFilter/MatVarietyFilterTypes";
+import { MatFuelCompData, MatFuelCompType } from "@/app/_components/FlowNodes/MatFuelComp/MatFuelCompTypes";
 import { GearData, GearType } from "@/app/_components/FlowNodes/Gear/GearTypes";
 import { Node } from "reactflow";
 import { LogNode, TableNode } from "@/app/_components/FlowNodes/FlowNodesTypes";
 
-export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType, GearType, AfrShiftType, AfrMlShifterType]
-export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType]
+export const LogNodeTypes: string[] = [BaseLogType, LogFilterType, LogAlterType, RunningLogAlterType, MovingAverageLogFilterType, TpsAfrDeleteType, LogSelectorType, SteadyStateFilterType, MatVarietyFilterType, GearType, AfrShiftType, AfrMlShifterType]
+export const TableNodeTypes: string[] = [FillTableType, BaseTableType, FillLogTableType, CombineAdvancedTableType, CombineType, TableRemapType, TableLookupType, MatFuelCompType]
 
 
 export const NodeFactoryLookup = {
@@ -49,6 +51,8 @@ export const NodeFactoryLookup = {
     [TableRemapType]: TableRemapData,
     [TableLookupType]: TableLookupData,
     [SteadyStateFilterType]: SteadyStateFilterData,
+    [MatVarietyFilterType]: MatVarietyFilterData,
+    [MatFuelCompType]: MatFuelCompData,
 } as const
 
 export function isLogNode(node: Node): node is Node<LogNode> {

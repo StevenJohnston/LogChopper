@@ -103,21 +103,32 @@ A foundational principle of this calibration architecture is that **we target $\
    - The ECU indexes lower load columns in the ignition map, **advancing spark timing by $3^\circ\text{--}5^\circ$ under boost, inducing severe knock/detonation**.
    - Correct method: MAP Load must equal true physical air mass ($100\%$ VE), and MAF must be raised $+25\%$ above it.
 
-### 3.4 Three Structural Anti-Patterns Discovered in Past Calibration Passes
-1. **Cross-Regime MAF Bin Pollution (`2.00V–2.81V` / `26–90 g/s`, Bins `52–73`)**:
-   - A 1D MAF voltage bin between `2.00V` and `2.81V` (`26–90 g/s`) is shared across two distinct engine states:
+### 3.4 Five Structural Anti-Patterns Discovered in Past Calibration Passes
+1. **Cross-Regime MAF Bin Pollution (`2.00V–2.85V` / `26–102 g/s`, Bins `52–73`)**:
+   - A 1D MAF voltage bin between `2.00V` and `2.85V` (`26–102 g/s`) is shared across two distinct engine states:
      - **Mid/High-RPM Vacuum & Crossover (`3,000–5,000 RPM` at `50–100 kPa`)**, where `MAFCalcs` is the **100% active fuel master** and must equal $1.00 \times \text{Load}_{\text{true}}$.
      - **Low/Mid-RPM Spool (`2,000–3,500 RPM` at `105–130 kPa`)**, where $\text{Target Ratio} < 1.00$.
    - **The Bug**: Previous balancer scripts applied $\text{Target\_MAF} = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$ to every sample with $\text{MAP} > 100\text{ kPa}$, inflating `MAF Scaling` by $+5\%\text{ to }+25\%$ in `Bins 58–73` (`2.27V–2.85V`). Whenever the car operated at `3,000–5,000 RPM` in vacuum (`50–95 kPa`), those inflated MAF bins caused $+4\%\text{ to }+8\%$ rich errors.
-   - **Mandatory Rule**: Calibrate `Bins 35–73` (`1.37V–2.85V`) strictly to **pure physical airflow** ($C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}$ from $\text{MAP} \le 100\text{ kPa}$ samples). Only pure boost MAF bins (`>= 2.89V` / `>= 109 g/s`, `Idx >= 74`, where $\min(\text{MAP}) \ge 110\text{ kPa}$) carry the $1.25\times$ ($1 / 0.80$) Speed Density headroom.
-2. **The "Flat-RPM VE Table" Clamping Anti-Pattern in `MAP based Load Calc`**:
+   - **Mandatory Rule**: Calibrate `Bins 35–73` (`1.37V–2.85V`) strictly to **pure physical airflow** from $\text{MAP} \le 105\text{ kPa}$ samples. Only pure boost MAF bins (`>= 2.89V` / `>= 109 g/s`, `Idx >= 74`, where $\min(\text{MAP}) \ge 110\text{ kPa}$) carry the $1.25\times$ ($1 / 0.80$) Speed Density headroom.
+2. **Clamped-Frame MAF Rectification Bias (`Idx 60–67`, `2.35V–2.62V`)**:
+   - **The Bug**: The wideband O2 sensor measures exhaust gas averaged over a `~0.25s` (`5-frame`) mixing window, whereas `MAFCalcs` has cycle-to-cycle GSC S2 cam pulsation ($\pm 8\%$). Computing $C_{\text{MAF}} = \frac{\min(\text{MAFCalcs}_t, \text{MAPCalcs}_t) \times \overline{\text{AFR\_ERR}}}{\text{MAFCalcs}_t}$ on **clamped frames** (`MAPCalcs < MAFCalcs`) divides by the clipped upper pulsation peaks of `MAFCalcs`, introducing a fake `-3% to -5%` rich bias in `Idx 60–67`.
+   - **Mandatory Rule**: Accumulate pure MAF bins (`Idx <= 73`, `MAP <= 105 kPa`) strictly from **unclamped frames** (`MAPCalcs >= 0.99 * MAFCalcs`), where $C_{\text{MAF}} = \text{AFR\_ERR}$ directly with zero $\min(\cdot, \cdot)$ truncation bias.
+3. **Atmospheric Crossover Min-Selector Rectification (`Col 6 = 89.4 kPa`, `Col 7 = 102.8 kPa`)**:
+   - **The Bug**: Because `Idx <= 73` (`<= 2.85V`) carries no `1.25x` boost headroom, `MAFCalcs` sits at $1.00 \times \text{Load}_{\text{true}}$ with $\pm 8\%$ pulsation across `90–115 kPa`. By Jensen's Inequality, for two signals $X, Y \sim \mathcal{N}(\mu, \sigma^2)$ with identical mean ($\text{Ratio} = 1.00$):
+     $$\mathbb{E}[\min(X, Y)] = \mu - \frac{\sigma}{\sqrt{\pi}} < \mu$$
+     Setting `MAP based Load Calc` to `1.00 × TrueLoad` at `Col 7 (102.8 kPa)` causes $\min(\text{MAFCalcs}, \text{MAPCalcs})$ to clip every upward MAF pulsation peak while passing every downward trough—clamping `86.7%` of frames at `3,000 RPM, 100–110 kPa`, leaning AFR to `15.1–15.5`, and advancing spark into knock at `105–115 kPa`.
+   - **Mandatory Rule**: Compute `TrueLoad` using a **5-frame (`~0.25s`) moving average** of `ChosenCalc` and `MAPCalcs` ($\overline{\text{TrueLoad}}_i = \overline{\text{ChosenCalc}}_{i-2..i+2} \times \text{AFR\_ERR}_{i+\text{lag}}$), and apply the **Crossover Anti-Rectification Ramp**:
+     - `Cols 2–5` (`35.6–75.9 kPa`): **`1.20 × TrueLoad_5frame`**
+     - `Col 6` (`89.4 kPa`): **`1.14 × TrueLoad_5frame`** (`~70–75%` load)
+     - `Col 7` (`102.8 kPa`): **`1.06 × TrueLoad_5frame`** (`~81–85%` load, matching `V3.18`'s `84.4–85.6%`)
+     - `Cols 8–9` (`116.3–129.7 kPa`): **Spool Safety Floor**: Never deflate `MAP based Load Calc` in positive boost below the knock-free `ROM 25` / `V3.18` floor (`~100.0%` at `116.3 kPa`, `~115.2%` at `129.7 kPa`) based on rich transient spool samples (`AFRErr < 1.0`).
+4. **The "Flat-RPM VE Table" Clamping Anti-Pattern in `MAP based Load Calc`**:
    - **The Bug**: In ROMs 17–24, a previous maintainer flattened `MAP based Load Calc` vertically across RPM from `3,000 RPM` to `8,000 RPM` in vacuum and crossover columns (`35.6 kPa = 18.6%`, `49.0 kPa = 29.9%`, `62.5 kPa = 42.5%`, `75.9 kPa = 58.5%`) and shrunk low-confidence high-RPM cells toward `1.0` (the flat table).
    - Because physical Volumetric Efficiency (VE) with GSC S2 camshafts and MIVEC rises $+20\%\text{ to }+35\%$ from `1,500 RPM` to `4,500+ RPM` at constant MAP, `MAFCalcs` climbed above the flat `MAPCalcs` ceiling above `3,000 RPM` in vacuum—clamping 38% of high-RPM vacuum samples and causing `16.0–16.5 AFR` lean spikes.
    - **Mandatory Rule**: Every constant-MAP column in `MAP based Load Calc` must preserve a smooth, monotonically non-decreasing VE curve from `2,000 RPM` to `8,000 RPM`. Unobserved or partial-confidence high-RPM cells must be projected along the `V3.18` dyno VE slope ($\text{Prior}[r][m] = \text{Map}[r-1][m] \times \max\left(1.0, \frac{\text{V3.18}[r][m]}{\text{V3.18}[r-1][m]}\right)$), never flattened.
-3. **The Low-Voltage Idle/Decel MAF Shelf Anti-Pattern (`1.21V–1.49V`, Bins `31–38`)**:
-   - **The Bug**: Previous passes inflated `MAF Scaling` at `Bins 31–37` (`1.21V–1.45V`) by $+8.5\%\text{ to }+113\%$ above `V3.18` (e.g., `Bin 33 = 4.78 vs 2.24 g/s`, `Bin 36 = 5.42 vs 4.36 g/s`, `Bin 37 = 5.62 vs 5.18 g/s`) and introduced flat steps (`5.39 -> 5.39 g/s` at `Bins 35–36` and `7.63 -> 7.65 g/s` at `Bins 39–40`).
-   - When fully warmed up (`ECT >= 86°C`), stationary unloaded idle settles to `50.0 kPa` and `1.44V–1.46V` (`Bins 36–37`), where that artificial shelf forced idle to `13.20–13.40 AFR` (`-9.5%` rich) regardless of ambient `MAT`.
-   - **Mandatory Rule**: Keep `Bins 31–40` (`1.21V–1.56V`) strictly smooth and aligned with physical idle airflow (`~5.1–5.3 g/s` at `1.41V–1.45V`), without flat steps or low-voltage bulges.
+5. **The Low-Voltage Idle/Decel MAF Shelf (`1.21V–1.49V`, Bins `31–38`) & `#1 / #2` MAP Table Parity**:
+   - **Low-Voltage Shelf**: Keep `Bins 31–40` (`1.21V–1.56V`) strictly smooth and aligned with physical warm `50 kPa` idle airflow (`~4.9–5.2 g/s` at `1.41V–1.45V`), without flat steps or low-voltage bulges.
+   - **Dual-Table `#1` (`0x608AE`) & `#2` (`0x605AC`) Parity**: Always verify that `MAP based Load Calc #1 - Hot/Interpolated` (`0x608AE`) and `MAP based Load Calc #2 - Cold/Interpolated` (`0x605AC`) are identical in the ROM and remind the user to paste into **both** tables in EcuFlash.
 
 ---
 
@@ -151,16 +162,20 @@ $$\implies C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_
 
 ---
 
-## 5. Damping and Monotonic Convergence
+## 5. Damping, Multi-ROM Bracketed Secant Root-Finding & Monotonic Convergence
 
 On large injectors (ID1300x) and 3.5" intake piping, open-loop empirical fueling gain is:
 $$\text{Empirical Gain} = \frac{\Delta AFR\%}{\Delta Table\%} \approx 1.5\times\text{ to }2.0\times$$
 
-To prevent closed-loop oscillation and overshoot, apply damping ($D = 0.33$ to $0.50$) to both multiplier updates:
+### 5.1 Single-Sided Damping ($D = 0.33$ to $0.45$)
+When sequential flashes lie on the same side of `1.0000` (or only a single flash has coverage at bin $i$), apply damping ($D = 0.33$ to $0.45$) to prevent overshoot:
 $$C_{\text{MAF, applied}} = 1.0 + D \times (C_{\text{MAF}} - 1.0)$$
 $$C_{\text{MAP, applied}} = 1.0 + D \times (C_{\text{MAP}} - 1.0)$$
 
-This ensures monotonic, stable convergence toward stoichiometric cruising and safe, high-load boost delivery across sequential flashes.
+### 5.2 Multi-ROM Bracketed Secant Solver with Post-Smoothing Bracket Invariance (`multi_rom_secant_balancer.py`)
+Whenever sequential flashes (`ROM N-2`, `ROM N-1`, `ROM N`) bracket `1.0000` at MAF bin $i$ (one flash rich $e_{\text{rich}} < 1.0$, one flash lean $e_{\text{lean}} > 1.0$), we have a verified physical bracket $[M_{\text{lean}}, M_{\text{rich}}]$. Solve for the exact zero-error value via linear secant interpolation:
+$$M_i^* = M_{i,\text{curr}} + \text{conf}_i \cdot \text{clamp}\left(\frac{1.0 - e_{\text{curr}}}{e_{\text{prev}} - e_{\text{curr}}}, 0.15, 0.85\right) \cdot (M_{i,\text{prev}} - M_{i,\text{curr}})$$
+- **Post-Smoothing Bracket Invariance**: After applying 3-point multiplier smoothing across `Idx 36–72`, strictly clamp every bracketed bin inside $[M_{\text{lean}} + 0.10\Delta M, M_{\text{rich}} - 0.10\Delta M]$ so neighbor smoothing can never push a bin outside its empirically tested `[Lean, Rich]` boundary.
 
 ---
 

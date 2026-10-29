@@ -76,6 +76,18 @@ export const scalingAliases = {
     insteadUse: "MAFCalcs",
     expr: "MAFCalcs",
   },
+  Temp: {
+    insteadUse: "MAT",
+    expr: "MAT * 1.8 + 32",
+  },
+  TempC: {
+    insteadUse: "MAT",
+    expr: "MAT",
+  },
+  MAT: {
+    insteadUse: "MAT",
+    expr: "MAT",
+  },
 } as const;
 
 export function getScalingAlias(scaling: Scaling | undefined): string {

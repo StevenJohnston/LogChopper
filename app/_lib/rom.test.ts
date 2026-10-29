@@ -582,9 +582,11 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   const parser = new Parser();
 
   const ratioFunc = "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))";
-  const afrErrFunc = "AFR / AFRMAP";
-  const mafCorrFunc = "MAFCalcs < MAPCalcs ? AFR_ERR : (MAP <= 80 ? 1.0 : (MAPCalcs / (TARGET_RATIO * MAFCalcs)))";
-  const mapCorrFunc = "MAPCalcs < MAFCalcs ? AFR_ERR : (MAP >= 120 ? 1.0 : ((TARGET_RATIO * MAFCalcs) / MAPCalcs))";
+  const afrErrFunc = "(1.0 - (STFT + CurrentLTFT) / 100.0) * (AFR / AFRMAP)";
+  const mafCorrFunc =
+    "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W + (1.0 - W) / TARGET_RATIO)) / MAFCalcs";
+  const mapCorrFunc =
+    "activeLoad = MAFCalcs <= MAPCalcs ? MAFCalcs : MAPCalcs;\ntrueLoad = activeLoad * AFR_ERR;\nW = MAP <= 80 ? 1.0 : (MAP >= 120 ? 0.0 : (120.0 - MAP) / 40.0);\n(trueLoad * (W * TARGET_RATIO + (1.0 - W))) / MAPCalcs";
   const mafSmoothFunc =
     "val = sourceTable[y][x] * joinTable[y][x];\nx > 0 ? (baseStep = sourceTable[y][x] - sourceTable[y][x - 1]; minVal = destTable[y][x - 1] + (baseStep > 0 ? baseStep * 0.25 : 0.01); val < minVal ? minVal : val) : val";
 
@@ -597,64 +599,65 @@ test("MAF & MAP Balancer mathematical formulas and smooth rule", () => {
   assert.equal(parser.evaluate(ratioFunc, { MAP: 120 }), 0.95);
   assert.equal(parser.evaluate(ratioFunc, { MAP: 200 }), 0.95);
 
-  // 2. AFR error direction:
-  // Rich reading (11.0 vs 11.5 target) -> multiplier < 1 to decrease table / fuel (lean out)
-  const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0 });
+  // 2. AFR error direction and trim awareness:
+  const richErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 11.0, STFT: 0, CurrentLTFT: 0 });
   assert(richErr < 1.0);
   assert(Math.abs(richErr - 11.0 / 11.5) < 1e-6);
 
-  // Lean reading (12.5 vs 11.5 target) -> multiplier > 1 to increase table / fuel (richen up)
-  const leanErr = parser.evaluate(afrErrFunc, { AFRMAP: 11.5, AFR: 12.5 });
-  assert(leanErr > 1.0);
-  assert(Math.abs(leanErr - 12.5 / 11.5) < 1e-6);
+  const leanWithTrim = parser.evaluate(afrErrFunc, { AFRMAP: 14.7, AFR: 14.7, STFT: 5, CurrentLTFT: 3 });
+  assert(Math.abs(leanWithTrim - 0.92) < 1e-6);
 
-  // 3. Low MAP (e.g. 50 kPa, Target Ratio = 1.05):
-  // Normal state: MAF is lower (40 < 45) -> MAF is active (gets AFR_ERR), MAP is higher (gets target ratio scaling)
-  const lowMapMafActive = {
+  // 3. Ground Truth Airflow: Low MAP (e.g. 50 kPa, Target Ratio = 1.05)
+  // Vacuum mode (W=1.0): TrueLoad = activeLoad * AFR_ERR
+  // Normal state (MAF 40 <= MAP 45): MAF is active (40), TrueLoad = 40 * 0.98 = 39.2
+  const lowMapNormal = {
     MAP: 50,
     MAPCalcs: 45,
     MAFCalcs: 40,
     TARGET_RATIO: 1.05,
     AFR_ERR: 0.98,
   };
-  assert.equal(parser.evaluate(mafCorrFunc, lowMapMafActive), 0.98);
-  // MAP target is 1.05 * 40 = 42, currently 45 -> correction is 42 / 45
-  assert.equal(parser.evaluate(mapCorrFunc, lowMapMafActive), 42 / 45);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, lowMapNormal) - 0.98) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, lowMapNormal) - (1.05 * 39.2) / 45) < 1e-6);
 
-  // Inverted state in low MAP: MAP under-reads (35 < 40) causing lean AFR -> MAP gets AFR_ERR, MAF is protected at 1.0
+  // Inverted vacuum state (MAP under-reads at 30 < 40): MAP is active (30)
+  // Engine ran 10% lean because of MAP: TrueLoad = 30 * 1.10 = 33.0
+  // MAF is trimmed down to TrueLoad (33/40 = 0.825), MAP is lifted above MAF (1.05 * 33 / 30 = 1.155)
   const lowMapInverted = {
     MAP: 50,
-    MAPCalcs: 35,
+    MAPCalcs: 30,
     MAFCalcs: 40,
     TARGET_RATIO: 1.05,
-    AFR_ERR: 1.15,
+    AFR_ERR: 1.10,
   };
-  assert.equal(parser.evaluate(mapCorrFunc, lowMapInverted), 1.15);
-  assert.equal(parser.evaluate(mafCorrFunc, lowMapInverted), 1.0);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, lowMapInverted) - 0.825) < 1e-6);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, lowMapInverted) - 1.155) < 1e-6);
 
-  // 4. High MAP (e.g. 180 kPa, Target Ratio = 0.95):
-  // Normal state: MAP is lower (200 < 220) -> MAP is active (gets AFR_ERR), MAF is higher (gets target ratio scaling)
-  const highMapMapActive = {
+  // 4. Ground Truth Airflow: High MAP (e.g. 180 kPa, Target Ratio = 0.95)
+  // Boost mode (W=0.0): MAP is fuel master, MAF provides headroom (TrueLoad / 0.95)
+  // Normal state (MAP 200 <= MAF 220): MAP is active (200), TrueLoad = 200 * 1.04 = 208
+  const highMapNormal = {
     MAP: 180,
     MAPCalcs: 200,
     MAFCalcs: 220,
     TARGET_RATIO: 0.95,
     AFR_ERR: 1.04,
   };
-  assert.equal(parser.evaluate(mapCorrFunc, highMapMapActive), 1.04);
-  // MAF target is 200 / 0.95 = 210.526, currently 220 -> correction is 200 / (0.95 * 220)
-  assert.equal(parser.evaluate(mafCorrFunc, highMapMapActive), 200 / (0.95 * 220));
+  assert(Math.abs(parser.evaluate(mapCorrFunc, highMapNormal) - 1.04) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, highMapNormal) - 208 / (0.95 * 220)) < 1e-6);
 
-  // Inverted state in high MAP: MAF under-reads (200 < 220) causing lean AFR -> MAF gets AFR_ERR, MAP is protected at 1.0
+  // Inverted boost state (MAF under-reads at 180 < 200): MAF is active (180)
+  // Engine ran 10% lean: TrueLoad = 180 * 1.10 = 198
+  // MAP is adjusted to TrueLoad (198/200 = 0.99), MAF is lifted to TrueLoad / 0.95 (208.42/180 = 1.15789)
   const highMapInverted = {
     MAP: 180,
-    MAPCalcs: 220,
-    MAFCalcs: 200,
+    MAPCalcs: 200,
+    MAFCalcs: 180,
     TARGET_RATIO: 0.95,
-    AFR_ERR: 1.15,
+    AFR_ERR: 1.10,
   };
-  assert.equal(parser.evaluate(mafCorrFunc, highMapInverted), 1.15);
-  assert.equal(parser.evaluate(mapCorrFunc, highMapInverted), 1.0);
+  assert(Math.abs(parser.evaluate(mapCorrFunc, highMapInverted) - 0.99) < 1e-6);
+  assert(Math.abs(parser.evaluate(mafCorrFunc, highMapInverted) - 198 / (0.95 * 180)) < 1e-6);
 
   // 5. MAF Scaling smooth rule: enforces strictly monotonic increasing table without flat plateaus
   const baseTable: Table2DX<number> = {
@@ -1079,7 +1082,446 @@ test("Untargetable AFR Identifier mathematical formulas", () => {
   assert.equal(narrowRpmIndex, 0);
 });
 
+test("MAT Variety Filter logic blocks narrow temperature datalogs and permits diverse datalogs", () => {
+  const { evaluateMatVariety, filterMatVarietyLogs } = require("@/app/_lib/log");
 
+  // 1. Narrow temperature datalog (single run, MAT 22°C - 26°C -> span 4°C < 10°C)
+  const narrowLogs = [
+    { LogID: 1, MAT: 22.0, AFR: 14.7 },
+    { LogID: 2, MAT: 23.5, AFR: 14.6 },
+    { LogID: 3, MAT: 24.0, AFR: 14.8 },
+    { LogID: 4, MAT: 25.0, AFR: 14.7 },
+    { LogID: 5, MAT: 26.0, AFR: 14.5 },
+  ];
 
+  const narrowEval = evaluateMatVariety(narrowLogs, { minTempSpread: 10.0, minDistinctBins: 2 });
+  assert.equal(narrowEval.sufficient, false);
+  assert.equal(narrowEval.spread, 4.0);
+  assert.ok(narrowEval.reason.includes("MAT spread"));
 
+  const filteredNarrow = filterMatVarietyLogs(narrowLogs, { minTempSpread: 10.0, minDistinctBins: 2 });
+  assert.equal(filteredNarrow.result.sufficient, false);
+  // All records should be marked delete = true to prevent corruption downstream
+  assert.equal(filteredNarrow.logs.length, 5);
+  for (const record of filteredNarrow.logs) {
+    assert.equal(record.delete, true);
+  }
 
+  // 2. Diverse temperature datalogs (morning commute MAT 20°C - 24°C combined with afternoon MAT 40°C - 44°C)
+  const diverseLogs = [
+    { LogID: 1, MAT: 20.0, AFR: 14.7 },
+    { LogID: 2, MAT: 21.0, AFR: 14.8 },
+    { LogID: 3, MAT: 22.0, AFR: 14.7 },
+    { LogID: 4, MAT: 23.0, AFR: 14.6 },
+    { LogID: 5, MAT: 24.0, AFR: 14.7 },
+    { LogID: 6, MAT: 40.0, AFR: 13.9 },
+    { LogID: 7, MAT: 41.0, AFR: 14.0 },
+    { LogID: 8, MAT: 42.0, AFR: 14.1 },
+    { LogID: 9, MAT: 43.0, AFR: 13.8 },
+    { LogID: 10, MAT: 44.0, AFR: 13.9 },
+  ];
+
+  const diverseEval = evaluateMatVariety(diverseLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(diverseEval.sufficient, true);
+  assert.equal(diverseEval.spread, 24.0);
+  assert.ok(diverseEval.activeBinsCount >= 2);
+  assert.strictEqual(diverseEval.reason, undefined);
+
+  const filteredDiverse = filterMatVarietyLogs(diverseLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(filteredDiverse.result.sufficient, true);
+  assert.equal(filteredDiverse.logs.length, 10);
+  for (const record of filteredDiverse.logs) {
+    assert.strictEqual(record.delete, undefined);
+  }
+
+  // 3. Fallback to IAT if MAT column is missing
+  const iatLogs = [
+    { LogID: 1, IAT: 15.0, AFR: 14.7 },
+    { LogID: 2, IAT: 16.0, AFR: 14.7 },
+    { LogID: 3, IAT: 17.0, AFR: 14.7 },
+    { LogID: 4, IAT: 18.0, AFR: 14.7 },
+    { LogID: 5, IAT: 19.0, AFR: 14.7 },
+    { LogID: 6, IAT: 35.0, AFR: 14.0 },
+    { LogID: 7, IAT: 36.0, AFR: 14.0 },
+    { LogID: 8, IAT: 37.0, AFR: 14.0 },
+    { LogID: 9, IAT: 38.0, AFR: 14.0 },
+    { LogID: 10, IAT: 39.0, AFR: 14.0 },
+  ];
+  const iatEval = evaluateMatVariety(iatLogs, { minTempSpread: 10.0, minDistinctBins: 2, minSamplesPerBin: 5 });
+  assert.equal(iatEval.sufficient, true);
+  assert.equal(iatEval.spread, 24.0);
+});
+
+test("MAT Fuel Comp savedGroup structure and cloning", () => {
+  const { savedGroup } = require("@/app/_components/NodeSelector/MatFuelCompGroup");
+  const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
+
+  assert.equal(savedGroup.groupName, "MAT Fuel Comp");
+  assert.equal(savedGroup.nodes.length, 8);
+  assert.equal(savedGroup.edges.length, 6);
+
+  // 1. Check MAT Fuel Comp Node configuration
+  const matCompNode = savedGroup.nodes.find((n: any) => n.type === "MatFuelCompNode");
+  assert(matCompNode !== undefined, "MatFuelCompNode must be present in MAT Fuel Comp savedGroup");
+  assert.equal(matCompNode.data.minTempSpread, 10.0);
+  assert.equal(matCompNode.data.minDistinctBins, 2);
+  assert.equal(matCompNode.data.minCellSamples, 5);
+  assert.equal(matCompNode.data.maxCorrectionRatio, 0.15);
+  assert.equal(matCompNode.data.enableDamping, true);
+
+  // 2. Check Pipeline wiring: Log -> AfrMlShifter -> TpsAfrDelete -> LogFilter -> MatFuelCompNode
+  const tpsNode = savedGroup.nodes.find((n: any) => n.type === "TpsAfrDeleteNode");
+  const logFilterNode = savedGroup.nodes.find((n: any) => n.type === "LogFilterNode");
+  assert(tpsNode !== undefined && logFilterNode !== undefined);
+
+  const tpsToLogFilterEdge = savedGroup.edges.find((e: any) => e.source === tpsNode.id && e.target === logFilterNode.id);
+  assert(tpsToLogFilterEdge !== undefined, "TpsAfrDeleteNode must connect into LogFilterNode");
+  assert.equal(tpsToLogFilterEdge.sourceHandle, "Log#LogSource");
+  assert.equal(tpsToLogFilterEdge.targetHandle, "Log#LogTarget");
+
+  const logFilterToMatCompEdge = savedGroup.edges.find((e: any) => e.source === logFilterNode.id && e.target === matCompNode.id);
+  assert(logFilterToMatCompEdge !== undefined, "LogFilterNode must connect into MatFuelCompNode");
+  assert.equal(logFilterToMatCompEdge.sourceHandle, "Log#LogSource");
+  assert.equal(logFilterToMatCompEdge.targetHandle, "Log#LogIn");
+
+  // 3. Check BaseTable is 3D Fuel Compensation MAT vs MAP connected to MatFuelCompNode
+  const baseTableNode = savedGroup.nodes.find((n: any) => n.type === "BaseTableNode");
+  assert(baseTableNode !== undefined);
+  assert.equal(baseTableNode.data.tableKey, "Fuel Compensation MAT vs MAP - Stock3bar");
+  assert.equal(baseTableNode.data.tableType, "3D");
+
+  const tableToMatCompEdge = savedGroup.edges.find((e: any) => e.source === baseTableNode.id && e.target === matCompNode.id);
+  assert(tableToMatCompEdge !== undefined, "BaseTableNode must connect into MatFuelCompNode");
+  assert.equal(tableToMatCompEdge.sourceHandle, "3D#TableOut");
+  assert.equal(tableToMatCompEdge.targetHandle, "3D#TableIn");
+
+  // Verify all edges have defined and valid handle IDs
+  for (const edge of savedGroup.edges) {
+    assert(edge.sourceHandle && edge.sourceHandle.length > 0, `Edge ${edge.id} missing sourceHandle`);
+    assert(edge.targetHandle && edge.targetHandle.length > 0, `Edge ${edge.id} missing targetHandle`);
+  }
+
+  // 4. Verify Cloning preserves node count, edge count, unique IDs, and handle integrity
+  const cloned = cloneSavedGroup(savedGroup);
+  assert.equal(cloned.groupName, "MAT Fuel Comp");
+  assert.equal(cloned.nodes.length, 8);
+  assert.equal(cloned.edges.length, 6);
+
+  const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
+  assert.equal(nodeIds.size, 8);
+
+  for (const edge of cloned.edges) {
+    assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
+    assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+    assert(edge.sourceHandle && edge.sourceHandle.length > 0, `Cloned edge ${edge.id} missing sourceHandle`);
+    assert(edge.targetHandle && edge.targetHandle.length > 0, `Cloned edge ${edge.id} missing targetHandle`);
+  }
+});
+
+test("FillTableFromLog resolves scalingAliases for 3D MAT vs MAP table", () => {
+  const { FillTableFromLog } = require("@/app/_lib/rom");
+  const { scalingAliases } = require("@/app/_lib/consts");
+
+  // Verify scalingAliases mapping for MAT and Temp
+  assert.equal(scalingAliases["Temp"].insteadUse, "MAT");
+  assert.equal(scalingAliases["Temp"].expr, "MAT * 1.8 + 32");
+  assert.equal(scalingAliases["TempC"].insteadUse, "MAT");
+  assert.equal(scalingAliases["MAT"].insteadUse, "MAT");
+
+  const tableMatMap: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "61000",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100, 150],
+    },
+    yAxis: {
+      name: "Temp",
+      type: "Y Axis",
+      elements: 3,
+      address: "62000",
+      scaling: "Temp", // XML axis name/scaling is Temp (Fahrenheit in EcuFlash)
+      values: [41, 68, 104], // 5°C, 20°C, 40°C in Fahrenheit
+    },
+    values: [
+      [1.0, 1.0, 1.0],
+      [1.02, 1.02, 1.02],
+      [1.05, 1.05, 1.05],
+    ],
+  };
+
+  // Log record has 'MAT' in Celsius (20°C -> 68°F)
+  const logs: LogRecord[] = [
+    { LogID: 1, MAP: 100, MAT: 20, AFR: 14.7 },
+  ];
+
+  const logTable = FillTableFromLog(tableMatMap, logs, true) as Table3D<LogRecord[]>;
+  assert(logTable !== undefined && logTable !== null);
+  assert.equal(logTable.type, "3D");
+
+  // Row index 1 is MAT=68°F (from MAT=20°C), Col index 1 is MAP=100
+  assert.equal(logTable.values[1][1].length, 1);
+  assert.equal(logTable.values[1][1][0].LogID, 1);
+  assert.equal(logTable.values[1][1][0].weight, 1.0);
+});
+
+test("calculateMatTempInvariance flattens temperature AFR delta to reference temperature", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  // Real 4B11T table with Fahrenheit axis
+  const tableMatMap: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "61000",
+      scaling: "StockXMAP in kPa",
+      values: [40, 80, 120],
+    },
+    yAxis: {
+      name: "Temp",
+      type: "Y Axis",
+      elements: 3,
+      address: "62000",
+      scaling: "Temp",
+      values: [41, 68, 104], // 41°F (+5°C), 68°F (+20°C), 104°F (+40°C)
+    },
+    values: [
+      [1.000, 1.000, 1.000], // 41°F
+      [1.025, 1.025, 1.025], // 68°F (reference)
+      [1.060, 1.060, 1.060], // 104°F (hot)
+    ],
+  };
+
+  // 10 records at MAT=20°C (morning): 20°C * 1.8 + 32 = 68°F
+  // Runs 15.5 AFR (target 14.7 -> error 1.0544)
+  const coolLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 40,
+    MAT: 20,
+    AFR: 15.5,
+    AFRMAP: 14.7,
+  }));
+
+  // 10 records at MAT=40°C (afternoon): 40°C * 1.8 + 32 = 104°F
+  // Runs 14.5 AFR (target 14.7 -> error 0.9864)
+  const hotLogs: LogRecord[] = Array.from({ length: 10 }, (_, i) => ({
+    LogID: i + 11,
+    MAP: 40,
+    MAT: 40,
+    AFR: 14.5,
+    AFRMAP: 14.7,
+  }));
+
+  const allLogs = [...coolLogs, ...hotLogs];
+
+  const result = calculateMatTempInvariance(tableMatMap, allLogs, {
+    refTemp: 68,
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false, // test raw ratio precision
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  assert.equal(result.refTempUsed, 68);
+
+  // Column 0 is MAP=40 kPa:
+  // Row 0 is 41°F (no samples) -> unchanged
+  assert.equal(result.countTable.values[0][0], 0);
+  assert.equal(result.deltaPercentTable.values[0][0], 0);
+  assert.equal(result.correctedTable.values[0][0], 1.000);
+
+  // Row 1 is 68°F (reference temperature from 20°C morning):
+  // deltaPercent is 0.0%, baseline value 1.025 is UNCHANGED!
+  assert.equal(result.countTable.values[1][0], 10);
+  assert.equal(result.deltaPercentTable.values[1][0], 0);
+  assert.equal(result.correctedTable.values[1][0], 1.025);
+
+  // Row 2 is 104°F (hot temperature from 40°C afternoon):
+  // Raw ratio = 0.9864 / 1.0544 = 0.9355 (-6.45% drift)
+  assert.equal(result.countTable.values[2][0], 10);
+  assert(Math.abs(result.deltaPercentTable.values[2][0] - (-6.45)) < 0.1);
+  // Corrected value = 1.060 * 0.9355 = 0.9916
+  assert(Math.abs(result.correctedTable.values[2][0] - (1.060 * (0.9864 / 1.0544))) < 0.001);
+
+  // Verify resulting AFR equivalence:
+  // Initial hot fuel multiplier: 1.060 -> gave 14.5 AFR.
+  // New hot fuel multiplier: 0.9916 -> delivers (14.5 * 1.060 / 0.9916) = 15.5 AFR!
+  const predictedHotAfr = 14.5 * (1.060 / result.correctedTable.values[2][0]);
+  assert(Math.abs(predictedHotAfr - 15.5) < 0.05, "Hot AFR should equal cool AFR (15.5)!");
+});
+
+test("calculateMatTempInvariance anchors at 68°F base MAT and matches higher MAT to lower", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  // Factory 4B11T MAT vs MAP table (Fahrenheit axis: 14, 41, 68, 104, 140, 176, 212)
+  const table4B11T: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Stock3bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "Pressure",
+      type: "X Axis",
+      elements: 3,
+      address: "634d4",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100, 150],
+    },
+    yAxis: {
+      name: "MAT",
+      type: "Y Axis",
+      elements: 7,
+      address: "634c0",
+      scaling: "Temp",
+      values: [14, 41, 68, 104, 140, 176, 212],
+    },
+    values: [
+      [1.10, 1.10, 1.10], // 14°F (-10°C winter)
+      [1.05, 1.05, 1.05], // 41°F (+5°C cold ambient)
+      [1.00, 1.00, 1.00], // 68°F (+20°C base MAT anchor)
+      [1.03, 1.03, 1.03], // 104°F (+40°C warm commute & heat soak)
+      [1.05, 1.05, 1.05], // 140°F (+60°C high heat soak)
+      [1.00, 1.00, 1.00], // 176°F
+      [1.00, 1.00, 1.00], // 212°F
+    ],
+  };
+
+  // Morning commute: cool, MAT ~20°C in EvoScan log (evaluates to 68°F)
+  // Car ran 15.6 AFR at 50 kPa
+  const morningLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 50,
+    MAT: 20,
+    AFR: 15.6,
+    AFRMAP: 14.7,
+  }));
+
+  // Afternoon commute: hot, MAT ~40°C in EvoScan log (evaluates to 104°F)
+  // Heat soak caused car to run richer at 14.8 AFR
+  const afternoonLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 20,
+    MAP: 50,
+    MAT: 40,
+    AFR: 14.8,
+    AFRMAP: 14.7,
+  }));
+
+  const allLogs = [...morningLogs, ...afternoonLogs];
+
+  // Default options (auto-detects 68°F baseline row for Fahrenheit table)
+  const result = calculateMatTempInvariance(table4B11T, allLogs, {
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false,
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  // Auto picks 68°F (index 2) as baseline reference
+  assert.equal(result.refTempUsed, 68);
+
+  // 68°F row (index 2) is the base MAT: 0% drift, value unchanged (1.00)
+  assert.equal(result.deltaPercentTable.values[2][0], 0);
+  assert.equal(result.correctedTable.values[2][0], 1.00);
+
+  // 104°F row (index 3): ran richer (14.8 vs 15.6)
+  // Drift = (14.8 / 15.6 - 1) * 100 = -5.13%
+  const driftPct = result.deltaPercentTable.values[3][0];
+  assert(Math.abs(driftPct - (-5.13)) < 0.1, `Expected ~ -5.13% drift, got ${driftPct}`);
+
+  // Corrected multiplier decreases to reduce fuel at higher MAT:
+  const correctedMultiplier = result.correctedTable.values[3][0];
+  assert(correctedMultiplier < 1.03, "Higher MAT multiplier must decrease to lean out afternoon rich drift");
+
+  // Verify that predicted afternoon AFR now matches morning baseline:
+  const predictedHotAfr = 14.8 * (1.03 / correctedMultiplier);
+  assert(Math.abs(predictedHotAfr - 15.6) < 0.05, `Afternoon AFR (${predictedHotAfr}) must equal morning baseline (15.6)!`);
+});
+
+test("calculateMatTempInvariance automatically selects lowest hit MAT row with sufficient data as anchor", () => {
+  const { calculateMatTempInvariance } = require("@/app/_lib/rom");
+
+  const table: Table3D<number> = {
+    type: "3D",
+    name: "Fuel Compensation MAT vs MAP - Omni4bar",
+    scaling: "Multiplier",
+    address: "60fcd",
+    xAxis: {
+      name: "MAP",
+      type: "X Axis",
+      elements: 2,
+      address: "634d4",
+      scaling: "StockXMAP in kPa",
+      values: [50, 100],
+    },
+    yAxis: {
+      name: "MAT",
+      type: "Y Axis",
+      elements: 7,
+      address: "634c0",
+      scaling: "Temp",
+      values: [14, 41, 68, 104, 140, 176, 212],
+    },
+    values: [
+      [1.00, 1.00], // 14°F: 0 samples
+      [1.04, 1.04], // 41°F: 15 samples (chilly morning)
+      [1.00, 1.00], // 68°F: 15 samples (afternoon warm)
+      [1.00, 1.00], // 104°F
+      [1.00, 1.00], // 140°F
+      [1.00, 1.00], // 176°F
+      [1.00, 1.00], // 212°F
+    ],
+  };
+
+  // Logs on chilly morning (MAT=5°C -> 41°F)
+  const chillyLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 1,
+    MAP: 50,
+    MAT: 5,
+    AFR: 15.0,
+    AFRMAP: 14.7,
+  }));
+
+  // Logs in afternoon (MAT=20°C -> 68°F)
+  const warmLogs: LogRecord[] = Array.from({ length: 15 }, (_, i) => ({
+    LogID: i + 20,
+    MAP: 50,
+    MAT: 20,
+    AFR: 14.2,
+    AFRMAP: 14.7,
+  }));
+
+  const logs = [...chillyLogs, ...warmLogs];
+
+  // Auto options: 14°F has 0 samples, so lowest hit row is 41°F!
+  const result = calculateMatTempInvariance(table, logs, {
+    minTempSpread: 10.0,
+    minDistinctBins: 2,
+    minCellSamples: 5,
+    enableDamping: false,
+  });
+
+  assert(result !== null);
+  assert.equal(result.sufficient, true);
+  // Must automatically select 41°F (row 1) as the baseline anchor!
+  assert.equal(result.refTempUsed, 41);
+  // Row 1 (41°F) drift must be 0% and unchanged
+  assert.equal(result.deltaPercentTable.values[1][0], 0);
+  assert.equal(result.correctedTable.values[1][0], 1.04);
+  // Row 2 (68°F) is warmer, so its fuel is adjusted to match row 1
+  assert(result.correctedTable.values[2][0] < 1.00);
+});
