@@ -197,13 +197,74 @@ python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.
 - Outputs tab-delimited paste buffers ready for immediate insertion into EcuFlash.
 
 ### Tool 16: `timing_mivec_remapper.py`
-Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the `V3.18` dyno reference ROM with conservative lower-only safety mode.
+Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the `V3.18` dyno reference ROM with runtime `MAPCalcs` scaling (`K_MAP_RUNTIME = 1.090`) and conservative lower-only safety mode.
 ```bash
 python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/timing_mivec_remapper.py" \
-  --target-rom "roms/latest_rom.srf" --paste-timing --lower-only
+  --target-rom "roms/latest_rom.srf" \
+  --maf-table /tmp/next_rom_exports/new_maf_scaling.tsv \
+  --map-table /tmp/next_rom_exports/new_map_load_calc.tsv \
+  --paste-timing --lower-only
 ```
 - Compensates for load coordinate shifts whenever `MAF Scaling Horizontal` or `MAP based Load Calc` tables are modified.
+- Applies `K_MAP_RUNTIME = 1.090` (`(256+13)/256 = 1.05078` firmware scalar × `1.037` nominal air density factor) so raw `MAP based Load Calc` table values map accurately to the `LOAD_TIMING_AXIS` (`0–320%`), and checks `#1` (`0x608AE`) vs `#2` (`0x605AC`) table parity.
 - Enforces `--lower-only` conservative safety rule: $Timing_{\text{safe}}(r,c) = \min(Timing_{\text{current}}(r,c), Timing_{\text{remapped}}(r,c))$ (zero accidental advance added).
+
+### Tool 17: `multi_rom_secant_balancer.py`
+Multi-ROM bracketed secant solver & anti-rectification balancer for `MAF Scaling Horizontal` and `MAP based Load Calc`.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/multi_rom_secant_balancer.py" \
+  --target-rom "roms/<LATEST_ROM>.srf" --logs "scans/<LATEST_LOG1>.csv" "scans/<LATEST_LOG2>.csv" \
+  --prev-rom1 "roms/<PREV_ROM1>.srf" --prev-logs1 "scans/<PREV_LOG1>.csv" \
+  --prev-rom2 "roms/<PREV_ROM2>.srf" --prev-logs2 "scans/<PREV_LOG2>.csv" \
+  --export-dir /tmp/next_rom_exports
+```
+- **DFCO & Exhaust Transport Delay Alignment**: Aligns `AFR(t + Δt)` with dynamic exhaust transport lag $\Delta t = \text{clamp}\left(\frac{0.35}{\sqrt{\max(0.3, \text{RPM} \times \text{MAP} / 100000)}}, 0.10\text{s}, 0.45\text{s}\right)$, strips DFCO/overrun recovery frames, and down-weights stationary idle (`w = 0.05`).
+- **Unclamped MAF Filtering (`MAPCalcs >= 0.99 * MAFCalcs`)**: Accumulates pure MAF bins (`Idx <= 73`, `MAP <= 105 kPa`) strictly from unclamped frames to eliminate clipped-peak division bias.
+- **Multi-ROM Bracketed Secant Solver with Post-Smoothing Bracket Invariance**: Solves bracketed bins via linear secant root-finding across up to 3 ROM flashes and clamps post-smoothed values strictly inside $[M_{\text{lean}} + 0.10\Delta M, M_{\text{rich}} - 0.10\Delta M]$.
+- **5-Frame Exhaust-Window `TrueLoad` & Crossover Anti-Rectification Guard**: Uses a 5-frame (`~0.25s`) moving average of `ChosenCalc` and `MAPCalcs`, targeting `1.20x` in vacuum (`Cols 2–5`), `1.14x` at `Col 6 (89.4 kPa)`, `1.06x` at `Col 7 (102.8 kPa)`, and enforcing a knock-free safety floor in positive boost (`Cols 8–9`: `116.3–129.7 kPa`).
+
+### Tool 18: `bov_flutter_knock_detector.py`
+Automated detection and classification of blow-off valve (BOV) flutter vs true ignition timing knock.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/bov_flutter_knock_detector.py" \
+  --logs "scans/log1.csv" ["scans/log2.csv" ...] [--window 5]
+```
+- **Physics-Based Classifier**: Distinguishes genuine combustion pre-ignition/knock from mechanical valve chatter, charge piping pressure oscillations, and decel lift-off noise.
+- **Evaluation Criteria**:
+  1. Detects exact inception frames where knock count increments ($\Delta \text{KnockSum} > 0$).
+  2. Analyzes a window ($\pm 5$ frames) of MAF voltage swings ($\Delta \text{MAFV} \ge 0.25\text{V}$), directional reversals ($d(\text{MAFV})/dt$ sign changes $\ge 3$), positive pressure manifold conditions ($MAP \ge 95\text{ kPa}$), steady throttle foot ($\Delta \text{TPS} \le 5\%$), and transient lean spikes ($AFR \ge 15.0$).
+  3. Classifies events into `BOV_FLUTTER`, `TRUE_TIMING_KNOCK`, or `LIFT_OFF_DECEL`.
+- **Remapper Integration**: `timing_mivec_remapper.py` integrates this classifier via `--filter-flutter-knock`, preventing false timing retards on non-timing mechanical flutter events while preserving safety retards on genuine knock.
+- **Knock Confidence Rule (`--min-knock-frequency 0.25`)**: Isolated single-count knock inceptions (`KnockSum == 1`) occurring infrequently (`< 25%` of cell visits) are stored in `calibration_experience.db` for tracking and **held at `0°` retard** in the timing tables.
+
+### Tool 19: `datalog_classifier.py`
+Multi-domain per-record telemetry classifier that enriches raw EvoScan CSVs into `*_classified.csv` with **34 `diag_*` columns**:
+```bash
+python3 tuning_tools/tools/datalog_classifier.py "scans/<LOG>.csv" --target-rom "roms/<MATCHING_ROM>.srf"
+```
+- Precomputes exact ROM table lookups (`diag_rom_maf_gs`, `diag_rom_map_ve_load`, `diag_rom_mat_comp_mult`, `diag_rom_timing_high`, `diag_rom_timing_low`, `diag_rom_timing_retard_total`, `diag_rom_latency_ms`, `diag_rom_afrmap`).
+- Computes gear & shift state, DFCO overrun fuel-cut vs sustained injector leak (`diag_decel_fuel_status`), smoothed Virtual Dyno WHP/WTQ, MIVEC/DBW/IDC health, stationarity confidence, transport-lag-aligned AFR error, knock root cause, and subsystem usability flags.
+
+### Tool 20: `ingest_experience.py`
+Ingestion and full-rehydration engine for `tuning_tools/db/calibration_experience.db` (SQLite):
+```bash
+# Rehydrate all post-Oct-22 ROMs and datalogs cleanly from scratch:
+python3 tuning_tools/tools/ingest_experience.py --rehydrate --since-date 2026-10-22
+
+# Incrementally classify and ingest new raw logs:
+python3 tuning_tools/tools/ingest_experience.py --roms "roms/<LATEST_ROM>.srf" --auto-classify-logs "scans/<NEW_LOG>.csv"
+```
+
+### Tool 21: `experience_query.py`
+Calibration Experience Database query, state-space $k$-NN similarity search, and pre-flash veto engine:
+```bash
+python3 tuning_tools/tools/experience_query.py audit-health
+python3 tuning_tools/tools/experience_query.py audit-events
+python3 tuning_tools/tools/experience_query.py find-similar --rpm 3200 --map 115 --gear 3 --top-k 5
+python3 tuning_tools/tools/experience_query.py reverse-match --rpm 3000 --map 100 --metric min_afr_error
+python3 tuning_tools/tools/experience_query.py forward-check --table maf_scaling --axis-x 2.50 --proposed 73.5
+```
+*(Tip: Use the `/evo-calibrate <driver notes or additional thoughts>` skill for end-to-end prompt-guided diagnostics and next-flash clipboard table generation).*
 
 ---
 
@@ -363,6 +424,7 @@ flowchart TD
 4. **Step 4: Transition Verification**:
    - Run `rom_log_verifier.py` across the flash transition.
    - Confirm $MAFCalcs$ moved in the direction and magnitude predicted by $C_{\text{MAF}}$.
-5. **Step 5: Diagnosis & Action Plan**:
+5. **Step 5: Diagnosis & Action Plan (Clipboard Paste Buffers Only)**:
    - Classify overall trend: **Better** (converging on target), **Worse** (diverging/oscillating), or **Indecisive** (insufficient warm steady-state data).
    - Flag any algorithm flaws (boundary chatter, moving-target lag, closed-loop trim masking).
+   - **No ROM Binary Creation Rule**: NEVER create or write `.srf` or `.bin` files into `roms/`. Output calibration proposals strictly as formatted EcuFlash clipboard paste blocks (`.tsv` / `.txt`).

@@ -431,7 +431,7 @@ class DatalogClassifier:
                 })
 
         # 4. Speed Smoothing & Longitudinal Acceleration
-        # 5-frame moving average of vehicle speed
+        # 5-frame moving average of vehicle speed + centered ~0.4s slope to suppress 1 km/h VSS quantization steps
         smooth_speeds = []
         for i in range(n):
             w_start = max(0, i - 2)
@@ -441,11 +441,17 @@ class DatalogClassifier:
 
         smooth_accels_g = [0.0] * n
         for i in range(1, n):
-            dt = derivatives[i]["dt"]
-            # dv in m/s
-            dv_ms = (smooth_speeds[i] - smooth_speeds[i - 1]) / 3.6
-            a_ms2 = dv_ms / dt if dt > 0.001 else 0.0
-            smooth_accels_g[i] = a_ms2 / 9.80665
+            w_lo = max(0, i - 4)
+            w_hi = min(n - 1, i + 4)
+            dt_win = self.parsed[w_hi]["sec"] - self.parsed[w_lo]["sec"]
+            if dt_win > 0.05:
+                dv_ms = (smooth_speeds[w_hi] - smooth_speeds[w_lo]) / 3.6
+                a_ms2 = dv_ms / dt_win
+            else:
+                dt = derivatives[i]["dt"]
+                dv_ms = (smooth_speeds[i] - smooth_speeds[i - 1]) / 3.6
+                a_ms2 = dv_ms / dt if dt > 0.001 else 0.0
+            smooth_accels_g[i] = max(-1.5, min(1.5, a_ms2 / 9.80665))
 
         # 5. Gear Detection (USDM 5MT: Final Drive 4.687, Circumference ~2.03m)
         gear_labels = []
@@ -486,7 +492,10 @@ class DatalogClassifier:
         # 6. Decel Overrun Fuel Leakage Diagnostics
         decel_statuses = []
         last_dfco_time = -999.0
-        min_app = min(r["app"] for r in self.parsed) if self.parsed else 0.0
+        last_overrun_event_sec = -999.0
+        closed_pedal_start_sec = None
+        has_app = ("APP" in self.raw_rows[0]) if self.raw_rows else False
+        min_app = min((r["app"] for r in self.parsed if r["app"] >= 0.0), default=0.0)
 
         for i in range(n):
             curr = self.parsed[i]
@@ -497,44 +506,59 @@ class DatalogClassifier:
             sec = curr["sec"]
             gear = gear_labels[i]
             is_shifting = shift_flags[i]
+            align_afr = aligned_afr_data[i]["aligned_afr"]
 
-            is_dfco_cut = (ipw <= 0.05 or curr["afr"] >= 19.0)
+            is_closed_pedal = (curr["app"] <= min_app + 1.5) if (has_app and curr["app"] >= 0.0) else (tps <= 14.5)
+            if is_closed_pedal:
+                if closed_pedal_start_sec is None:
+                    closed_pedal_start_sec = sec
+            else:
+                closed_pedal_start_sec = None
+
+            is_dfco_cut = (ipw <= 0.05) or (is_closed_pedal and (curr["afr"] >= 19.0 or align_afr >= 19.0))
             if is_dfco_cut:
                 last_dfco_time = sec
 
-            is_recovery = (sec - last_dfco_time) <= 0.50 and not is_dfco_cut
+            is_recovery = ((sec - last_dfco_time) <= 0.50) and not is_dfco_cut
+            in_gear_driving = (gear in ("1", "2", "3", "4", "5")) and (is_shifting == 0)
 
-            # Overrun decel state: Rolling in gear above 1400 RPM with closed accelerator pedal
-            is_closed_pedal = (curr["app"] <= min_app + 1.5) if ("APP" in self.raw_rows[0] and curr["app"] >= 0.0) else (tps <= 14.5)
-            in_gear_driving = gear in ("GEAR_1", "GEAR_2", "GEAR_3", "GEAR_4", "GEAR_5") and not is_shifting
-
-            if is_closed_pedal and spd > 12.0 and rpm > 1400.0:
+            if is_closed_pedal and spd > 12.0 and rpm > 1200.0:
                 if is_dfco_cut:
                     status = "CUT_ACTIVE"
                 elif in_gear_driving:
-                    status = "UNEXPECTED_FUELING"
-                    # Log unexpected fuel leakage during overrun decel as operational event
-                    if i % 15 == 0:  # sample every ~0.5s to prevent event spam
-                        self.operational_events.append({
-                            "event_type": "OVERRUN_FUEL_LEAKAGE",
-                            "log_id": os.path.basename(self.log_path),
-                            "row_idx": i,
-                            "time_sec": round(sec, 3),
-                            "rpm": round(rpm, 1),
-                            "map_kpa": round(curr["kpa"], 1),
-                            "tps": round(tps, 1),
-                            "mafv": round(curr["mafv"], 3),
-                            "ipw_ms": round(ipw, 2),
-                            "vbatt": round(curr["vbatt"], 2),
-                            "mat_c": round(curr["mat"], 1),
-                            "ect_c": round(curr["ect"], 1),
-                            "afr": round(curr["afr"], 2),
-                            "afrmap": round(curr["afrmap"], 2),
-                            "severity": round(ipw, 2),
-                            "classification": "DECEL_INJECTOR_LEAK",
-                            "confidence": 0.85,
-                            "detail_json": {"ipw_during_decel": round(ipw, 2)}
-                        })
+                    closed_dur = (sec - closed_pedal_start_sec) if closed_pedal_start_sec is not None else 0.0
+                    if rpm < 1900.0 or curr["ect"] < 68.0:
+                        status = "DFCO_LOW_RPM_RESUME"
+                    elif closed_dur <= 1.25:
+                        status = "DFCO_ENTRY_DELAY"
+                    else:
+                        status = "UNEXPECTED_FUELING"
+                        if (sec - last_overrun_event_sec) >= 1.0:
+                            last_overrun_event_sec = sec
+                            self.operational_events.append({
+                                "event_type": "OVERRUN_FUEL_LEAKAGE",
+                                "log_id": os.path.basename(self.log_path),
+                                "row_idx": i,
+                                "time_sec": round(sec, 3),
+                                "rpm": round(rpm, 1),
+                                "map_kpa": round(curr["kpa"], 1),
+                                "tps": round(tps, 1),
+                                "mafv": round(curr["mafv"], 3),
+                                "ipw_ms": round(ipw, 2),
+                                "vbatt": round(curr["vbatt"], 2),
+                                "mat_c": round(curr["mat"], 1),
+                                "ect_c": round(curr["ect"], 1),
+                                "afr": round(curr["afr"], 2),
+                                "afrmap": round(curr["afrmap"], 2),
+                                "severity": round(ipw, 2),
+                                "classification": "DECEL_INJECTOR_LEAK",
+                                "confidence": 0.90,
+                                "detail_json": {
+                                    "ipw_during_decel": round(ipw, 2),
+                                    "closed_pedal_sec": round(closed_dur, 2),
+                                    "gear": gear,
+                                }
+                            })
                 else:
                     status = "COAST_NEUTRAL"
             elif is_recovery:
@@ -566,19 +590,22 @@ class DatalogClassifier:
             gear = gear_labels[i]
             shift = shift_flags[i]
 
-            # Calculate tractive forces
-            f_inertial = M_VEHICLE * a_ms2
-            f_aero = 0.5 * RHO_AIR * CD_AERO * AREA_FRONT * (v_ms ** 2)
-            f_roll = CRR_ROLLING * M_VEHICLE * 9.80665
-            f_total = f_inertial + f_aero + f_roll
+            # Calculate tractive forces when in gear and not shifting
+            if gear in ("1", "2", "3", "4", "5") and shift == 0 and curr["tps"] >= 20.0:
+                f_inertial = M_VEHICLE * a_ms2
+                f_aero = 0.5 * RHO_AIR * CD_AERO * AREA_FRONT * (v_ms ** 2)
+                f_roll = CRR_ROLLING * M_VEHICLE * 9.80665
+                f_total = f_inertial + f_aero + f_roll
+                power_w = max(0.0, f_total * v_ms)
+                whp = power_w / 745.7
+                wtq = (whp * 5252.0 / max(1.0, rpm)) if rpm > 500.0 else 0.0
+            else:
+                whp = 0.0
+                wtq = 0.0
 
-            power_w = max(0.0, f_total * v_ms)
-            whp = power_w / 745.7
-            wtq = (whp * 5252.0 / max(1.0, rpm)) if rpm > 500.0 else 0.0
-
-            # Usable for clean dyno pull: 3rd or 4th gear, WOT, positive boost, non-shifting, positive acceleration
-            is_dyno = (gear in ("3", "4") and curr["tps"] >= 80.0 and curr["kpa"] >= 120.0
-                       and a_g >= 0.05 and shift == 0 and curr["ect"] >= 75.0)
+            # Usable for clean street/dyno pull: 2nd, 3rd, or 4th gear, brisk/WOT boost pull, non-shifting, warm
+            is_dyno = (gear in ("2", "3", "4") and curr["tps"] >= 45.0 and curr["kpa"] >= 120.0
+                       and 0.05 <= a_g <= 0.90 and shift == 0 and curr["ect"] >= 75.0)
 
             wheel_hps.append(round(whp, 1) if whp > 5.0 else 0.0)
             wheel_tqs.append(round(wtq, 1) if wtq > 5.0 else 0.0)
@@ -586,7 +613,10 @@ class DatalogClassifier:
 
         # 8. Multi-Domain Assembly & ROM Table Lookups
         regime_counts = {}
+        decel_counts = {}
         usability_counts = {"maf": 0, "ve": 0, "injector": 0, "dyno": 0}
+        last_lean_boost_sec = -999.0
+        last_high_idc_sec = -999.0
 
         for i in range(n):
             curr = self.parsed[i]
@@ -599,10 +629,13 @@ class DatalogClassifier:
             gear = gear_labels[i]
             shift = shift_flags[i]
             decel = decel_statuses[i]
+            decel_counts[decel] = decel_counts.get(decel, 0) + 1
 
             # DFCO & Warmup
             is_dfco_frame = (decel == "CUT_ACTIVE")
             is_dfco_recovery = (decel == "DFCO_RECOVERY")
+            is_dfco_entry = (decel == "DFCO_ENTRY_DELAY")
+            is_overrun_leak = (decel == "UNEXPECTED_FUELING")
             is_warm = curr["ect"] >= 75.0
 
             # Stationarity Score (0.0 to 1.0)
@@ -617,6 +650,8 @@ class DatalogClassifier:
                 regime = "DFCO"
             elif is_dfco_recovery:
                 regime = "DFCO_RECOVERY"
+            elif is_dfco_entry or is_overrun_leak:
+                regime = "OVERRUN_DECEL"
             elif spd < 2.0 and curr["tps"] <= 15.0 and abs(d["d_rpm"]) < 120.0:
                 regime = "STEADY_IDLE"
             elif spd >= 15.0 and stationarity >= 0.70 and curr["kpa"] <= 95.0 and shift == 0:
@@ -646,10 +681,10 @@ class DatalogClassifier:
             else:
                 clamp_state = "CROSSOVER_TRANSITION"
 
-            # Fuel Trims & Injector Dynamics
+            # Fuel Trims & Injector Dynamics (4-stroke cycle = 120,000 / RPM ms -> IDC% = RPM * IPW_ms / 1200.0)
             total_trim = curr["stft"] + curr["ltft"]
             is_closed_loop = (abs(curr["stft"]) > 0.01 or abs(curr["afrmap"] - 14.7) < 0.1) and curr["ipw"] > 0.1
-            idc_pct = (curr["rpm"] * curr["ipw"] / 1200.0) * 100.0
+            idc_pct = (curr["rpm"] * curr["ipw"]) / 1200.0
 
             # MIVEC & DBW Mismatches
             in_vvt_err = curr["invvt_act"] - curr["invvt_tgt"]
@@ -676,6 +711,59 @@ class DatalogClassifier:
                 rom_tim_retard = round(curr["timing"] - rom_hi_tim, 1)
                 rom_latency = self.rom_evaluator.eval_latency(curr["vbatt"])
 
+            # Detect Lean Boost Excursion & High IDC Warning
+            if (is_warm and not is_dfco_frame and not is_dfco_recovery and shift == 0
+                    and curr["kpa"] >= 135.0 and curr["tps"] >= 50.0 and align["aligned_afr_error"] >= 1.06):
+                if (curr["sec"] - last_lean_boost_sec) >= 1.0:
+                    last_lean_boost_sec = curr["sec"]
+                    self.operational_events.append({
+                        "event_type": "LEAN_BOOST_EXCURSION",
+                        "log_id": os.path.basename(self.log_path),
+                        "row_idx": i,
+                        "time_sec": round(curr["sec"], 3),
+                        "rpm": round(curr["rpm"], 1),
+                        "map_kpa": round(curr["kpa"], 1),
+                        "tps": round(curr["tps"], 1),
+                        "mafv": round(curr["mafv"], 3),
+                        "ipw_ms": round(curr["ipw"], 2),
+                        "vbatt": round(curr["vbatt"], 2),
+                        "mat_c": round(curr["mat"], 1),
+                        "ect_c": round(curr["ect"], 1),
+                        "afr": round(align["aligned_afr"], 2),
+                        "afrmap": round(curr["afrmap"], 2),
+                        "severity": round((align["aligned_afr_error"] - 1.0) * 100.0, 2),
+                        "classification": "LEAN_UNDER_BOOST",
+                        "confidence": 0.92,
+                        "detail_json": {
+                            "aligned_afr_error": round(align["aligned_afr_error"], 4),
+                            "rom_map_ve_load": round(rom_map_ve, 1),
+                            "gear": gear,
+                        }
+                    })
+
+            if idc_pct >= 85.0 and (curr["sec"] - last_high_idc_sec) >= 2.0:
+                last_high_idc_sec = curr["sec"]
+                self.operational_events.append({
+                    "event_type": "HIGH_IDC_WARNING",
+                    "log_id": os.path.basename(self.log_path),
+                    "row_idx": i,
+                    "time_sec": round(curr["sec"], 3),
+                    "rpm": round(curr["rpm"], 1),
+                    "map_kpa": round(curr["kpa"], 1),
+                    "tps": round(curr["tps"], 1),
+                    "mafv": round(curr["mafv"], 3),
+                    "ipw_ms": round(curr["ipw"], 2),
+                    "vbatt": round(curr["vbatt"], 2),
+                    "mat_c": round(curr["mat"], 1),
+                    "ect_c": round(curr["ect"], 1),
+                    "afr": round(align["aligned_afr"], 2),
+                    "afrmap": round(curr["afrmap"], 2),
+                    "severity": round(idc_pct, 1),
+                    "classification": "INJECTOR_DUTY_HIGH",
+                    "confidence": 0.99,
+                    "detail_json": {"idc_pct": round(idc_pct, 1), "gear": gear}
+                })
+
             # Usability Flags & Rejection Reasons
             usable_maf = False
             usable_ve = False
@@ -688,10 +776,17 @@ class DatalogClassifier:
                 rej_reasons.append("DFCO")
             elif is_dfco_recovery:
                 rej_reasons.append("DFCO_RECOVERY")
+            elif is_dfco_entry:
+                rej_reasons.append("DFCO_ENTRY_DELAY")
+            elif is_overrun_leak:
+                rej_reasons.append("OVERRUN_FUEL_LEAK")
             if shift == 1:
                 rej_reasons.append("SHIFT_ACTIVE")
 
-            if is_warm and not is_dfco_frame and not is_dfco_recovery and shift == 0:
+            clean_fuel_state = (is_warm and not is_dfco_frame and not is_dfco_recovery
+                                and not is_dfco_entry and not is_overrun_leak and shift == 0)
+
+            if clean_fuel_state:
                 if k_cls == "BOV_FLUTTER":
                     rej_reasons.append("BOV_FLUTTER")
                 elif clamp_state == "VACUUM_CEILING_CLAMPED":
@@ -704,12 +799,12 @@ class DatalogClassifier:
                     usable_maf = True
                     usability_counts["maf"] += 1
 
-            if is_warm and not is_dfco_frame and not is_dfco_recovery and shift == 0:
+            if clean_fuel_state:
                 if (stationarity >= 0.60 or regime in ("WOT_BOOST", "STEADY_CRUISE", "STEADY_IDLE")) and k_cls != "BOV_FLUTTER":
                     usable_ve = True
                     usability_counts["ve"] += 1
 
-            if is_warm and is_closed_loop and not is_dfco_frame and not is_dfco_recovery and shift == 0:
+            if clean_fuel_state and is_closed_loop:
                 if stationarity >= 0.75 and abs(d["d_tps"]) <= 1.5:
                     usable_inj = True
                     usability_counts["injector"] += 1
@@ -765,13 +860,19 @@ class DatalogClassifier:
             })
             self.classified_rows.append(row_dict)
 
+        dyno_whps = [wheel_hps[i] for i in range(n) if dyno_usables[i] == 1]
+        dyno_wtqs = [wheel_tqs[i] for i in range(n) if dyno_usables[i] == 1]
+        clean_whps = [wheel_hps[i] for i in range(n) if smooth_accels_g[i] <= 0.90]
+        clean_wtqs = [wheel_tqs[i] for i in range(n) if smooth_accels_g[i] <= 0.90]
+
         self.summary_stats = {
             "total_records": n,
             "duration_sec": round(self.parsed[-1]["sec"] - self.parsed[0]["sec"], 1),
             "regimes": regime_counts,
+            "decel_breakdown": decel_counts,
             "usable_samples": usability_counts,
-            "peak_wheel_hp": max(wheel_hps) if wheel_hps else 0.0,
-            "peak_wheel_tq": max(wheel_tqs) if wheel_tqs else 0.0,
+            "peak_wheel_hp": max(dyno_whps) if dyno_whps else (max(clean_whps) if clean_whps else 0.0),
+            "peak_wheel_tq": max(dyno_wtqs) if dyno_wtqs else (max(clean_wtqs) if clean_wtqs else 0.0),
             "knock_events_total": sum(1 for k in knock_classifications if k != "NONE"),
             "knock_by_class": {
                 c: sum(1 for k in knock_classifications if k == c)
