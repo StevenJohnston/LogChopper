@@ -26,10 +26,12 @@
   },
   "balancer_target_ratio_curve": {
     "low_map_cutoff_kpa": 80.0,
-    "low_map_target_ratio": 1.05,
+    "low_map_target_ratio": 1.20,
+    "crossover_map_kpa": 100.0,
+    "crossover_target_ratio": 1.00,
     "high_map_cutoff_kpa": 120.0,
-    "high_map_target_ratio": 0.95,
-    "formula": "MAP <= 80 ? 1.05 : (MAP >= 120 ? 0.95 : (1.05 - 0.0025 * (MAP - 80)))"
+    "high_map_target_ratio": 0.80,
+    "formula": "MAP <= 80 ? 1.20 : (MAP >= 120 ? 0.80 : (1.20 - 0.010 * (MAP - 80)))"
   },
   "tables": {
     "MAF Scaling Horizontal": {

@@ -494,6 +494,42 @@ test("FillLogTable with enableWeightFilter filters records in aggregators", () =
   assert.deepEqual(sumTable.values[0], [20.0, 0]);
 });
 
+test("FillLogTable with Aggregator.STDDEV calculates standard deviation", () => {
+  const mockTable: Table2DX<LogRecord[]> = {
+    type: "2D",
+    name: "MAF Scaling",
+    scaling: "AFR",
+    address: "1000",
+    scalingValue: { name: "AFR" },
+    xAxis: {
+      name: "Volts",
+      type: "X Axis",
+      elements: 2,
+      address: "2000",
+      scaling: "Volts",
+      values: [1.0, 2.0],
+    },
+    values: [
+      [
+        // Cell 0: values 14.0 and 16.0 with equal weights -> variance = 1.0, stddev = 1.0
+        [
+          { LogID: 1, AFR: 14.0, weight: 1.0 },
+          { LogID: 2, AFR: 16.0, weight: 1.0 },
+        ],
+        // Cell 1: only 1 value -> stddev is 0
+        [
+          { LogID: 3, AFR: 14.7, weight: 1.0 },
+        ],
+      ],
+    ],
+  };
+
+  const stddevTable = FillLogTable(mockTable, "AFR", Aggregator.STDDEV) as Table2DX<number>;
+  assert(stddevTable !== undefined && stddevTable !== null);
+  assert.ok(Math.abs(stddevTable.values[0][0] - 1.0) < 1e-6);
+  assert.equal(stddevTable.values[0][1], 0);
+});
+
 test("MAF & MAP Balancer savedGroup structure and cloning", () => {
   const { savedGroup } = require("@/app/_components/NodeSelector/MafMapBalancerGroup");
   const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
@@ -918,6 +954,132 @@ test("MAF & MAP Coherence Analyzer mathematical formulas", () => {
     }),
     0
   );
+});
+
+test("Untargetable AFR Identifier savedGroup structure and cloning", () => {
+  const { savedGroup } = require("@/app/_components/NodeSelector/UntargetableAfrGroup");
+  const { cloneSavedGroup } = require("@/app/store/useNodeStorage");
+
+  assert.equal(savedGroup.groupName, "Untargetable AFR Identifier");
+  assert.equal(savedGroup.nodes.length, 30);
+  assert.equal(savedGroup.edges.length, 33);
+
+  // Check parent container
+  const groupNode = savedGroup.nodes.find((n: any) => n.type === "GroupNode");
+  assert(groupNode !== undefined);
+  assert.equal(groupNode.data.name, "Untargetable AFR Identifier");
+
+  // Check AfrMlShifter configuration for dynamic transport lag
+  const afrShifter = savedGroup.nodes.find((n: any) => n.type === "afrMlShifter");
+  assert(afrShifter !== undefined);
+  assert.equal(afrShifter.data.method, "Steady State Monotonic DP");
+  assert.equal(afrShifter.data.replaceAfr, true);
+
+  // Check GearNode and LogFilter
+  const gearNode = savedGroup.nodes.find((n: any) => n.type === "GearNode");
+  assert(gearNode !== undefined);
+  assert.equal(gearNode.data.enableFilter, true);
+
+  const filterNode = savedGroup.nodes.find((n: any) => n.type === "LogFilterNode");
+  assert(filterNode !== undefined);
+  assert.ok(filterNode.data.func.includes("IPW > 0 and AFR > 0"));
+
+  // Check 2D MAF evaluation nodes
+  const mafBaseTable = savedGroup.nodes.find(
+    (n: any) => n.type === "BaseTableNode" && n.data.tableKey === "MAF Scaling Horizontal"
+  );
+  assert(mafBaseTable !== undefined);
+
+  // Check 3D MAP evaluation nodes
+  const mapBaseTable = savedGroup.nodes.find(
+    (n: any) => n.type === "BaseTableNode" && n.data.tableKey === "MAP based Load Calc #2 - Cold/Interpolated"
+  );
+  assert(mapBaseTable !== undefined);
+
+  // Test cloning
+  const cloned = cloneSavedGroup(savedGroup);
+  assert.equal(cloned.nodes.length, 30);
+  assert.equal(cloned.edges.length, 33);
+
+  const nodeIds = new Set(cloned.nodes.map((n: any) => n.id));
+  for (const edge of cloned.edges) {
+    assert(nodeIds.has(edge.source), `Edge source ${edge.source} not in cloned nodes`);
+    assert(nodeIds.has(edge.target), `Edge target ${edge.target} not in cloned nodes`);
+  }
+});
+
+test("Untargetable AFR Identifier mathematical formulas", () => {
+  const { Parser } = require("expr-eval");
+  const parser = new Parser();
+
+  const afrErrFunc = "AFR / AFRMAP";
+  const afrDeltaFunc = "AFR - AFRMAP";
+  const spreadFunc =
+    "sourceTable[y][x] > 0 and joinTable[y][x] > 0 ? (sourceTable[y][x] - joinTable[y][x]) : 0";
+  const conflictIndexFunc =
+    "sourceTable[y][x] >= 0.08 and joinTable[y][x] >= 1000 ? sourceTable[y][x] * (joinTable[y][x] / 1000) : 0";
+
+  // Scenario matching user description:
+  // At 1.5V MAF & 1500 RPM, AFR is 14.7 (targeting 14.7)
+  const cruise1500 = { AFR: 14.7, AFRMAP: 14.7 };
+  const err1500 = parser.evaluate(afrErrFunc, cruise1500);
+  const delta1500 = parser.evaluate(afrDeltaFunc, cruise1500);
+  assert.equal(err1500, 1.0);
+  assert.equal(delta1500, 0.0);
+
+  // At 1.5V MAF & 4500 RPM, AFR is 17.0 (targeting 14.7)
+  const overrun4500 = { AFR: 17.0, AFRMAP: 14.7 };
+  const err4500 = parser.evaluate(afrErrFunc, overrun4500);
+  const delta4500 = parser.evaluate(afrDeltaFunc, overrun4500);
+  assert.ok(Math.abs(err4500 - 1.1564625) < 1e-6);
+  assert.ok(Math.abs(delta4500 - 2.3) < 1e-6);
+
+  // AFR Error Spread at 1.5V bin (MAX = 1.1564625, MIN = 1.000)
+  const afrErrorSpread = parser.evaluate(spreadFunc, {
+    sourceTable: [[err4500]],
+    joinTable: [[err1500]],
+    y: 0,
+    x: 0,
+  });
+  assert.ok(Math.abs(afrErrorSpread - 0.1564625) < 1e-6);
+
+  // RPM Spread at 1.5V bin (MAX = 4500, MIN = 1500)
+  const rpmSpread = parser.evaluate(spreadFunc, {
+    sourceTable: [[4500]],
+    joinTable: [[1500]],
+    y: 0,
+    x: 0,
+  });
+  assert.equal(rpmSpread, 3000);
+
+  // Untargetable Conflict Index for 1.5V bin
+  // Disparity = 0.1564625 (>= 0.08) and RPM spread = 3000 (>= 1000)
+  // Index = 0.1564625 * (3000 / 1000) = ~0.469 -> Untargetable!
+  const conflictIndex = parser.evaluate(conflictIndexFunc, {
+    sourceTable: [[afrErrorSpread]],
+    joinTable: [[rpmSpread]],
+    y: 0,
+    x: 0,
+  });
+  assert.ok(Math.abs(conflictIndex - 0.4693877) < 1e-6);
+
+  // Targetable cell: small AFR error spread (0.02, 2%) across RPM
+  const targetableIndex = parser.evaluate(conflictIndexFunc, {
+    sourceTable: [[0.02]],
+    joinTable: [[3000]],
+    y: 0,
+    x: 0,
+  });
+  assert.equal(targetableIndex, 0);
+
+  // Targetable cell: high spread but narrow RPM band (< 1000 RPM)
+  const narrowRpmIndex = parser.evaluate(conflictIndexFunc, {
+    sourceTable: [[0.15]],
+    joinTable: [[400]],
+    y: 0,
+    x: 0,
+  });
+  assert.equal(narrowRpmIndex, 0);
 });
 
 test("MAT Variety Filter logic blocks narrow temperature datalogs and permits diverse datalogs", () => {

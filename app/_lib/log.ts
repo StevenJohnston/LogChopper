@@ -104,7 +104,7 @@ export interface LogRecord {
   Load?: number;
   O2Sensor2?: string;
   IPW?: number;
-  AFRMAP?: string;
+  AFRMAP?: string | number;
   LoadTiming?: number;
   TimingAdv?: number;
   KnockSum?: number;
@@ -121,7 +121,7 @@ export interface LogRecord {
   ExVVTactual?: number;
   TPS?: number;
   APP?: number;
-  IAT?: string;
+  IAT?: string | number;
   WGDCCorr?: number;
   Speed?: number;
   SmoothedSpeed?: number;
@@ -129,7 +129,7 @@ export interface LogRecord {
   GearAccuracy?: number;
   Battery?: string;
   ECT?: string | number;
-  MAT?: string;
+  MAT?: string | number;
   MAPCalcs?: number;
   IMAPCalcs?: number;
   MAFCalcs?: number;

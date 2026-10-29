@@ -193,7 +193,78 @@ python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.
 - Targets **Cold-Witnessed Baseline AFR**, enforcing thermal decoupling rather than cross-coupling temperature multipliers to base model errors.
 - Automatically computes thermal drift: $\Delta_{\text{thermal}} = \frac{\text{AFR}_{\text{hot}}}{\text{AFR}_{\text{cold\_witnessed}}}$.
 - Enforces strict EcuFlash Cold-to-Hot orientation (Row 0 = $-10^\circ\text{C}$ / $14^\circ\text{F}$, Row 6 = $100^\circ\text{C}$ / $212^\circ\text{F}$), preventing dangerous table inversions.
+- Enforces **Strict 2D Monotonicity**: guarantees compensation strictly increases with temperature down rows ($Mult(r+1, c) \ge Mult(r, c)$) and strictly increases with vacuum across columns ($Mult(r, c) \ge Mult(r, c+1)$); locks lowest temperatures ($-10^\circ\text{C}$ and $5^\circ\text{C}$) at $100.0\%$.
 - Outputs tab-delimited paste buffers ready for immediate insertion into EcuFlash.
+
+### Tool 16: `timing_mivec_remapper.py`
+Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the `V3.18` dyno reference ROM with runtime `MAPCalcs` scaling (`K_MAP_RUNTIME = 1.090`) and conservative lower-only safety mode.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/timing_mivec_remapper.py" \
+  --target-rom "roms/latest_rom.srf" \
+  --maf-table /tmp/next_rom_exports/new_maf_scaling.tsv \
+  --map-table /tmp/next_rom_exports/new_map_load_calc.tsv \
+  --paste-timing --lower-only
+```
+- Compensates for load coordinate shifts whenever `MAF Scaling Horizontal` or `MAP based Load Calc` tables are modified.
+- Applies `K_MAP_RUNTIME = 1.090` (`(256+13)/256 = 1.05078` firmware scalar × `1.037` nominal air density factor) so raw `MAP based Load Calc` table values map accurately to the `LOAD_TIMING_AXIS` (`0–320%`), and checks `#1` (`0x608AE`) vs `#2` (`0x605AC`) table parity.
+- Enforces `--lower-only` conservative safety rule: $Timing_{\text{safe}}(r,c) = \min(Timing_{\text{current}}(r,c), Timing_{\text{remapped}}(r,c))$ (zero accidental advance added).
+
+### Tool 17: `multi_rom_secant_balancer.py`
+Multi-ROM bracketed secant solver & anti-rectification balancer for `MAF Scaling Horizontal` and `MAP based Load Calc`.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/multi_rom_secant_balancer.py" \
+  --target-rom "roms/<LATEST_ROM>.srf" --logs "scans/<LATEST_LOG1>.csv" "scans/<LATEST_LOG2>.csv" \
+  --prev-rom1 "roms/<PREV_ROM1>.srf" --prev-logs1 "scans/<PREV_LOG1>.csv" \
+  --prev-rom2 "roms/<PREV_ROM2>.srf" --prev-logs2 "scans/<PREV_LOG2>.csv" \
+  --export-dir /tmp/next_rom_exports
+```
+- **DFCO & Exhaust Transport Delay Alignment**: Aligns `AFR(t + Δt)` with dynamic exhaust transport lag $\Delta t = \text{clamp}\left(\frac{0.35}{\sqrt{\max(0.3, \text{RPM} \times \text{MAP} / 100000)}}, 0.10\text{s}, 0.45\text{s}\right)$, strips DFCO/overrun recovery frames, and down-weights stationary idle (`w = 0.05`).
+- **Unclamped MAF Filtering (`MAPCalcs >= 0.99 * MAFCalcs`)**: Accumulates pure MAF bins (`Idx <= 73`, `MAP <= 105 kPa`) strictly from unclamped frames to eliminate clipped-peak division bias.
+- **Multi-ROM Bracketed Secant Solver with Post-Smoothing Bracket Invariance**: Solves bracketed bins via linear secant root-finding across up to 3 ROM flashes and clamps post-smoothed values strictly inside $[M_{\text{lean}} + 0.10\Delta M, M_{\text{rich}} - 0.10\Delta M]$.
+- **5-Frame Exhaust-Window `TrueLoad` & Crossover Anti-Rectification Guard**: Uses a 5-frame (`~0.25s`) moving average of `ChosenCalc` and `MAPCalcs`, targeting `1.20x` in vacuum (`Cols 2–5`), `1.14x` at `Col 6 (89.4 kPa)`, `1.06x` at `Col 7 (102.8 kPa)`, and enforcing a knock-free safety floor in positive boost (`Cols 8–9`: `116.3–129.7 kPa`).
+
+### Tool 18: `bov_flutter_knock_detector.py`
+Automated detection and classification of blow-off valve (BOV) flutter vs true ignition timing knock.
+```bash
+python3 "/Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My Drive/Evoman/tuning_tools/tools/bov_flutter_knock_detector.py" \
+  --logs "scans/log1.csv" ["scans/log2.csv" ...] [--window 5]
+```
+- **Physics-Based Classifier**: Distinguishes genuine combustion pre-ignition/knock from mechanical valve chatter, charge piping pressure oscillations, and decel lift-off noise.
+- **Evaluation Criteria**:
+  1. Detects exact inception frames where knock count increments ($\Delta \text{KnockSum} > 0$).
+  2. Analyzes a window ($\pm 5$ frames) of MAF voltage swings ($\Delta \text{MAFV} \ge 0.25\text{V}$), directional reversals ($d(\text{MAFV})/dt$ sign changes $\ge 3$), positive pressure manifold conditions ($MAP \ge 95\text{ kPa}$), steady throttle foot ($\Delta \text{TPS} \le 5\%$), and transient lean spikes ($AFR \ge 15.0$).
+  3. Classifies events into `BOV_FLUTTER`, `TRUE_TIMING_KNOCK`, or `LIFT_OFF_DECEL`.
+- **Remapper Integration**: `timing_mivec_remapper.py` integrates this classifier via `--filter-flutter-knock`, preventing false timing retards on non-timing mechanical flutter events while preserving safety retards on genuine knock.
+- **Knock Confidence Rule (`--min-knock-frequency 0.25`)**: Isolated single-count knock inceptions (`KnockSum == 1`) occurring infrequently (`< 25%` of cell visits) are stored in `calibration_experience.db` for tracking and **held at `0°` retard** in the timing tables.
+
+### Tool 19: `datalog_classifier.py`
+Multi-domain per-record telemetry classifier that enriches raw EvoScan CSVs into `*_classified.csv` with **34 `diag_*` columns**:
+```bash
+python3 tuning_tools/tools/datalog_classifier.py "scans/<LOG>.csv" --target-rom "roms/<MATCHING_ROM>.srf"
+```
+- Precomputes exact ROM table lookups (`diag_rom_maf_gs`, `diag_rom_map_ve_load`, `diag_rom_mat_comp_mult`, `diag_rom_timing_high`, `diag_rom_timing_low`, `diag_rom_timing_retard_total`, `diag_rom_latency_ms`, `diag_rom_afrmap`).
+- Computes gear & shift state, DFCO overrun fuel-cut vs sustained injector leak (`diag_decel_fuel_status`), smoothed Virtual Dyno WHP/WTQ, MIVEC/DBW/IDC health, stationarity confidence, transport-lag-aligned AFR error, knock root cause, and subsystem usability flags.
+
+### Tool 20: `ingest_experience.py`
+Ingestion and full-rehydration engine for `tuning_tools/db/calibration_experience.db` (SQLite):
+```bash
+# Rehydrate all post-Oct-22 ROMs and datalogs cleanly from scratch:
+python3 tuning_tools/tools/ingest_experience.py --rehydrate --since-date 2026-10-22
+
+# Incrementally classify and ingest new raw logs:
+python3 tuning_tools/tools/ingest_experience.py --roms "roms/<LATEST_ROM>.srf" --auto-classify-logs "scans/<NEW_LOG>.csv"
+```
+
+### Tool 21: `experience_query.py`
+Calibration Experience Database query, state-space $k$-NN similarity search, and pre-flash veto engine:
+```bash
+python3 tuning_tools/tools/experience_query.py audit-health
+python3 tuning_tools/tools/experience_query.py audit-events
+python3 tuning_tools/tools/experience_query.py find-similar --rpm 3200 --map 115 --gear 3 --top-k 5
+python3 tuning_tools/tools/experience_query.py reverse-match --rpm 3000 --map 100 --metric min_afr_error
+python3 tuning_tools/tools/experience_query.py forward-check --table maf_scaling --axis-x 2.50 --proposed 73.5
+```
+*(Tip: Use the `/evo-calibrate <driver notes or additional thoughts>` skill for end-to-end prompt-guided diagnostics and next-flash clipboard table generation).*
 
 ---
 
@@ -252,24 +323,30 @@ $$\text{ChosenCalc} = \text{clamp}(MAFCalcs_{\text{filtered}}, \text{Lower}, \te
 Analysis of LogChopper's classic balancer reveals destructive instability under inverted vacuum conditions ($MAFCalcs > MAPCalcs$):
 - **The Classic Error**: When $MAFCalcs > MAPCalcs$, classic LogChopper applies $C_{\text{MAF}} = \frac{MAPCalcs \times AFR\_ERR}{TARGET\_RATIO \times MAFCalcs}$.
   Since $\frac{MAPCalcs}{TARGET\_RATIO \times MAFCalcs} \le \frac{1.0}{1.05} \approx 0.952$, this artificially **reduces MAF Scaling even when the engine is running lean**! Lowering MAF reduces base injector pulse width ($IPW$), starving the engine and causing subsequent flashes to drift even leaner.
-- **The Ground Truth Airflow Principle**:
-  Because the ECU calculates fuel from the lower of the two sensors ($\min(MAFCalcs, MAPCalcs)$):
+- **The Ground Truth Airflow & AFR = AFRMAP Targeting Principle**:
+  The `High Octane Fuel Map` (`0x55027`) defines the sacred target AFR ($AFRMAP$). **Never modify the fuel map to compensate for airflow model errors.**
+  We plan and calibrate strictly to target $\mathbf{\text{AFR} = AFRMAP}$ by correcting the sensor load calculation tables:
   1. **Ground Truth Airflow ($\text{Load}_{\text{true}}$)**:
      The wideband O2 sensor directly measures the fueling error of whichever sensor was active:
      $$\mathbf{\text{Load}_{\text{true}} = \min(MAFCalcs, MAPCalcs) \times AFR\_ERR}$$
      where $AFR\_ERR = \left(1.0 - \frac{STFT + CurrentLTFT}{100.0}\right) \times \frac{AFR}{AFRMAP}$.
-  2. **Regime-Targeted Assignment**:
-     - **In Vacuum ($\text{MAP} \le 80\text{ kPa}$)**: MAF is the fuel master, MAP is the $1.05\times$ ceiling:
-       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.05 \times \text{Load}_{\text{true}}$$
-       $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}, \quad C_{\text{MAP}} = \frac{1.05 \times \text{Load}_{\text{true}}}{MAPCalcs}$$
-     - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the fuel master, MAF is the $1.053\times$ ($1/0.95$) headroom:
-       $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.95}$$
-       $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{0.95 \times MAFCalcs}$$
-  3. **Continuous Regime Blending**:
-     Using continuous weighting $W = \text{clamp}\left(\frac{120.0 - \text{MAP}}{40.0}, 0.0, 1.0\right)$:
-     $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}} \times \left(W + \frac{1.0 - W}{TARGET\_RATIO}\right)}{MAFCalcs}$$
-     $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}} \times \left(W \times TARGET\_RATIO + (1.0 - W)\right)}{MAPCalcs}$$
-  This completely eliminates circular dependencies, stops the clamp starvation trap, and sets the exact 5% buffer in a single flash without overshoot.
+  2. **Regime-Targeted Assignment (3-Tier Target Ratio Ramp)**:
+     *Detailed Specification: [`tuning_tools/references/load_clamping_and_afr_targeting_guide.md`](file:///Users/steven/Library/CloudStorage/GoogleDrive-stevenjohnston.ca@gmail.com/My%20Drive/Evoman/tuning_tools/references/load_clamping_and_afr_targeting_guide.md)*
+     - **In Vacuum ($\text{MAP} \le 80\text{ kPa}$)**: MAF is fuel master (governs $\text{AFR} = AFRMAP$), MAP is $1.20\times$ ceiling (absorbs $\pm 18\%$ dynamic cam overlap scatter):
+       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.20 \times \text{Load}_{\text{true}}$$
+       $$C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}, \quad C_{\text{MAP}} = \frac{1.20 \times \text{Load}_{\text{true}}}{MAPCalcs}$$
+     - **At Atmospheric Crossover ($\text{MAP} = 100\text{ kPa}$)**: Neutral handshake:
+       $$Target\_MAF = \text{Load}_{\text{true}}, \quad Target\_MAP = 1.00 \times \text{Load}_{\text{true}}$$
+     - **In Boost ($\text{MAP} \ge 120\text{ kPa}$)**: MAP is the Speed Density VE table and fuel master (governs $\text{AFR} = AFRMAP$), MAF is $1.25\times$ ($1/0.80$) anti-chatter headroom:
+       $$Target\_MAP = \text{Load}_{\text{true}}, \quad Target\_MAF = \frac{\text{Load}_{\text{true}}}{0.80} = 1.25 \times \text{Load}_{\text{true}}$$
+       $$C_{\text{MAP}} = \frac{\text{Load}_{\text{true}}}{MAPCalcs}, \quad C_{\text{MAF}} = \frac{1.25 \times \text{Load}_{\text{true}}}{MAFCalcs}$$
+  3. **Continuous Regime Blending & Cross-Regime MAF Bin Isolation**:
+     Using target ratio ramp $R(\text{MAP}) = \text{clamp}(1.20 - 0.010 \times (\text{MAP} - 80), 0.80, 1.20)$:
+     - When $R(\text{MAP}) \ge 1.00$ (Vacuum to Crossover): $Target\_MAF = \text{Load}_{\text{true}}$, $Target\_MAP = R(\text{MAP}) \times \text{Load}_{\text{true}}$
+     - When $R(\text{MAP}) < 1.00$ (Crossover to Boost): $Target\_MAP = \text{Load}_{\text{true}}$, $Target\_MAF = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$ **ONLY for pure boost MAF bins (`>= 2.89V` / `>= 109 g/s`, `Idx >= 74`)**.
+     - **Critical Cross-Regime Isolation Rule**: Shared MAF bins (`Idx 35–73`, `1.37V–2.85V`) operate in mid/high-RPM vacuum (`3,000–5,000 RPM` at `50–100 kPa`) where `MAFCalcs` is the active fuel master. Never inflate `Idx <= 73` using $1 / R(\text{MAP})$ from low-RPM spool (`100–130 kPa`) samples; calibrate `Idx <= 73` strictly to $C_{\text{MAF}} = \frac{\text{Load}_{\text{true}}}{MAFCalcs}$ from $\text{MAP} \le 100\text{ kPa}$ samples.
+     - **3D VE RPM Slope Preservation**: Never flatten `MAP based Load Calc` vertically across RPM above `3,000 RPM` in vacuum/crossover. Always project unobserved or partial-confidence high-RPM cells along `V3.18`'s physical VE RPM slope.
+  This completely eliminates circular dependencies, stops the clamp starvation trap in vacuum, and firmly locks into Speed Density under boost without chattering.
 
 ### 7. Thermal Decoupling & Cold-Witnessed Invariance Principle
 - **Decoupled Architecture**: The `Fuel Compensation MAT vs MAP` table (`0x60FCD`) has only one physical responsibility: **Thermal Invariance** ($\frac{\partial \text{AFR}}{\partial \text{MAT}} = 0$). It ensures that high manifold temperatures ($40^\circ\text{C}\text{--}60^\circ\text{C}+$) do not cause AFR to drift from the cold/reference baseline ($20^\circ\text{C}$).
@@ -290,6 +367,11 @@ Analysis of LogChopper's classic balancer reveals destructive instability under 
   - Row 5: $80^\circ\text{C}$ ($176^\circ\text{F}$) -> Factory ranges 115.0% down to 100.0%.
   - Row 6: $100^\circ\text{C}$ ($212^\circ\text{F}$) -> Factory ranges 117.0% down to 100.0%.
 - **Why Compensation Rises With MAT**: Mitsubishi factory calibration adds fuel as intake manifold temperature rises (from 100% at $14^\circ\text{F}$ up to 117% at $212^\circ\text{F}$ in vacuum) to counteract charge heating, reduced volumetric efficiency, fuel puddle evaporation, and detonation sensitivity under heat soak.
+- **Strict 2D Monotonicity Rule**:
+  - **Cold Baseline Floor (Rows 0 & 1)**: Row 0 ($-10^\circ\text{C}$) and Row 1 ($5^\circ\text{C}$) MUST remain locked at **100.0% across all MAP columns**.
+  - **With Temperature (down rows)**: $Mult(r+1, c) \ge Mult(r, c)$. Compensation must strictly increase (or stay flat) as temperature rises. Never introduce temperature dips down a column.
+  - **With Vacuum (across columns from boost to vacuum)**: $Mult(r, c) \ge Mult(r, c+1)$. Compensation must strictly increase with vacuum (taper monotonically down toward $100.0\%$ in boost). Never introduce vacuum dips across a row.
+  - **Zero Dips Mandate**: Any non-monotonic dip creates artificial thermal pockets, causing unpredictable AFR swings across weather and driving conditions.
 - **ROM 11 Over-Inflation**: ROM 11 pushed rows 3–6 up to 124%, directly causing the noon 5% rich drift. Trimming rows 3–6 back toward the factory curve eliminates the heat-soak rich drift.
 
 ### 9. EcuFlash 3D Table GUI Grid Orientation Standards (RPM Rows vs MAP/Load Columns)
@@ -337,11 +419,12 @@ flowchart TD
    - Record:
      - Median AFR error (convergence towards 1.0000)
      - Idle AFR (14.7 target) and Cruise AFR (14.7 target)
-     - Mean Load Ratio vs target curve (target: 1.05 at vacuum, 0.95 at boost)
+     - Mean Load Ratio vs 3-Tier Target Curve (target: 1.20 at vacuum $\le 80\text{ kPa}$, 1.00 at $100\text{ kPa}$ crossover, 0.80 at boost $\ge 120\text{ kPa}$)
      - Knock events (ensure 0 knock counts across steady state)
 4. **Step 4: Transition Verification**:
    - Run `rom_log_verifier.py` across the flash transition.
    - Confirm $MAFCalcs$ moved in the direction and magnitude predicted by $C_{\text{MAF}}$.
-5. **Step 5: Diagnosis & Action Plan**:
+5. **Step 5: Diagnosis & Action Plan (Clipboard Paste Buffers Only)**:
    - Classify overall trend: **Better** (converging on target), **Worse** (diverging/oscillating), or **Indecisive** (insufficient warm steady-state data).
    - Flag any algorithm flaws (boundary chatter, moving-target lag, closed-loop trim masking).
+   - **No ROM Binary Creation Rule**: NEVER create or write `.srf` or `.bin` files into `roms/`. Output calibration proposals strictly as formatted EcuFlash clipboard paste blocks (`.tsv` / `.txt`).

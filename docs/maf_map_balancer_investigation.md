@@ -147,17 +147,17 @@ MAP_CORR = MAPCalcs < MAFCalcs ? AFR_ERR : (MAP >= 120 ? 1.0 : ((TARGET_RATIO * 
 - *Fix needed*: `AFR_ERR` must incorporate total fuel trim:
   $$\text{AFR\_ERR} = \left(1 - \frac{\text{STFT} + \text{LTFT}}{100}\right) \times \frac{\text{AFR}}{\text{AFRMAP}}$$
 
-### Flaw 4: Artificial Clamping via the MAF Smoothing Rule
+### Flaw 4: Low-Voltage MAF Shelf & Cross-Regime MAF Bin Pollution
 In [rom.ts#L650-L660](file:///Users/steven/go/github.com/LogChopper/app/_lib/rom.ts#L650-L660):
 ```javascript
 minVal = destTable[y][x - 1] + (baseStep > 0 ? baseStep * 0.25 : 0.01);
 val < minVal ? minVal : val;
 ```
-- This rule enforces strictly monotonic progression with a minimum slope of $25\%$ of the original step.
-- On aftermarket intakes with large MAF housings (such as the Full Race 3.5" intake installed on this car), acoustic resonances, bends, and reversion can cause legitimate localized dips or flat spots in the voltage transfer function.
-- If a cell is running rich and needs to be pulled down, this rule can artificially clamp it to `minVal`, preventing full correction.
+- While `MAF Scaling Horizontal` must remain strictly monotonic (never introduce flat steps like `5.39 -> 5.39 g/s` at `Idx 35–36` or `7.63 -> 7.65 g/s` at `Idx 39–40`), two deeper calibration flaws occurred in past passes:
+  1. **Low-Voltage Idle Shelf (`Idx 20–37`, `0.78V–1.45V`)**: Inflating `Idx 31–37` above `V3.18` (`Idx 36 = 5.42 vs 4.36 g/s`, `Idx 37 = 5.62 vs 5.18 g/s`) causes fully warmed-up `50 kPa` idle (`1.44V–1.46V`) to run at `13.2–13.4 AFR` (`-9.5%` rich).
+  2. **Cross-Regime MAF Bin Pollution (`Idx 52–73`, `2.03V–2.85V`)**: Applying boost headroom inflation ($\text{Target\_MAF} = \frac{\text{Load}_{\text{true}}}{R(\text{MAP})}$) to `2.03V–2.85V` during low-RPM spool (`100–130 kPa`) corrupts mid/high-RPM vacuum driving (`3,000–5,000 RPM` at `50–95 kPa`), which uses those exact same MAF voltage bins as the active fuel master. Only pure boost MAF bins (`Idx >= 74`, `>= 2.89V`) should carry the $1.25\times$ ($1 / 0.80$) Speed Density headroom.
 
-### Flaw 5: EcuFlash UI `swapxy="true"` Transposition Hazard
+### Flaw 5: Binary Memory vs. EcuFlash GUI `swapxy="true"` Orientation
 - In the ECU XML definition:
   ```xml
   <table name="MAP based Load Calc #2 - Cold/Interpolated" type="3D" swapxy="true">
@@ -165,9 +165,15 @@ val < minVal ? minVal : val;
      <table name="RPM" type="Y Axis" elements="19"/>
   </table>
   ```
-- In LogChopper's [TableUI.tsx](file:///Users/steven/go/github.com/LogChopper/app/_components/TableUI.tsx), `swapxy` is ignored during clipboard export. It copies the array as 19 rows (RPM) by 20 columns (MAP).
-- In EcuFlash, `swapxy="true"` renders the table with 20 rows (MAP) and 19 columns (RPM).
-- If a user copies from LogChopper and pastes directly into EcuFlash without transposing or matching axes, the table values would be completely scrambled across the RPM/MAP dimensions.
+- **Correction to Previous Maintainer Analysis**: In raw M32R binary memory, `swapxy="true"` means the 380 `uint16` words are stored **column-major** (`offset = map_col * 19 + rpm_row`, i.e., 20 contiguous slices of 19 RPM values).
+- However, **in the EcuFlash GUI**, all 3D engine tables display **19 Vertical Rows (RPM) × 20 Horizontal Columns (MAP)**.
+- Slicing raw binary memory into 20 chunks of 19 and outputting `20 rows × 19 columns` causes an immediate clipboard dimension mismatch in EcuFlash. All EcuFlash paste buffers for `MAP based Load Calc` MUST be emitted as **19 lines (RPM rows) × 20 tab-separated columns (MAP kPa)**, and vertical VE slopes across RPM above `3,000 RPM` must follow `V3.18` rather than being flattened.
+- Additionally, the ECU blends `MAP based Load Calc #1 - Hot/Interpolated` (`0x608ae`) and `MAP based Load Calc #2 - Cold/Interpolated` (`0x605ac`). Both tables must always be updated in lockstep in EcuFlash.
+
+### Flaw 6: Crossover Min-Selector Rectification (`102.8 kPa`) & Clamped-Frame MAF Bias
+- **Clamped-Frame MAF Rectification Bias (`Idx 60–67`, `2.35V–2.62V`)**: Because the wideband O2 sensor integrates exhaust gas over a `~0.25s` (`5-frame`) window while `MAFCalcs` has $\pm 8\%$ cycle-to-cycle GSC S2 cam pulsation, dividing $\min(\text{MAFCalcs}_t, \text{MAPCalcs}_t) \times \text{AFR\_ERR}$ by instantaneous $\text{MAFCalcs}_t$ on clamped frames divides by clipped upper pulsation peaks and introduces a fake `-3% to -5%` rich bias. Pure MAF bins (`Idx <= 73`) must be accumulated strictly from unclamped frames (`MAPCalcs >= 0.99 * MAFCalcs`).
+- **Crossover Min-Selector Rectification (`Col 6 = 89.4 kPa`, `Col 7 = 102.8 kPa`)**: Because `Idx <= 73` (`<= 2.85V`) has no `1.25x` boost headroom, setting `MAPCalcs == TrueLoad` (`Ratio = 1.00`) at `102.8 kPa` causes $\min(\text{MAFCalcs}, \text{MAPCalcs})$ to clip every upward MAF pulsation peak while passing every downward trough ($\mathbb{E}[\min(X,Y)] = \mu - \frac{\sigma}{\sqrt{\pi}} < \mu$), clamping up to `86.7%` of crossover frames, starving fuel (`15.1–15.5 AFR`), and advancing spark into knock at `105–115 kPa`.
+- **Fix Implemented in `multi_rom_secant_balancer.py`**: Compute `TrueLoad` over a 5-frame (`~0.25s`) moving average and maintain an anti-rectification ceiling of **`1.14x` at `89.4 kPa` (`Col 6`)** and **`1.06x` at `102.8 kPa` (`Col 7`)**, while protecting positive boost columns (`>= 116.3 kPa`) with the knock-free `V3.18` / `ROM 25` floor.
 
 ---
 

@@ -14,11 +14,11 @@ import sys
 
 def target_ratio(kpa):
     if kpa <= 80.0:
-        return 1.05
+        return 1.20
     elif kpa >= 120.0:
-        return 0.95
+        return 0.80
     else:
-        return 1.05 - 0.0025 * (kpa - 80.0)
+        return 1.20 - 0.010 * (kpa - 80.0)
 
 def analyze_log(log_path, ect_min=75.0, app_min=10.0, json_output=False):
     if not os.path.exists(log_path):

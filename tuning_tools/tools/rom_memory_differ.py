@@ -114,6 +114,16 @@ FIRMWARE_MAPPINGS = {
         "role": "Target idle RPM setpoint.",
         "firmware_effect": "Closed-loop idle target setpoint."
     },
+    (0x60FCD, 0x61012): {
+        "name": "Fuel Compensation MAT vs MAP",
+        "routine": "mat_thermal_comp_engine.c",
+        "scaling_type": "mat_comp",
+        "role": "Fuel compensation multiplier based on Manifold Air Temp (MAT) vs MAP (7 MAT rows x 10 MAP columns).",
+        "firmware_effect": (
+            "Trims fuel injection multiplier according to manifold charge temperature to maintain thermal invariance. "
+            "Higher values inject more fuel at high MAT / vacuum."
+        )
+    },
     (0xBFFF0, 0xBFFF3): {
         "name": "ROM Checksum (CRC32)",
         "routine": "ECU Bootloader CRC check",
@@ -366,6 +376,26 @@ def compare_roms(rom1_path, rom2_path):
                 "delta": f"{v2 - v1:+.1f} RPM",
                 "pct": f"{(v2 - v1)/v1 * 100:+.2f}%"
             })
+        elif stype == "mat_comp":
+            base_addr = 0x60FCD
+            map_axis = [round(((struct.unpack(">H", b1[0x634D4 + i*2 : 0x634D4 + (i+1)*2])[0] / 4.0) * 1.6151) + 3.4779, 1) for i in range(10)]
+            mat_axis = [struct.unpack(">H", b1[0x634C0 + i*2 : 0x634C0 + (i+1)*2])[0] - 40 for i in range(7)]
+            for i in range(70):
+                cell_addr = base_addr + i
+                if s <= cell_addr <= e and b1[cell_addr] != b2[cell_addr]:
+                    x_map = i // 7
+                    y_mat = i % 7
+                    v1 = (b1[cell_addr] + 384) / 5.12
+                    v2 = (b2[cell_addr] + 384) / 5.12
+                    delta = v2 - v1
+                    pct = (delta / v1) * 100 if v1 > 0 else 0
+                    mod_entry["cell_details"].append({
+                        "cell": f"MAT {mat_axis[y_mat]}C x MAP {map_axis[x_map]}kPa",
+                        "old": f"{v1:.1f}%",
+                        "new": f"{v2:.1f}%",
+                        "delta": f"{delta:+.1f}%",
+                        "pct": f"{pct:+.2f}%"
+                    })
             
         results["modifications"].append(mod_entry)
         

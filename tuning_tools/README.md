@@ -151,6 +151,45 @@ Decompiled C source files are saved to `decompiled_c/`:
 - `tephramod_v3_map_dispatcher.c`: Live tuning map selector and memory structure
 - `coolant_temp_axis_evaluator.c`: Coolant temperature axis binary search & lookup
 
+### 10. `fill_log_afrmap.py`
+Reconstructs and populates missing `AFRMAP` values in EvoScan CSV datalogs directly from the ROM's `High Octane Fuel Map` (`0x55027`).
+```bash
+python3 tools/fill_log_afrmap.py --rom "roms/latest_rom.srf" "scans/log1.csv" "scans/log2.csv"
+```
+
+### 11. `multi_rom_secant_balancer.py`
+Multi-ROM bracketed secant solver & anti-rectification balancer with dynamic exhaust transport-lag alignment, unclamped MAF filtering (`MAPCalcs >= 0.99 * MAFCalcs`), 5-frame exhaust-window `TrueLoad`, crossover anti-rectification guard (`1.14x` at `89.4 kPa`, `1.06x` at `102.8 kPa`), and post-smoothing bracket invariance.
+```bash
+python3 tools/multi_rom_secant_balancer.py \
+  --target-rom "roms/<LATEST_ROM>.srf" --logs "scans/<LATEST_LOG1>.csv" \
+  --prev-rom1 "roms/<PREV_ROM1>.srf" --prev-logs1 "scans/<PREV_LOG1>.csv" \
+  --prev-rom2 "roms/<PREV_ROM2>.srf" --prev-logs2 "scans/<PREV_LOG2>.csv" \
+  --export-dir /tmp/next_rom_exports
+```
+
+### 12. `timing_mivec_remapper.py`
+Inverse-coordinate remapping of Ignition Timing (High/Low Octane) and MIVEC (Intake/Exhaust) targeting the `V3.18` dyno reference ROM with runtime `MAPCalcs` scaling (`K_MAP_RUNTIME = 1.090`), conservative `--lower-only` safety mode, and `--filter-flutter-knock` integration.
+```bash
+python3 tools/timing_mivec_remapper.py \
+  --target-rom "roms/<LATEST_ROM>.srf" \
+  --maf-table /tmp/next_rom_exports/new_maf_scaling.tsv \
+  --map-table /tmp/next_rom_exports/new_map_load_calc.tsv \
+  --knock-logs "scans/<LATEST_LOG>.csv" \
+  --filter-flutter-knock \
+  --paste-timing --lower-only
+```
+
+### 13. `bov_flutter_knock_detector.py`
+Automated classifier that decouples mechanical BOV flutter / rapid cycling chatter knock from genuine in-cylinder ignition timing knock. Isolates high-frequency airflow reversals under part-throttle spool (`TPS 25%-55%`, `MAP 95-135 kPa`, `MAF Swing >= 0.28V`) so tuners never mistakenly retard spark advance for mechanical valve chatter.
+```bash
+# Scan datalogs and display classification report
+python3 tools/bov_flutter_knock_detector.py "scans/<LATEST_LOG>.csv"
+
+# Batch scan multiple logs and export JSON results
+python3 tools/bov_flutter_knock_detector.py scans/*.csv --export-json flutter_report.json
+```
+
+
 
 ---
 
@@ -209,7 +248,7 @@ flowchart TD
      - Median AFR error (target is 1.0000)
      - Steady Idle AFR (target is 14.70)
      - Steady Cruise AFR (target is 14.70)
-     - MAP/MAF ratio vs target curve (target is 1.05 at $\le 80\text{ kPa}$, 0.95 at $\ge 120\text{ kPa}$)
+     - MAP/MAF ratio vs 3-Tier Target Curve (target is 1.20 at $\le 80\text{ kPa}$, 1.00 at $100\text{ kPa}$, 0.80 at $\ge 120\text{ kPa}$)
      - Inverted state ratio ($MAF < MAP$ vs $MAP < MAF$)
 4. **Transition Verification**:
    - Run `tools/rom_log_verifier.py` across the transition.

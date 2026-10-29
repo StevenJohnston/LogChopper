@@ -68,43 +68,54 @@ def diff_roms(rom1_path, rom2_path, show_all=False):
         if len(maf_diffs) > 20 and not show_all:
             print(f"  ... and {len(maf_diffs)-20} more cells (use --all to show all)")
 
-    # 2. Check MAP based Load Calc #2 (0x605ac)
+    # 2. Check MAP based Load Calc #1 (0x608ae) and #2 (0x605ac)
     map_def = mem_map["tables"]["MAP based Load Calc #2 - Cold/Interpolated"]
-    map_addr = int(map_def["address"], 16)
     m_elems = map_def["x_axis"]["elements"] # 20
     r_elems = map_def["y_axis"]["elements"] # 19
     tot_map = m_elems * r_elems # 380
-    
-    m_raw1 = struct.unpack(f">{tot_map}H", b1[map_addr:map_addr+tot_map*2])
-    m_raw2 = struct.unpack(f">{tot_map}H", b2[map_addr:map_addr+tot_map*2])
-    
+
     m_axis_raw = struct.unpack(f">{m_elems}H", b1[int(map_def['x_axis']['address'], 16):int(map_def['x_axis']['address'], 16)+m_elems*2])
     map_kpa = [round(((r * 2556.0 / 3800.0) + 0.5) / 2.0, 1) for r in m_axis_raw]
     r_axis_raw = struct.unpack(f">{r_elems}H", b1[int(map_def['y_axis']['address'], 16):int(map_def['y_axis']['address'], 16)+r_elems*2])
     rpm = [round(r * 1000.0 / 256.0) for r in r_axis_raw]
-    
-    map_diffs = []
-    for i in range(tot_map):
-        if m_raw1[i] != m_raw2[i]:
-            v1 = (m_raw1[i] * 10.0 / 512.0) * 10.0 / 32.0
-            v2 = (m_raw2[i] * 10.0 / 512.0) * 10.0 / 32.0
-            m_idx = i // r_elems
-            r_idx = i % r_elems
-            factor = v2 / v1 if v1 > 0 else 1.0
-            pct = (v2 - v1) / v1 * 100 if v1 > 0 else 0
-            map_diffs.append({
-                "index": i, "map_kpa": map_kpa[m_idx], "rpm": rpm[r_idx],
-                "val1": v1, "val2": v2, "factor": factor, "pct": pct
-            })
-            
-    print(f"\n[2] MAP based Load Calc #2 (0x605ac): {len(map_diffs)} / {tot_map} cells modified")
-    if map_diffs:
-        print("Idx | MAP (kPa) | RPM   | ROM 1 Load% | ROM 2 Load% | Delta Load% | Table Factor (C_MAP) | Change %")
-        to_show = map_diffs if show_all else map_diffs[:20]
-        for d in to_show:
-            print(f"{d['index']:3d} | {d['map_kpa']:8.1f} | {d['rpm']:5d} | {d['val1']:10.2f}% | {d['val2']:10.2f}% | {d['val2']-d['val1']:+10.2f}% | {d['factor']:18.4f} | {d['pct']:+6.2f}%")
-        if len(map_diffs) > 20 and not show_all:
-            print(f"  ... and {len(map_diffs)-20} more cells (use --all to show all)")
+
+    for tbl_idx, (tbl_label, map_addr) in enumerate([
+        ("MAP based Load Calc #1 - Hot/Interpolated (0x608ae)", 0x608ae),
+        ("MAP based Load Calc #2 - Cold/Interpolated (0x605ac)", 0x605ac),
+    ], start=2):
+        m_raw1 = struct.unpack(f">{tot_map}H", b1[map_addr:map_addr+tot_map*2])
+        m_raw2 = struct.unpack(f">{tot_map}H", b2[map_addr:map_addr+tot_map*2])
+
+        map_diffs = []
+        for i in range(tot_map):
+            if m_raw1[i] != m_raw2[i]:
+                v1 = (m_raw1[i] * 10.0 / 512.0) * 10.0 / 32.0
+                v2 = (m_raw2[i] * 10.0 / 512.0) * 10.0 / 32.0
+                m_idx = i // r_elems
+                r_idx = i % r_elems
+                factor = v2 / v1 if v1 > 0 else 1.0
+                pct = (v2 - v1) / v1 * 100 if v1 > 0 else 0
+                map_diffs.append({
+                    "index": i, "map_kpa": map_kpa[m_idx], "rpm": rpm[r_idx],
+                    "val1": v1, "val2": v2, "factor": factor, "pct": pct
+                })
+
+        print(f"\n[{tbl_idx}] {tbl_label}: {len(map_diffs)} / {tot_map} cells modified")
+        if map_diffs:
+            print("Idx | MAP (kPa) | RPM   | ROM 1 Load% | ROM 2 Load% | Delta Load% | Table Factor (C_MAP) | Change %")
+            to_show = map_diffs if show_all else map_diffs[:20]
+            for d in to_show:
+                print(f"{d['index']:3d} | {d['map_kpa']:8.1f} | {d['rpm']:5d} | {d['val1']:10.2f}% | {d['val2']:10.2f}% | {d['val2']-d['val1']:+10.2f}% | {d['factor']:18.4f} | {d['pct']:+6.2f}%")
+            if len(map_diffs) > 20 and not show_all:
+                print(f"  ... and {len(map_diffs)-20} more cells (use --all to show all)")
+
+    # Parity check between #1 (0x608ae) and #2 (0x605ac) in ROM 2
+    t1_rom2 = struct.unpack(f">{tot_map}H", b2[0x608ae:0x608ae+tot_map*2])
+    t2_rom2 = struct.unpack(f">{tot_map}H", b2[0x605ac:0x605ac+tot_map*2])
+    mismatch = sum(1 for a, b in zip(t1_rom2, t2_rom2) if a != b)
+    if mismatch > 0:
+        print(f"\n[!] WARNING: In {os.path.basename(rom2_path)}, MAP based Load Calc #1 (0x608ae) and #2 (0x605ac) differ in {mismatch} / {tot_map} cells!")
+        print("    Ensure you paste the MAP based Load Calc table into BOTH #1 and #2 in EcuFlash.")
 
 def main():
     parser = argparse.ArgumentParser(description="Diff two Evo X calibration ROMs (.srf/.bin)")
