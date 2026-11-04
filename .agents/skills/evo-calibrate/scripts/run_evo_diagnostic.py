@@ -4,13 +4,15 @@ run_evo_diagnostic.py - One-shot Discovery, Classification, DB Sync & Multi-Doma
 
 Automatically:
   1. Finds the latest ROM in roms/ and chronologically associated raw logs in scans/.
-  2. Ensures the latest ROM and all of its raw logs are classified (*_classified.csv)
-     and ingested into tuning_tools/db/calibration_experience.db.
-  3. Runs multi-domain experience audits (health/progression, anomaly events, thermal, injectors)
-     and optional operating-point similarity / reverse-match lookups if --rpm and --map are given.
+  2. Ensures the latest ROM and all of its raw logs are classified (*_classified.csv, 46 diag_* cols)
+     and ingested into tuning_tools/db/calibration_experience.db (including maf_bin_experience,
+     thermal_summaries, and anomaly_episodes).
+  3. Runs multi-domain pure Open-Loop experience audits (health, regressions, MAF envelope,
+     3-way thermal, injectors, and anomaly episodes/events) plus optional episode trace or k-NN lookup.
 """
 
 import argparse
+from datetime import datetime
 import glob
 import os
 import sqlite3
@@ -28,7 +30,7 @@ from datalog_classifier import DatalogClassifier  # noqa: E402
 
 
 def main():
-    parser = argparse.ArgumentParser(description="One-shot Evo X Diagnostic & Experience DB Sync Runner")
+    parser = argparse.ArgumentParser(description="One-shot Evo X Open-Loop Diagnostic & Experience DB Sync Runner")
     parser.add_argument("--roms-dir", default=os.path.join(REPO_ROOT, "roms"))
     parser.add_argument("--scans-dir", default=os.path.join(REPO_ROOT, "scans"))
     parser.add_argument("--db", default=DEFAULT_DB)
@@ -37,9 +39,9 @@ def main():
     parser.add_argument("--rpm", type=float, help="Optional focus RPM from user prompt for k-NN & reverse-match")
     parser.add_argument("--map", type=float, help="Optional focus MAP kPa from user prompt for k-NN & reverse-match")
     parser.add_argument("--gear", help="Optional focus Gear (1..5) from user prompt")
+    parser.add_argument("--trace-latest", action="store_true", help="Print frame-by-frame trace for highest-severity episode on latest drive")
     args = parser.parse_args()
 
-    from datetime import datetime
     cutoff_ts = datetime.strptime(args.since_date, "%Y-%m-%d").timestamp()
 
     init_db(args.db, reset=False)
@@ -83,16 +85,29 @@ def main():
             cl.classify_all()
             out_csv = f"{os.path.splitext(lp)[0]}_classified.csv"
             cl.export_csv(out_csv)
-            ingest_classified_datalog(out_csv, args.db, target_rom_id=r_id)
+            ingest_classified_datalog(
+                out_csv, args.db, target_rom_id=r_id, precomputed_episodes=cl.anomaly_episodes
+            )
             new_count += 1
 
     if new_count == 0:
         print("[*] All post-cutoff datalogs are already classified and indexed in calibration_experience.db.")
 
-    # 3. Run multi-domain audits
+    # 3. Run multi-domain pure Open-Loop audits
     query_script = os.path.join(TOOLS_DIR, "experience_query.py")
-    for subcmd in ["audit-health", "audit-events", "audit-thermal", "audit-injectors"]:
+    audit_sequence = [
+        "audit-health",
+        "audit-regressions",
+        "audit-maf-envelope",
+        "audit-thermal",
+        "audit-injectors",
+        "audit-events",
+    ]
+    for subcmd in audit_sequence:
         subprocess.run([sys.executable, query_script, "--db", args.db, subcmd], check=False)
+
+    if args.trace_latest:
+        subprocess.run([sys.executable, query_script, "--db", args.db, "investigate", "--trace-latest"], check=False)
 
     if args.rpm is not None and args.map is not None:
         rev_cmd = [sys.executable, query_script, "--db", args.db, "reverse-match",

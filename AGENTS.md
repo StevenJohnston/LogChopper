@@ -18,6 +18,11 @@ Whenever performing telemetry analysis, balancer simulation, fuel/load verificat
    - **NEVER generate, create, or write `.srf` or `.bin` ROM files into the `roms/` directory.**
    - Only output the new calibration values as formatted clipboard paste blocks and export files (`.tsv` / `.txt`). The user will manually copy and paste them into EcuFlash directly.
 
+4. **Zero-Transcription-Error Rule (Strict File-to-Buffer Piping & Verification)**:
+   - **NEVER type, generate, or transcribe 2D/3D calibration tables (MAF, MAP Load Calc, Timing, MIVEC) from LLM memory / autoregressive tokens.** Large numeric matrices are susceptible to row drift, column shift, and value hallucination when emitted manually.
+   - **Mandatory Direct Disk Ingestion**: Clipboard paste blocks and report artifacts MUST ALWAYS be populated by reading directly from the verified toolchain export files on disk (`.tsv` / `.txt`).
+   - **Mandatory Automated Parity Check**: Before presenting any table to the user, run an automated assertion verifying byte-for-byte or numeric equality between the presentation buffer and the disk export file (`assert disk_table == presentation_table`). If any discrepancy exists, the tool must abort and reload directly from disk.
+
 ---
 
 ## 2. Platform & Hardware Configuration

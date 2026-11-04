@@ -34,11 +34,13 @@ import argparse
 import csv
 import math
 import os
+import sqlite3
 import statistics
 import struct
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DB_PATH = os.path.join(SCRIPT_DIR, "..", "db", "calibration_experience.db")
 sys.path.insert(0, SCRIPT_DIR)
 import timing_mivec_remapper as tmr
 
@@ -86,6 +88,7 @@ def get_index_float(arr, val):
 
 def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
     unclamped_maf = [[0.0, 0.0, 0] for _ in range(130)]
+    boost_true_gs = [[0.0, 0.0, 0] for _ in range(130)]
     map_true_ratio = [[[0.0, 0.0, 0] for _ in range(20)] for _ in range(19)]
     knock_clusters = []
 
@@ -106,6 +109,14 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
             continue
         dt = (float(rows[-1]["LogEntrySeconds"]) - float(rows[0]["LogEntrySeconds"])) / max(1, len(rows))
 
+        # Detect crank / cold key-on start for 35s wideband O2 heater warmup gate
+        crank_sec = None
+        for r0 in rows:
+            if float(r0.get("RPM", 0) or 0) >= 450.0:
+                crank_sec = float(r0["LogEntrySeconds"])
+                break
+        needs_wb_gate = (float(rows[0].get("RPM", 0) or 0) < 300.0) or (float(rows[0].get("ECT", 85) or 85) < 40.0)
+
         for i, r in enumerate(rows):
             knk = float(r.get("KnockSum", 0) or 0)
             if knk > 0:
@@ -113,10 +124,13 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
 
         for i in range(20, len(rows) - 15):
             r = rows[i]
+            sec_now = float(r["LogEntrySeconds"])
+            if needs_wb_gate and crank_sec is not None and (sec_now - crank_sec) < 35.0:
+                continue
             if any(float(rows[k]["IPW"]) <= 0 for k in range(i - 16, i + 9)):
                 continue
             ect = float(r["ECT"])
-            if ect < 78.0:
+            if ect < 80.0:
                 continue
             spd, tps, app, rpm, kpa = (
                 float(r["Speed"]),
@@ -142,10 +156,10 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
             lag = int(round(max(0.10, min(0.45, 0.35 / math.sqrt(max(0.3, flow_proxy)))) / dt))
             afr = float(rows[i + lag]["AFR"])
             afrmap = float(r["AFRMAP"])
-            if not (9.5 < afr < 17.5):
+            # Pure Open-Loop Wideband Validity Gate (exclude <=10.08 rich rail & >=18.42 lean rail)
+            if not (10.08 < afr < 18.42) or afrmap <= 0:
                 continue
-            stft, ltft = float(r.get("STFT", 0) or 0), float(r.get("CurrentLTFT", 0) or 0)
-            afr_err = (1.0 - (stft + ltft) / 100.0) * (afr / afrmap)
+            afr_err = afr / afrmap
 
             # Classify regime
             if spd < 2.0 and rpm < 1250:
@@ -167,8 +181,8 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
 
             w_s = 0.05 if (spd < 2.0 and rpm < 1200) else 1.0
 
-            # 1. Pure Unclamped MAF accumulation (MAPCalcs >= 0.99 * MAFCalcs and MAP <= 105 kPa)
-            if kpa <= 105.0 and mapc >= mafc * 0.99:
+            # 1. Pure Unclamped MAF accumulation (MAPCalcs >= 0.99 * MAFCalcs, MAP <= 105 kPa, MAFV <= 2.74V)
+            if kpa <= 105.0 and mafv <= 2.74 and mapc >= mafc * 0.99:
                 fx = get_index_float(volts, mafv)
                 i0, i1 = int(math.floor(fx)), int(math.ceil(fx))
                 w1 = (fx - i0) * w_s
@@ -189,6 +203,16 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
             true_load_5 = chosen_5 * afr_err
             c_true_over_mapc = true_load_5 / mapc_5
 
+            # Track empirical true mass airflow (g/s) in boost for non-cumulative MAF SD headroom
+            if kpa >= 115.0 and tps >= 30.0 and mafv >= 2.85:
+                true_gs = (true_load_5 * rpm) / 4964.28
+                fx_b = get_index_float(volts, mafv)
+                ib = int(round(fx_b))
+                if 74 <= ib < 130:
+                    boost_true_gs[ib][0] += true_gs
+                    boost_true_gs[ib][1] += 1.0
+                    boost_true_gs[ib][2] += 1
+
             kx = get_index_float(map_kpa, kpa)
             rx = get_index_float(rpm_axis, rpm)
             k0, k1 = int(math.floor(kx)), int(math.ceil(kx))
@@ -203,7 +227,7 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
                         map_true_ratio[ri][ki][1] += w
                         map_true_ratio[ri][ki][2] += 1
 
-    return unclamped_maf, map_true_ratio, regimes, knock_clusters
+    return unclamped_maf, boost_true_gs, map_true_ratio, regimes, knock_clusters
 
 
 def print_regime_summary(label, regimes, knock_clusters):
@@ -252,23 +276,53 @@ def main():
         )
 
     prev_history = []
+    fleet_boost_gs = [[0.0, 0.0] for _ in range(130)]
     if args.prev_rom1 and args.prev_logs1:
         r1 = load_rom(args.prev_rom1)
-        u1, mtr1, reg1, knk1 = collect_telemetry(args.prev_logs1, volts, map_kpa, rpm_axis)
+        u1, bgs1, mtr1, reg1, knk1 = collect_telemetry(args.prev_logs1, volts, map_kpa, rpm_axis)
         print_regime_summary(r1["name"], reg1, knk1)
         prev_history.append((r1, u1, mtr1))
+        for bi in range(130):
+            fleet_boost_gs[bi][0] += bgs1[bi][0]
+            fleet_boost_gs[bi][1] += bgs1[bi][1]
 
     if args.prev_rom2 and args.prev_logs2:
         r2 = load_rom(args.prev_rom2)
-        u2, mtr2, reg2, knk2 = collect_telemetry(args.prev_logs2, volts, map_kpa, rpm_axis)
+        u2, bgs2, mtr2, reg2, knk2 = collect_telemetry(args.prev_logs2, volts, map_kpa, rpm_axis)
         print_regime_summary(r2["name"], reg2, knk2)
         prev_history.append((r2, u2, mtr2))
+        for bi in range(130):
+            fleet_boost_gs[bi][0] += bgs2[bi][0]
+            fleet_boost_gs[bi][1] += bgs2[bi][1]
 
-    u_curr, mtr_curr, reg_curr, knk_curr = collect_telemetry(args.logs, volts, map_kpa, rpm_axis)
+    u_curr, bgs_curr, mtr_curr, reg_curr, knk_curr = collect_telemetry(args.logs, volts, map_kpa, rpm_axis)
     print_regime_summary(curr["name"], reg_curr, knk_curr)
+    for bi in range(130):
+        fleet_boost_gs[bi][0] += bgs_curr[bi][0]
+        fleet_boost_gs[bi][1] += bgs_curr[bi][1]
+
+    # Supplement boost TrueLoad g/s from calibration_experience.db if available
+    if os.path.exists(DEFAULT_DB_PATH):
+        try:
+            conn = sqlite3.connect(DEFAULT_DB_PATH)
+            cur = conn.cursor()
+            cur.execute("""
+            SELECT bin_idx, SUM(boost_sd_samples), SUM(boost_sd_samples * avg_boost_true_gs)
+            FROM maf_bin_experience
+            WHERE boost_sd_samples > 0 AND avg_boost_true_gs > 0
+            GROUP BY bin_idx;
+            """)
+            for b_idx, b_cnt, b_sum in cur.fetchall():
+                if 74 <= b_idx < 130 and fleet_boost_gs[b_idx][1] < 3.0:
+                    fleet_boost_gs[b_idx][0] += b_sum
+                    fleet_boost_gs[b_idx][1] += b_cnt
+            conn.close()
+        except Exception:
+            pass
 
     # 1. Solve MAF Scaling Horizontal (130 cells)
     maf_curr = curr["maf"]
+    maf_318 = v318["maf"]
     new_maf = list(maf_curr)
     raw_maf = list(maf_curr)
     brackets = {}
@@ -308,16 +362,20 @@ def main():
             raw_maf[idx_f] = fl_val
             brackets[idx_f] = (fl_val, max(fl_val, raw_maf[idx_f]))
 
-    # Boost transition Speed Density headroom ramp (Idx 71..76: 2.78V..2.97V)
-    boost_headroom = {71: 1.012, 72: 1.020, 73: 1.025, 74: 1.025, 75: 1.018, 76: 1.010}
-    for idx_b, mult_b in boost_headroom.items():
-        target_b = maf_curr[idx_b] * mult_b
-        if raw_maf[idx_b] < target_b:
-            raw_maf[idx_b] = target_b
-            brackets[idx_b] = (target_b * 0.995, target_b * 1.005)
+    # Non-Cumulative Boost Speed Density Headroom (Idx 74..77: 2.89V..3.01V)
+    # Heals the flat-line shelf at Idx 76..77 without deflating upper boost curve Idx 78..129
+    for idx_b in range(74, 78):
+        if fleet_boost_gs[idx_b][1] >= 3.0:
+            emp_true_gs = fleet_boost_gs[idx_b][0] / fleet_boost_gs[idx_b][1]
+            min_sd_headroom = emp_true_gs * 1.22
+            max_sd_headroom = emp_true_gs * 1.32
+            if raw_maf[idx_b] < min_sd_headroom:
+                raw_maf[idx_b] = min_sd_headroom
+            elif raw_maf[idx_b] > max_sd_headroom:
+                raw_maf[idx_b] = 0.5 * (raw_maf[idx_b] + max_sd_headroom)
 
-    # 3-point multiplier smoothing with Post-Smoothing Bracket Invariance
-    for i in range(36, 77):
+    # 3-point multiplier smoothing across Pure Vacuum MAF range (Idx 36..72) with Bracket Invariance
+    for i in range(36, 73):
         m_prev = raw_maf[i - 1] / maf_curr[i - 1]
         m_curr = raw_maf[i] / maf_curr[i]
         m_next = raw_maf[i + 1] / maf_curr[i + 1]
@@ -326,6 +384,15 @@ def main():
             val = max(brackets[i][0], min(brackets[i][1], val))
         new_maf[i] = val
     new_maf[35] = max(new_maf[35], idle_floors[35])
+    for i in range(73, 130):
+        new_maf[i] = raw_maf[i]
+
+    # Enforce smooth 1st-derivative curve continuity along V3.18 intake slope across Idx 73..78 (heals shelf)
+    for i in range(73, 79):
+        v318_step = max(0.50, maf_318[i] - maf_318[i - 1])
+        min_smooth_step = 0.72 * v318_step
+        if (new_maf[i] - new_maf[i - 1]) < min_smooth_step:
+            new_maf[i] = new_maf[i - 1] + min_smooth_step
 
     for i in range(1, 130):
         if new_maf[i] <= new_maf[i - 1] and maf_curr[i] > maf_curr[i - 1]:

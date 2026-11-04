@@ -78,23 +78,42 @@ FIRMWARE_MAPPINGS = {
             "ensures uniform speed-density load estimation across MIVEC timing transitions."
         )
     },
-    (0x55957, 0x55AA6): {
+    (0x55957, 0x55B50): {
         "name": "High Octane Timing Map",
         "routine": "timing_advance_final_calc.c (0x0A0D00)",
         "scaling_type": "timing",
-        "role": "Master primary ignition advance map (21 Load columns x 16 RPM rows).",
+        "role": "Master primary ignition advance map (23 RPM rows x 22 Load columns, 506 signed int8 bytes, column-major).",
         "firmware_effect": (
             "Determines base spark advance. Reducing timing in idle/low-RPM cells (e.g. 500-1000 RPM, 10-50% load) "
             "reduces combustion torque at idle, stabilizing idle RPM and eliminating hanging RPM upon clutch depression."
         )
     },
-    (0x55B59, 0x55CA8): {
+    (0x55B59, 0x55D52): {
         "name": "Low Octane Timing Map",
         "routine": "timing_advance_final_calc.c (0x0A0D00)",
         "scaling_type": "timing",
-        "role": "Knock recovery / low-octane ignition map blended via Octane Number register (0x008088A0).",
+        "role": "Knock recovery / low-octane ignition map (23 RPM rows x 22 Load columns, 506 signed int8 bytes, column-major).",
         "firmware_effect": (
             "Ignition fallback map during knock detection. Maintained parallel to High Octane map."
+        )
+    },
+    (0x5ADB9, 0x5AF29): {
+        "name": "ECT Fuel Compensation #1",
+        "routine": "ect_fuel_comp_master.c (0x026DA0)",
+        "scaling_type": "ect_comp",
+        "role": "Coolant temperature fuel enrichment multiplier #1 (9 ECT rows [-32..82C] x 41 Load columns [10..320%], Percent128).",
+        "firmware_effect": (
+            "Directly scales open-loop fuel injection during cold-start and coolant warmup (<77C ECT). "
+            "Locks at 100.0% once ECT reaches 77-82C."
+        )
+    },
+    (0x5AF31, 0x5B0A1): {
+        "name": "ECT Fuel Compensation #2",
+        "routine": "ect_fuel_comp_master.c (0x026DA0)",
+        "scaling_type": "ect_comp",
+        "role": "Coolant temperature fuel enrichment multiplier #2 (9 ECT rows [-32..82C] x 41 Load columns [10..320%], Percent128).",
+        "firmware_effect": (
+            "Secondary coolant warmup fuel enrichment table blended by MIVEC/operating mode; kept in parity with #1."
         )
     },
     (0x53C84, 0x53C85): {
@@ -346,23 +365,45 @@ def compare_roms(rom1_path, rom2_path):
                         "pct": f"{pct:+.2f}%"
                     })
         elif stype == "timing":
-            # High/Low octane timing map (0x55957, uint8, x - 20)
+            # High/Low octane timing map (0x55957 / 0x55B59, 506 signed int8, 23 RPM x 22 Load, column-major)
             base_addr = sym_info["table_start"]
-            t1 = b1[base_addr:base_addr+336]
-            t2 = b2[base_addr:base_addr+336]
-            for i in range(min(len(t1), len(t2))):
+            rpm_tim = [500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500, 2750, 3000, 3250, 3500, 3750, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000]
+            load_tim = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320]
+            t1 = struct.unpack(">506b", b1[base_addr:base_addr+506])
+            t2 = struct.unpack(">506b", b2[base_addr:base_addr+506])
+            for i in range(506):
                 cell_addr = base_addr + i
                 if s <= cell_addr <= e and t1[i] != t2[i]:
-                    v1 = t1[i] - 20
-                    v2 = t2[i] - 20
-                    rpm_idx = i // 21
-                    load_idx = i % 21
+                    v1 = t1[i]
+                    v2 = t2[i]
+                    load_idx = i // 23
+                    rpm_idx = i % 23
                     mod_entry["cell_details"].append({
-                        "cell": f"RPM row {rpm_idx}, Load col {load_idx}",
+                        "cell": f"{rpm_tim[rpm_idx]}RPM x {load_tim[load_idx]}% Load",
                         "old": f"{v1} deg",
                         "new": f"{v2} deg",
                         "delta": f"{v2 - v1:+d} deg",
                         "pct": f"{(v2 - v1):+d} deg"
+                    })
+        elif stype == "ect_comp":
+            base_addr = sym_info["table_start"]
+            ect_axis = [-32, -18, -8, 7, 20, 34, 50, 77, 82]
+            load_41 = [round(x * 5.0 / 16.0, 1) for x in struct.unpack(">41H", b1[0x621BC:0x621BC+82])]
+            for i in range(369):
+                cell_addr = base_addr + i
+                if s <= cell_addr <= e and b1[cell_addr] != b2[cell_addr]:
+                    c_load = i // 9
+                    r_ect = i % 9
+                    v1 = b1[cell_addr] / 1.28
+                    v2 = b2[cell_addr] / 1.28
+                    delta = v2 - v1
+                    pct = (delta / v1) * 100 if v1 > 0 else 0
+                    mod_entry["cell_details"].append({
+                        "cell": f"ECT {ect_axis[r_ect]}C x {load_41[c_load]}% Load",
+                        "old": f"{v1:.1f}%",
+                        "new": f"{v2:.1f}%",
+                        "delta": f"{delta:+.1f}%",
+                        "pct": f"{pct:+.2f}%"
                     })
         elif stype == "rpm":
             raw1 = struct.unpack(">H", b1[s:s+2])[0]

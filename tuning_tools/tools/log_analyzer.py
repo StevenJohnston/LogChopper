@@ -179,7 +179,7 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze EvoScan datalog CSV for fuel and load balance")
     parser.add_argument("log", help="Path to EvoScan CSV log file")
     parser.add_argument("--ect", type=float, default=75.0, help="Minimum ECT threshold (default 75C)")
-    parser.add_argument("--app", type=float, default=10.0, help="Minimum APP threshold (default 10%)")
+    parser.add_argument("--app", type=float, default=10.0, help="Minimum APP threshold (default 10%%)")
     parser.add_argument("--json", action="store_true", help="Output results as JSON")
     args = parser.parse_args()
     
