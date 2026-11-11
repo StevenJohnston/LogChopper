@@ -42,6 +42,11 @@ def _table_exists(cur, name):
     return cur.fetchone() is not None
 
 
+def _column_exists(cur, table, col):
+    cur.execute(f"PRAGMA table_info({table});")
+    return any(r[1] == col for r in cur.fetchall())
+
+
 def run_forward_check(db_path, table_name, axis_x, axis_y, proposed_val, tolerance_pct=5.0):
     conn = get_conn(db_path)
     cur = conn.cursor()
@@ -63,7 +68,7 @@ def run_forward_check(db_path, table_name, axis_x, axis_y, proposed_val, toleran
         x_tol, y_tol = 8.0, 300.0
 
     cur.execute("""
-    SELECT r.rom_id, r.rom_name, t.col_idx, t.axis_x, t.axis_y, t.cell_value
+    SELECT r.rom_id, r.rom_name, t.row_idx, t.col_idx, t.axis_x, t.axis_y, t.cell_value
     FROM rom_tables t
     JOIN roms r ON t.rom_id = r.rom_id
     WHERE t.table_name = ?
@@ -79,56 +84,134 @@ def run_forward_check(db_path, table_name, axis_x, axis_y, proposed_val, toleran
         return
 
     by_rom = {}
-    for rom_id, rom_name, col_idx, ax, ay, cell_val in rom_cells:
+    for rom_id, rom_name, row_idx, col_idx, ax, ay, cell_val in rom_cells:
         d = abs(ax - axis_x) + abs(ay - axis_y) * 0.001
         if rom_id not in by_rom or d < by_rom[rom_id][0]:
-            by_rom[rom_id] = (d, rom_id, rom_name, col_idx, ax, ay, cell_val)
+            by_rom[rom_id] = (d, rom_id, rom_name, row_idx, col_idx, ax, ay, cell_val)
 
     has_maf_exp = _table_exists(cur, "maf_bin_experience")
+    has_quasi_exp = has_maf_exp and _column_exists(cur, "maf_bin_experience", "quasi_vac_samples")
+    has_map_exp = _table_exists(cur, "map_cell_experience")
     print("\n[+] Historical ROM Calibration Values & Pure Open-Loop Telemetry:")
     history_data = []
     total_maf_unc = 0
+    total_maf_quasi = 0
     total_maf_als = 0
     total_maf_bst = 0
+    total_map_samples = 0
+    total_map_weight = 0.0
     boost_true_gs_vals = []
+    v318_gs_at_bin = None
+    v318_map_at_cell = None
+    latest_cell_val = None
+    matched_row_idx = None
+    matched_col_idx = None
 
-    for _, rom_id, rom_name, col_idx, ax, ay, cell_val in by_rom.values():
+    for _, rom_id, rom_name, row_idx, col_idx, ax, ay, cell_val in by_rom.values():
+        matched_row_idx = row_idx
+        matched_col_idx = col_idx
+        latest_cell_val = cell_val
+        if "V3.18" in rom_name:
+            v318_gs_at_bin = cell_val
+            v318_map_at_cell = cell_val
         if table_name == "maf_scaling" and has_maf_exp:
-            cur.execute("""
-            SELECT COALESCE(SUM(unclamped_vac_samples), 0),
-                   CASE WHEN SUM(unclamped_vac_samples) > 0
-                        THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
-                        ELSE 1.0 END,
-                   COALESCE(SUM(alias_vac_samples), 0),
-                   COALESCE(SUM(boost_sd_samples), 0),
-                   CASE WHEN SUM(boost_sd_samples) > 0
-                        THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
-                        ELSE 0.0 END,
-                   CASE WHEN SUM(boost_sd_samples) > 0
-                        THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
-                        ELSE 0.0 END
-            FROM maf_bin_experience
-            WHERE rom_id = ? AND bin_idx = ?;
-            """, (rom_id, col_idx))
-            mperf = cur.fetchone()
-            unc_n, unc_err, als_n, bst_n, bst_rat, bst_tgs = mperf
+            if has_quasi_exp:
+                cur.execute("""
+                SELECT COALESCE(SUM(unclamped_vac_samples), 0),
+                       CASE WHEN SUM(unclamped_vac_samples) > 0
+                            THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
+                            ELSE 1.0 END,
+                       COALESCE(SUM(quasi_vac_samples), 0),
+                       CASE WHEN SUM(quasi_vac_samples) > 0
+                            THEN SUM(quasi_vac_samples * avg_quasi_afr_err) / SUM(quasi_vac_samples)
+                            ELSE 1.0 END,
+                       COALESCE(SUM(alias_vac_samples), 0),
+                       COALESCE(SUM(boost_sd_samples), 0),
+                       CASE WHEN SUM(boost_sd_samples) > 0
+                            THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
+                            ELSE 0.0 END,
+                       CASE WHEN SUM(boost_sd_samples) > 0
+                            THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                            ELSE 0.0 END
+                FROM maf_bin_experience
+                WHERE rom_id = ? AND bin_idx = ?;
+                """, (rom_id, col_idx))
+                unc_n, unc_err, quasi_n, quasi_err, als_n, bst_n, bst_rat, bst_tgs = cur.fetchone()
+            else:
+                cur.execute("""
+                SELECT COALESCE(SUM(unclamped_vac_samples), 0),
+                       CASE WHEN SUM(unclamped_vac_samples) > 0
+                            THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
+                            ELSE 1.0 END,
+                       COALESCE(SUM(alias_vac_samples), 0),
+                       COALESCE(SUM(boost_sd_samples), 0),
+                       CASE WHEN SUM(boost_sd_samples) > 0
+                            THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
+                            ELSE 0.0 END,
+                       CASE WHEN SUM(boost_sd_samples) > 0
+                            THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                            ELSE 0.0 END
+                FROM maf_bin_experience
+                WHERE rom_id = ? AND bin_idx = ?;
+                """, (rom_id, col_idx))
+                unc_n, unc_err, als_n, bst_n, bst_rat, bst_tgs = cur.fetchone()
+                quasi_n, quasi_err = 0, 1.0
+
             total_maf_unc += unc_n
+            total_maf_quasi += quasi_n
             total_maf_als += als_n
             total_maf_bst += bst_n
             if bst_n > 0 and bst_tgs > 0:
                 boost_true_gs_vals.append(bst_tgs)
 
-            err_pct = (unc_err - 1.0) * 100.0
+            eff_vac_n = unc_n if unc_n > 0 else quasi_n
+            eff_vac_err = unc_err if unc_n > 0 else quasi_err
+            err_pct = (eff_vac_err - 1.0) * 100.0
             history_data.append({
                 "rom_id": rom_id, "rom_name": rom_name, "cell_val": cell_val,
-                "sample_count": unc_n, "steady_count": unc_n,
-                "afr": 14.7 * unc_err, "afrmap": 14.7, "err_pct": err_pct,
+                "sample_count": eff_vac_n, "steady_count": unc_n,
+                "afr": 14.7 * eff_vac_err, "afrmap": 14.7, "err_pct": err_pct,
                 "als_n": als_n, "bst_n": bst_n, "bst_rat": bst_rat, "bst_tgs": bst_tgs,
             })
-            unc_str = f"{err_pct:+5.2f}% (N={unc_n:>4})" if unc_n > 0 else "No Unclamped Vac"
+            if unc_n > 0:
+                unc_str = f"{(unc_err - 1.0) * 100.0:+5.2f}% (N={unc_n:>4})"
+            elif quasi_n > 0:
+                unc_str = f"{(quasi_err - 1.0) * 100.0:+5.2f}% (Q={quasi_n:>4})"
+            else:
+                unc_str = "No Unclamped Vac"
             bst_str = f" | BoostSD N={bst_n:>3} (MAP/MAF={bst_rat:.2f}, True={bst_tgs:.1f}g/s)" if bst_n > 0 else ""
             als_str = f" | AliasN={als_n}" if als_n > 0 else ""
             print(f"  - ROM {rom_id:2d} ({rom_name[:30]:<30}) [Bin {col_idx:3d} @ {ax:.3f}V]: {cell_val:7.2f} g/s | {unc_str}{als_str}{bst_str}")
+            continue
+
+        if table_name in ("map_load_calc_1", "map_load_calc_2") and has_map_exp:
+            cur.execute("""
+            SELECT COALESCE(SUM(sample_count), 0),
+                   COALESCE(SUM(weight_sum), 0.0),
+                   CASE WHEN SUM(weight_sum) > 0
+                        THEN SUM(weight_sum * avg_true_over_mapc) / SUM(weight_sum)
+                        ELSE 1.0 END,
+                   CASE WHEN SUM(weight_sum) > 0
+                        THEN SUM(weight_sum * avg_afr_error) / SUM(weight_sum)
+                        ELSE 1.0 END
+            FROM map_cell_experience
+            WHERE rom_id = ? AND row_idx = ? AND col_idx = ?;
+            """, (rom_id, row_idx, col_idx))
+            m_n, m_ws, m_tom, m_err = cur.fetchone()
+            total_map_samples += m_n
+            total_map_weight += m_ws
+            err_pct = (m_err - 1.0) * 100.0
+            history_data.append({
+                "rom_id": rom_id, "rom_name": rom_name, "cell_val": cell_val,
+                "sample_count": m_n, "steady_count": int(round(m_ws)),
+                "afr": 14.7 * m_err, "afrmap": 14.7, "err_pct": err_pct,
+                "tom": m_tom, "ws": m_ws,
+            })
+            if m_n > 0:
+                m_str = f"Err={err_pct:+5.2f}% | True/MAPC={m_tom:.3f}x | TrueVE={cell_val * m_tom:5.1f}% (N={m_n:>4}, W={m_ws:5.1f})"
+            else:
+                m_str = "No Cell Telemetry (N=0)"
+            print(f"  - ROM {rom_id:2d} ({rom_name[:28]:<28}) [R{row_idx:02d}:{ay:4.0f}RPM x C{col_idx:02d}:{ax:5.1f}kPa]: {cell_val:5.1f}% | {m_str}")
             continue
 
         if table_name == "maf_scaling":
@@ -190,14 +273,26 @@ def run_forward_check(db_path, table_name, axis_x, axis_y, proposed_val, toleran
     hazard_found = False
 
     if table_name == "maf_scaling" and has_maf_exp:
-        if total_maf_unc == 0 and total_maf_bst == 0:
-            print("  [!] UNVISITED BIN WARNING: Zero unclamped vacuum or boost SD samples recorded at this MAF bin!")
-            print("      Guardrail: Never apply cumulative per-flash multipliers to unvisited bins (causes shelf flat-lining).")
+        if total_maf_unc == 0 and total_maf_quasi == 0 and total_maf_bst == 0:
+            base_ref = latest_cell_val if latest_cell_val else (v318_gs_at_bin or proposed_val)
+            cush_lo = round(base_ref * 1.05, 2)
+            cush_hi = round(min(655.35, base_ref * 1.10), 2)
+            print("  [*] UNVISITED MAF BIN (N=0 across fleet): Shape-Preserving Interpolation + 5%..10% Safety Cushion Active.")
+            print(f"      Latest ROM Value = {base_ref:.2f} g/s | V3.18 Ref = {v318_gs_at_bin or 0.0:.2f} g/s")
+            print(f"      Recommended Unvisited +5%..+10% Cushion Band: [{cush_lo:.2f} .. {cush_hi:.2f}] g/s (more fuel, less spark advance)")
+            if matched_col_idx is not None and matched_col_idx >= 74 and proposed_val < base_ref - 0.05:
+                print(f"  [!] VETO WARNING: Proposed {proposed_val:.2f} g/s reduces an unvisited boost MAF bin below {base_ref:.2f} g/s!")
+                hazard_found = True
+        elif total_maf_unc == 0 and total_maf_quasi > 0:
+            print(f"  [*] Quasi-Steady Vacuum Coverage Active: Strict steady N=0, Steady-Pedal Unclamped Q={total_maf_quasi} samples available.")
+        if axis_x <= 2.86 and v318_gs_at_bin and proposed_val > v318_gs_at_bin * 1.14:
+            print(f"  [!] VETO WARNING (Safeguard #1): Proposed {proposed_val:.2f} g/s in shared vacuum/spool bin (<=2.86V) exceeds V3.18 ({v318_gs_at_bin:.2f} g/s) by +{(proposed_val / v318_gs_at_bin - 1.0) * 100.0:.1f}%!")
+            print("      Shared bins Idx <= 73 must NEVER carry 1.25x boost SD headroom (causes high-RPM vacuum richness & IMAPCalcs spool bog).")
             hazard_found = True
         if axis_x >= 2.89 and boost_true_gs_vals:
             mean_tgs = sum(boost_true_gs_vals) / len(boost_true_gs_vals)
             tgt_headroom = mean_tgs * 1.25
-            print(f"  [*] Boost Speed Density Headroom Check (Volts >= 2.89V):")
+            print("  [*] Boost Speed Density Headroom Check (Volts >= 2.89V):")
             print(f"      Empirical True Boost Airflow = {mean_tgs:.1f} g/s -> 1.25x SD Headroom Target = {tgt_headroom:.1f} g/s")
             if proposed_val < mean_tgs * 1.15:
                 print(f"  [!] VETO WARNING: Proposed {proposed_val:.2f} g/s is < 1.15x True Boost Airflow ({mean_tgs * 1.15:.1f} g/s) -> BOOST_MAF_UNDERCUT risk!")
@@ -205,6 +300,22 @@ def run_forward_check(db_path, table_name, axis_x, axis_y, proposed_val, toleran
             elif proposed_val > mean_tgs * 1.38:
                 print(f"  [!] VETO WARNING: Proposed {proposed_val:.2f} g/s is > 1.38x True Boost Airflow -> Transient IMAPCalcs spool rich bog risk!")
                 hazard_found = True
+
+    if table_name in ("map_load_calc_1", "map_load_calc_2") and has_map_exp:
+        is_vis_cell = (total_map_samples >= 3 and total_map_weight >= 0.5)
+        if not is_vis_cell:
+            base_ref = latest_cell_val if latest_cell_val else (v318_map_at_cell or proposed_val)
+            v318_ref = v318_map_at_cell if v318_map_at_cell else base_ref
+            cush_lo = round(max(base_ref, v318_ref * 1.05), 1)
+            cush_hi = round(max(base_ref * 1.05, v318_ref * 1.15), 1)
+            print(f"  [*] UNVISITED MAP CELL (Fleet N={total_map_samples}, W={total_map_weight:.2f} < 0.50): Interpolation + 5%..10% Safety Cushion Rule Applies.")
+            print(f"      Latest ROM Value = {base_ref:.1f}% | V3.18 Ref = {v318_ref:.1f}% | Proposed = {proposed_val:.1f}% ({proposed_val - base_ref:+.1f}%)")
+            print(f"      Expected Unvisited Safety Cushion Range: >= {cush_lo:.1f}% (typically {cush_lo:.1f}%..{cush_hi:.1f}% for extra fuel & conservative spark)")
+            if proposed_val < base_ref - 0.1:
+                print(f"  [!] VETO WARNING: Proposed {proposed_val:.1f}% reduces an UNVISITED MAP cell below current {base_ref:.1f}% (would advance spark & lean out fuel)!")
+                hazard_found = True
+        else:
+            print(f"  [*] VISITED MAP CELL (Fleet N={total_map_samples}, W={total_map_weight:.1f}): Governed strictly by empirical wideband telemetry (0% unvisited tax).")
 
     for h in tested_rich:
         if h["cell_val"] != 0:
@@ -497,6 +608,15 @@ def run_audit_injectors(db_path):
     # Part A: Open-Loop AFR Error vs IPW Pulse-Width Bracket (Latest ROM + Fleet)
     if latest_rom_id is not None:
         cur.execute("""
+        SELECT COALESCE(SUM(usable_injector_count), 0)
+        FROM regime_summaries
+        WHERE rom_id = ? AND usable_injector_count > 0
+          AND avg_ect_c >= 80.0 AND regime = 'STEADY_IDLE' AND map_bucket <= 52.0;
+        """, (latest_rom_id,))
+        base_idle_n = (cur.fetchone() or [0])[0]
+        idle_map_clause = "AND NOT (regime = 'STEADY_IDLE' AND map_bucket > 52.0)" if base_idle_n >= 15 else ""
+
+        cur.execute(f"""
         SELECT
             CASE
                 WHEN avg_ipw_ms <= 1.60 THEN '1. Idle/Min IPW (<=1.6ms)'
@@ -511,13 +631,15 @@ def run_audit_injectors(db_path):
             SUM(usable_injector_count * avg_afr_error) / SUM(usable_injector_count) AS mean_err
         FROM regime_summaries
         WHERE rom_id = ? AND usable_injector_count > 0
+          AND avg_ect_c >= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE')
+          {idle_map_clause}
         GROUP BY ipw_band
         HAVING inj_n >= 15
         ORDER BY ipw_band ASC;
         """, (latest_rom_id,))
         ipw_rows = cur.fetchall()
         if ipw_rows:
-            print(f"\n[+] Part A: Latest ROM ({latest_rom[1][-28:]}) Open-Loop AFR Error vs Pulse Width (Warm >=80°C, Steady):")
+            print(f"\n[+] Part A: Latest ROM ({latest_rom[1][-28:]}) Open-Loop AFR Error vs Pulse Width (Warm >=80°C, Base-Load Steady):")
             print("  IPW Operating Bracket       | Clean N | Mean IPW | Witnessed AFR | Target | Open-Loop Err")
             print("  " + "-" * 80)
             for band, inj_n, mipw, mafr, mtgt, merr in ipw_rows:
@@ -532,6 +654,32 @@ def run_audit_injectors(db_path):
                 else:
                     print("  [+] PASS: Open-loop fueling linearity across pulse widths is well-balanced (<4% 1/IPW skew).")
 
+        # Idle Manifold-Load Stratification (~50 kPa Base Idle vs >=55 kPa Accessory/A/C Load Idle)
+        cur.execute("""
+        SELECT
+            CASE WHEN map_bucket <= 52.0 THEN 'Base Idle (<=52 kPa)'
+                 ELSE 'Elevated / Accessory Idle (>=55 kPa)' END AS idle_tier,
+            SUM(sample_count) AS n,
+            SUM(sample_count * avg_ipw_ms) / SUM(sample_count) AS mipw,
+            SUM(sample_count * mafv_bucket) / SUM(sample_count) AS mmafv,
+            SUM(sample_count * avg_afr) / SUM(sample_count) AS mafr,
+            SUM(sample_count * avg_afr_error) / SUM(sample_count) AS merr
+        FROM regime_summaries
+        WHERE rom_id = ? AND avg_ect_c >= 80.0 AND regime = 'STEADY_IDLE'
+        GROUP BY idle_tier
+        HAVING n >= 15
+        ORDER BY idle_tier ASC;
+        """, (latest_rom_id,))
+        idle_tiers = cur.fetchall()
+        if len(idle_tiers) >= 2:
+            print("\n  [*] Idle Manifold-Load Stratification (Decoupling Accessory/MAF Load from Injector Latency):")
+            for itier, in_cnt, iipw, imafv, iafr, ierr in idle_tiers:
+                print(f"      - {itier:<36}: N={in_cnt:>5,} | IPW={iipw:4.2f}ms | MAFV~{imafv:4.2f}V | AFR={iafr:5.2f} ({(ierr - 1.0) * 100.0:+5.2f}%)")
+            tier_shift = (idle_tiers[-1][5] - idle_tiers[0][5]) * 100.0
+            if abs(tier_shift) >= 3.0:
+                print(f"      [!] IDLE LOAD ANOMALY: Elevated-MAP idle shifts {tier_shift:+.2f}% vs base ~50 kPa idle at HIGHER pulse width ({idle_tiers[-1][2]:.2f}ms)!")
+                print(f"          Root Cause: MAF Scaling around ~{idle_tiers[-1][3]:.2f}V under accessory/A/C/alternator load — NOT Injector Latency.")
+
     # Part B: Open-Loop AFR Error vs Battery Voltage at Low IPW (<= 2.2 ms)
     cur.execute("""
     SELECT
@@ -542,6 +690,7 @@ def run_audit_injectors(db_path):
         AVG(avg_rom_latency_ms) as mean_lat
     FROM regime_summaries
     WHERE usable_injector_count > 0
+      AND avg_ect_c >= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE')
       AND avg_ipw_ms <= 2.2
     GROUP BY vbatt_bucket
     HAVING inj_samples >= 15
@@ -649,7 +798,7 @@ def run_audit_thermal(db_path):
         else:
             print(f"  [+] PASS (Active ROM {latest_ect_rid}): Warmup `ECT` enrichment tracks within +/-4% of fully warm fueling.")
 
-    # Part B: Manifold Heat-Soak Isolation (MAT - IAT >= 10C vs Unsoaked |MAT - IAT| < 10C)
+    # Part B: Manifold Heat-Soak, Underhood IAT Soak & Hot-Start Vapor Isolation
     cur.execute("""
     SELECT
         thermal_regime,
@@ -660,22 +809,31 @@ def run_audit_thermal(db_path):
         SUM(sample_count * avg_afr) / SUM(sample_count) AS mean_afr,
         SUM(sample_count * avg_afr_error) / SUM(sample_count) AS mean_err
     FROM thermal_summaries
-    WHERE thermal_regime IN ('COLD_AMBIENT_STEADY', 'WARM_AMBIENT_STEADY', 'HEATSOAK_FLUSH_SPLIT', 'HEATSOAK_IDLE_SOAK')
-      AND ect_bucket >= 85
+    WHERE thermal_regime IN (
+        'COLD_AMBIENT_STEADY', 'WARM_AMBIENT_STEADY',
+        'HEATSOAK_FLUSH_SPLIT', 'HEATSOAK_IDLE_SOAK',
+        'UNDERHOOD_IAT_HEATSOAK', 'POST_HOT_START_RAIL_SOAK'
+    )
+      AND ect_bucket >= 75
       AND map_bucket BETWEEN 35.0 AND 80.0
     GROUP BY thermal_regime, mat_bucket
-    HAVING n >= 25
+    HAVING n >= 20
     ORDER BY thermal_regime, mat_bucket ASC;
     """)
     mat_rows = cur.fetchall()
-    print("\n[+] Part B: Manifold Heat-Soak Isolation (`Fuel Comp MAT vs MAP` 0x60FCD Firmware Mult = (raw+384)/512):")
+    print("\n[+] Part B: Manifold Heat-Soak, Underhood IAT Soak & Hot-Start Vapor Isolation (`0x60FCD` FW Mult = (raw+384)/512):")
     if not mat_rows:
         print("  [*] Insufficient warm steady vacuum frames to evaluate manifold heat-soak split.")
     else:
-        print("  Thermal Regime         | MAT Bucket | Samples | MAT-IAT Split | FW MAT Mult | AFR   | Open-Loop Err")
-        print("  " + "-" * 84)
+        print("  Thermal Regime           | MAT Bucket | Samples | MAT-IAT Split | FW MAT Mult | AFR   | Open-Loop Err")
+        print("  " + "-" * 86)
+        has_vapor_soak = False
         for treg, mat_b, n, split_c, fw_mult, mafr, merr in mat_rows:
-            print(f"  {treg:<22} |   ~{mat_b:2d}°C    | {n:>7,} |   {split_c:+5.1f}°C     |   {fw_mult:6.2f}%   | {mafr:5.2f} |   {(merr - 1.0) * 100.0:+6.2f}%")
+            if treg == "POST_HOT_START_RAIL_SOAK":
+                has_vapor_soak = True
+            print(f"  {treg:<24} |   ~{mat_b:2d}°C    | {n:>7,} |   {split_c:+5.1f}°C     |   {fw_mult:6.2f}%   | {mafr:5.2f} |   {(merr - 1.0) * 100.0:+6.2f}%")
+        if has_vapor_soak:
+            print("  [*] Safeguard: `POST_HOT_START_RAIL_SOAK` is stationary fuel-rail vapor purge — NEVER enrich `MAT vs MAP` (0x60FCD) for it!")
 
     # Part C: Seasonal Ambient IAT & Runtime MAPCalcs Density Multiplier
     cur.execute("""
@@ -693,7 +851,7 @@ def run_audit_thermal(db_path):
     ORDER BY iat_bucket ASC;
     """)
     iat_rows = cur.fetchall()
-    print("\n[+] Part C: Seasonal Outdoor `IAT` Tracking & Empirical `MAPCalcs / ROM_MAP_Table` Density Gain:")
+    print("\n[+] Part C: Seasonal Outdoor `IAT` Tracking & Empirical `MAPCalcs / ROM_MAP_Table` Density Gain (Unsoaked Only):")
     if not iat_rows:
         print("  [*] Insufficient multi-weather steady warm samples across IAT buckets.")
     else:
@@ -702,6 +860,57 @@ def run_audit_thermal(db_path):
         for iat_b, n, k_emp, verr in iat_rows:
             k_delta = (k_emp / 1.090 - 1.0) * 100.0
             print(f"    ~{iat_b:3d}°C    | {n:>7,} |       {k_emp:6.4f}x ({k_delta:+5.2f}% vs 1.090)       |      {(verr - 1.0) * 100.0:+6.2f}%")
+
+    # Part D: Active ROM Static `Fuel Comp MAT vs MAP` (0x60FCD) Envelope & Monotonicity Audit
+    cur.execute("SELECT rom_id, rom_name FROM roms ORDER BY file_mtime DESC LIMIT 1;")
+    lat_rom = cur.fetchone()
+    if lat_rom:
+        l_rid, l_rname = lat_rom
+        cur.execute("""
+        SELECT row_idx, col_idx, axis_y, axis_x, cell_value
+        FROM rom_tables
+        WHERE rom_id = ? AND table_name = 'fuel_comp_mat_vs_map_gui'
+        ORDER BY row_idx ASC, col_idx ASC;
+        """, (l_rid,))
+        mat_cells = cur.fetchall()
+        if mat_cells:
+            grid = {}
+            mat_axes, map_axes = {}, {}
+            for r_i, c_i, ay, ax, val in mat_cells:
+                grid[(r_i, c_i)] = val
+                mat_axes[r_i] = ay
+                map_axes[c_i] = ax
+            mat_issues = []
+            for r_i in (0, 1):
+                for c_i in map_axes:
+                    v = grid.get((r_i, c_i), 100.0)
+                    if abs(v - 100.0) > 0.15:
+                        mat_issues.append(f"Cold floor violation at MAT={mat_axes[r_i]:.0f}°C, MAP={map_axes[c_i]:.1f} kPa: {v:.1f}% != 100.0%")
+            for r_i in sorted(mat_axes):
+                for c_i in sorted(map_axes):
+                    v = grid[(r_i, c_i)]
+                    if (r_i + 1, c_i) in grid and grid[(r_i + 1, c_i)] < v - 0.05:
+                        mat_issues.append(f"Temp dip at MAP={map_axes[c_i]:.1f} kPa: {mat_axes[r_i]:.0f}°C ({v:.1f}%) > {mat_axes[r_i+1]:.0f}°C ({grid[(r_i+1, c_i)]:.1f}%)")
+                    if (r_i, c_i + 1) in grid and grid[(r_i, c_i + 1)] > v + 0.05:
+                        mat_issues.append(f"Vacuum/boost taper inversion at MAT={mat_axes[r_i]:.0f}°C: {map_axes[c_i]:.1f} kPa ({v:.1f}%) < {map_axes[c_i+1]:.1f} kPa ({grid[(r_i, c_i+1)]:.1f}%)")
+                    if mat_axes[r_i] >= 40.0 and map_axes[c_i] >= 129.0 and v > 102.5:
+                        fw_g = ((v * 1.28) + 384.0) / 512.0 * 100.0
+                        mat_issues.append(f"Positive-boost MAT over-enrichment at {mat_axes[r_i]:.0f}°C x {map_axes[c_i]:.1f} kPa: GUI={v:.1f}% (FW={fw_g:.2f}% vs 100.0% factory)")
+            for r_i in sorted(mat_axes):
+                if 40.0 <= mat_axes[r_i] <= 60.0 and (r_i, 1) in grid and (r_i, 3) in grid:
+                    v_22 = grid[(r_i, 1)]
+                    v_49 = grid[(r_i, 3)]
+                    if (v_22 - v_49) >= 7.5 or v_49 >= 118.0:
+                        mat_issues.append(
+                            f"Warm vacuum wall-wetting over-enrichment at {mat_axes[r_i]:.0f}°C: "
+                            f"22.1 kPa={v_22:.1f}%, 49.0 kPa={v_49:.1f}% (steep +{v_22 - v_49:.1f}% step drives hot overrun/vacuum richness)"
+                        )
+            print(f"\n[+] Part D: Static `Fuel Comp MAT vs MAP` (`0x60FCD`) Envelope Audit on ROM {l_rid} ({l_rname[-28:]}):")
+            if not mat_issues:
+                print("  [+] PASS: Cold floor locked (100%), strictly 2D monotonic, zero boost or vacuum over-enrichment.")
+            else:
+                for iss in mat_issues[:8]:
+                    print(f"  [!] {iss}")
 
     print("=" * 88)
     conn.close()
@@ -739,8 +948,9 @@ def run_audit_maf_envelope(db_path):
     maf_lat = fetch_maf(latest_id)
     maf_318 = fetch_maf(v318_id)
 
-    # Detect non-monotonic steps & flat-line shelves (2nd-derivative slope drop) across active range Idx 33..105
+    # Detect non-monotonic steps, symmetric shelves, one-sided ramp-to-shelf cliffs & Safeguard #1 shared-bin boost inflation
     kinks = []
+    shared_inflations = []
     for i in range(34, 105):
         if i not in maf_lat or (i - 1) not in maf_lat or (i + 1) not in maf_lat:
             continue
@@ -748,59 +958,125 @@ def run_audit_maf_envelope(db_path):
         d_prev = maf_lat[i - 1][1] - maf_lat.get(i - 2, maf_lat[i - 1])[1]
         d_next = maf_lat[i + 1][1] - maf_lat[i][1]
         ref_slope = 0.5 * (max(0.01, d_prev) + max(0.01, d_next))
+        max_adj = max(d_prev, d_next)
         if d_curr <= 0.0:
             kinks.append((i, maf_lat[i][0], maf_lat[i - 1][1], maf_lat[i][1], d_curr, "NON_MONOTONIC_INVERSION"))
         elif ref_slope >= 0.80 and d_curr < 0.35 * ref_slope:
             kinks.append((i, maf_lat[i][0], maf_lat[i - 1][1], maf_lat[i][1], d_curr, f"FLAT_LINE_SHELF (step {d_curr:+.2f} vs neighbor avg {ref_slope:+.2f} g/s)"))
+        elif max_adj >= 2.50 and d_curr < 0.40 * max_adj:
+            kinks.append((i, maf_lat[i][0], maf_lat[i - 1][1], maf_lat[i][1], d_curr, f"RAMP_TO_SHELF_CLIFF (step {d_curr:+.2f} vs adjacent {max_adj:+.2f} g/s)"))
 
-    print(f"\n[+] Curve Geometry Audit on Latest ROM {latest_id} ({latest_name}):")
+        if 38 <= i <= 73 and i in maf_318 and (i - 1) in maf_318:
+            gs318 = maf_318[i][1]
+            d318 = gs318 - maf_318[i - 1][1]
+            ratio_318 = maf_lat[i][1] / max(0.1, gs318)
+            if ratio_318 >= 1.14 or (d318 >= 2.0 and d_curr > 2.20 * d318):
+                shared_inflations.append((i, maf_lat[i][0], gs318, maf_lat[i][1], ratio_318, d_curr, d318))
+
+    print(f"\n[+] Curve Geometry & Safeguard #1 Shared-Bin Audit on Latest ROM {latest_id} ({latest_name}):")
     if kinks:
         for idx, v, prev_gs, curr_gs, d_gs, reason in kinks:
             print(f"  [!] Bin {idx:3d} ({v:.3f}V): {prev_gs:.2f} -> {curr_gs:.2f} g/s (Δ={d_gs:+.2f} g/s) | {reason}")
     else:
-        print("  [+] PASS: MAF curve is strictly monotonic and free of flat-line slope kinks across Idx 34..104.")
+        print("  [+] PASS: MAF curve is strictly monotonic and free of flat-line / ramp-to-shelf kinks across Idx 34..104.")
+    if shared_inflations:
+        for idx, v, gs318, curr_gs, rat, d_curr, d318 in shared_inflations:
+            print(
+                f"  [!] SAFEGUARD #1 SHARED-BIN BOOST INFLATION at Bin {idx:3d} ({v:.3f}V <= 2.854V): "
+                f"{curr_gs:.2f} g/s = {rat:.3f}x V3.18 ({gs318:.2f} g/s, step {d_curr:+.2f} vs V3.18 {d318:+.2f} g/s)"
+            )
+        print("      -> Shared vacuum/spool bins (Idx <= 73) must NOT carry 1.25x SD boost headroom; inflates high-RPM vacuum & causes RICH_SPOOL_BOG.")
 
     if _table_exists(cur, "maf_bin_experience"):
-        cur.execute("""
-        SELECT
-            bin_idx,
-            SUM(unclamped_vac_samples) AS unc_n,
-            CASE WHEN SUM(unclamped_vac_samples) > 0
-                 THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
-                 ELSE 1.0 END AS unc_err,
-            SUM(alias_vac_samples) AS als_n,
-            CASE WHEN SUM(alias_vac_samples) > 0
-                 THEN SUM(alias_vac_samples * avg_alias_afr_err) / SUM(alias_vac_samples)
-                 ELSE 1.0 END AS als_err,
-            SUM(boost_sd_samples) AS bst_n,
-            CASE WHEN SUM(boost_sd_samples) > 0
-                 THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
-                 ELSE 0.0 END AS bst_rat,
-            CASE WHEN SUM(boost_sd_samples) > 0
-                 THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
-                 ELSE 0.0 END AS bst_tgs
-        FROM maf_bin_experience
-        WHERE rom_id = ?
-        GROUP BY bin_idx;
-        """, (latest_id,))
-        exp_lat = {r[0]: r[1:] for r in cur.fetchall()}
+        has_quasi = _column_exists(cur, "maf_bin_experience", "quasi_vac_samples")
+        if has_quasi:
+            cur.execute("""
+            SELECT
+                bin_idx,
+                SUM(unclamped_vac_samples) AS unc_n,
+                CASE WHEN SUM(unclamped_vac_samples) > 0
+                     THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
+                     ELSE 1.0 END AS unc_err,
+                SUM(quasi_vac_samples) AS quasi_n,
+                CASE WHEN SUM(quasi_vac_samples) > 0
+                     THEN SUM(quasi_vac_samples * avg_quasi_afr_err) / SUM(quasi_vac_samples)
+                     ELSE 1.0 END AS quasi_err,
+                SUM(alias_vac_samples) AS als_n,
+                CASE WHEN SUM(alias_vac_samples) > 0
+                     THEN SUM(alias_vac_samples * avg_alias_afr_err) / SUM(alias_vac_samples)
+                     ELSE 1.0 END AS als_err,
+                SUM(boost_sd_samples) AS bst_n,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_rat,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_tgs
+            FROM maf_bin_experience
+            WHERE rom_id = ?
+            GROUP BY bin_idx;
+            """, (latest_id,))
+            exp_lat = {r[0]: r[1:] for r in cur.fetchall()}
 
-        cur.execute("""
-        SELECT
-            bin_idx,
-            SUM(unclamped_vac_samples) AS unc_n,
-            SUM(alias_vac_samples) AS als_n,
-            SUM(boost_sd_samples) AS bst_n,
-            CASE WHEN SUM(boost_sd_samples) > 0
-                 THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
-                 ELSE 0.0 END AS bst_tgs
-        FROM maf_bin_experience
-        GROUP BY bin_idx;
-        """)
-        exp_all = {r[0]: r[1:] for r in cur.fetchall()}
+            cur.execute("""
+            SELECT
+                bin_idx,
+                SUM(unclamped_vac_samples) AS unc_n,
+                SUM(quasi_vac_samples) AS quasi_n,
+                SUM(alias_vac_samples) AS als_n,
+                SUM(boost_sd_samples) AS bst_n,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_tgs
+            FROM maf_bin_experience
+            GROUP BY bin_idx;
+            """)
+            exp_all = {r[0]: r[1:] for r in cur.fetchall()}
+        else:
+            cur.execute("""
+            SELECT
+                bin_idx,
+                SUM(unclamped_vac_samples) AS unc_n,
+                CASE WHEN SUM(unclamped_vac_samples) > 0
+                     THEN SUM(unclamped_vac_samples * avg_unclamped_afr_err) / SUM(unclamped_vac_samples)
+                     ELSE 1.0 END AS unc_err,
+                0 AS quasi_n,
+                1.0 AS quasi_err,
+                SUM(alias_vac_samples) AS als_n,
+                CASE WHEN SUM(alias_vac_samples) > 0
+                     THEN SUM(alias_vac_samples * avg_alias_afr_err) / SUM(alias_vac_samples)
+                     ELSE 1.0 END AS als_err,
+                SUM(boost_sd_samples) AS bst_n,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_map_to_maf) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_rat,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_tgs
+            FROM maf_bin_experience
+            WHERE rom_id = ?
+            GROUP BY bin_idx;
+            """, (latest_id,))
+            exp_lat = {r[0]: r[1:] for r in cur.fetchall()}
+
+            cur.execute("""
+            SELECT
+                bin_idx,
+                SUM(unclamped_vac_samples) AS unc_n,
+                0 AS quasi_n,
+                SUM(alias_vac_samples) AS als_n,
+                SUM(boost_sd_samples) AS bst_n,
+                CASE WHEN SUM(boost_sd_samples) > 0
+                     THEN SUM(boost_sd_samples * avg_boost_true_gs) / SUM(boost_sd_samples)
+                     ELSE 0.0 END AS bst_tgs
+            FROM maf_bin_experience
+            GROUP BY bin_idx;
+            """)
+            exp_all = {r[0]: r[1:] for r in cur.fetchall()}
 
         kink_set = {k[0] for k in kinks}
-        print(f"\n[+] Bin-by-Bin MAF Experience & Crossover/Boost Envelope (Idx 35..84, Latest ROM {latest_id} + Fleet Boost Ref):")
+        shared_inf_set = {s[0] for s in shared_inflations}
+        print(f"\n[+] Bin-by-Bin MAF Experience & Crossover/Boost Envelope (Idx 35..84, Latest ROM {latest_id}; N=Strict Steady, Q=Steady-Pedal Quasi):")
         print("  Idx | Volts  | V3.18  | Latest | ΔStep | Unclamped Vac (Lat) | Alias L/F | Boost SD (Fleet True*1.25) | Diagnostic Status")
         print("  " + "-" * 119)
         for idx in range(35, 85):
@@ -809,10 +1085,21 @@ def run_audit_maf_envelope(db_path):
             v, gs = maf_lat[idx]
             gs318 = maf_318.get(idx, (v, gs))[1]
             step = gs - maf_lat[idx - 1][1] if (idx - 1) in maf_lat else 0.0
-            unc_n, unc_err, als_n, als_err, bst_n, bst_rat, bst_tgs = exp_lat.get(idx, (0, 1.0, 0, 1.0, 0, 0.0, 0.0))
-            all_unc, all_als, all_bst, all_tgs = exp_all.get(idx, (0, 0, 0, 0.0))
+            unc_n, unc_err, quasi_n, quasi_err, als_n, als_err, bst_n, bst_rat, bst_tgs = exp_lat.get(
+                idx, (0, 1.0, 0, 1.0, 0, 1.0, 0, 0.0, 0.0)
+            )
+            all_unc, all_quasi, all_als, all_bst, all_tgs = exp_all.get(idx, (0, 0, 0, 0, 0.0))
 
-            unc_s = f"N={unc_n:>4} ({(unc_err - 1.0) * 100:+5.1f}%)" if unc_n > 0 else f"N=   0 (Fleet {all_unc:>4})"
+            if unc_n > 0:
+                unc_s = f"N={unc_n:>4} ({(unc_err - 1.0) * 100:+5.1f}%)"
+            elif quasi_n > 0:
+                unc_s = f"Q={quasi_n:>4} ({(quasi_err - 1.0) * 100:+5.1f}%)"
+            elif all_unc > 0:
+                unc_s = f"N=   0 (Fleet {all_unc:>4})"
+            elif all_quasi > 0:
+                unc_s = f"Q=   0 (FltQ  {all_quasi:>4})"
+            else:
+                unc_s = "N=   0              "
             als_s = f"{als_n:>3}/{all_als:<4}"
             tgs_ref = bst_tgs if bst_n >= 3 else all_tgs
             bst_s = f"N={all_bst:>4} (1.25x={tgs_ref * 1.25:5.1f})" if all_bst > 0 else "N=   0              "
@@ -820,7 +1107,9 @@ def run_audit_maf_envelope(db_path):
             flags = []
             if idx in kink_set:
                 flags.append("SHELF_KINK!")
-            if all_unc == 0 and all_bst == 0:
+            if idx in shared_inf_set:
+                flags.append("SHARED_BOOST_INFL!")
+            if all_unc == 0 and all_quasi == 0 and all_bst == 0:
                 flags.append("UNVISITED")
             if (als_n + all_als) > 0 and all_bst > 0:
                 flags.append("1D_ALIAS_OVERLAP")
@@ -829,11 +1118,42 @@ def run_audit_maf_envelope(db_path):
                     flags.append("UNDERCUT_RISK!")
                 else:
                     flags.append("SD_HEADROOM_OK")
-            elif idx <= 73 and unc_n >= 10:
-                flags.append("PURE_VAC_ACTIVE")
+            elif idx <= 73:
+                if unc_n >= 10:
+                    flags.append("PURE_VAC_ACTIVE")
+                elif quasi_n >= 8:
+                    flags.append("QUASI_VAC_ACTIVE")
 
             status_s = ", ".join(flags) if flags else "TRANSITION"
             print(f"  {idx:3d} | {v:5.3f}V | {gs318:6.2f} | {gs:6.2f} | {step:+5.2f} | {unc_s:<19} | {als_s} | {bst_s:<26} | {status_s}")
+
+        # Part C: Fleet Coverage & Unvisited Interpolation (+5%..+10% Safety Cushion) Summary
+        vis_vac_maf = [i for i in range(35, 74) if exp_all.get(i, (0, 0, 0, 0, 0.0))[0] >= 5]
+        unvis_vac_maf = [i for i in range(35, 74) if i not in vis_vac_maf]
+        vis_bst_maf = [i for i in range(74, 130) if exp_all.get(i, (0, 0, 0, 0, 0.0))[3] >= 5]
+        unvis_bst_maf = [i for i in range(74, 130) if i not in vis_bst_maf]
+        print(f"\n[+] Part C: Unvisited MAF Bin & MAP Load Calc Cell Coverage (+5%..+10% Safety Cushion Audit):")
+        print(
+            f"  - MAF Scaling Active Bins (Idx 35..129): {len(vis_vac_maf) + len(vis_bst_maf)}/95 Visited | "
+            f"{len(unvis_vac_maf) + len(unvis_bst_maf)}/95 Unvisited "
+            f"(Shared Vac/Spool Idx <=73 unvisited: {unvis_vac_maf}; Boost Idx >=74 unvisited: Idx {min(unvis_bst_maf) if unvis_bst_maf else 'None'}..{max(unvis_bst_maf) if unvis_bst_maf else 'None'})"
+        )
+        if _table_exists(cur, "map_cell_experience"):
+            cur.execute("""
+            SELECT row_idx, col_idx, SUM(sample_count), SUM(weight_sum)
+            FROM map_cell_experience
+            GROUP BY row_idx, col_idx
+            HAVING SUM(sample_count) >= 3 AND SUM(weight_sum) >= 0.5;
+            """)
+            vis_map_set = {(r[0], r[1]) for r in cur.fetchall() if r[1] >= 1}
+            vac_vis = sum(1 for (r, m) in vis_map_set if 1 <= m <= 5)
+            crs_vis = sum(1 for (r, m) in vis_map_set if 6 <= m <= 7)
+            bst_vis = sum(1 for (r, m) in vis_map_set if 8 <= m <= 19)
+            print(
+                f"  - MAP based Load Calc Active Cells (Col 1..19): {len(vis_map_set)}/361 Visited | "
+                f"{361 - len(vis_map_set)}/361 Unvisited -> Interpolated + 5%..10% Safety Cushion "
+                f"(Vac: {vac_vis}/95 vis, Crossover: {crs_vis}/38 vis, Boost: {bst_vis}/228 vis)"
+            )
 
     print("=" * 96)
     conn.close()
@@ -874,7 +1194,8 @@ def run_audit_regressions(db_path):
                    SUM(sample_count * avg_afr_error) / SUM(sample_count) AS err,
                    SUM(knock_count_genuine) AS gk
             FROM regime_summaries
-            WHERE rom_id = ? AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'SPOOL_RAMP', 'WOT_BOOST')
+            WHERE rom_id = ? AND avg_ect_c >= 80.0
+              AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'SPOOL_RAMP', 'WOT_BOOST')
             GROUP BY regime, rpm_bucket, map_bucket
             HAVING n >= 15
         ),
@@ -884,7 +1205,8 @@ def run_audit_regressions(db_path):
                    SUM(sample_count * avg_afr_error) / SUM(sample_count) AS err,
                    SUM(knock_count_genuine) AS gk
             FROM regime_summaries
-            WHERE rom_id = ? AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'SPOOL_RAMP', 'WOT_BOOST')
+            WHERE rom_id = ? AND avg_ect_c >= 80.0
+              AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'SPOOL_RAMP', 'WOT_BOOST')
             GROUP BY regime, rpm_bucket, map_bucket
             HAVING n >= 15
         )
@@ -931,7 +1253,7 @@ def run_audit_regressions(db_path):
                    SUM(sample_count * avg_ect_c) / SUM(sample_count) AS ect,
                    SUM(sample_count * avg_iat_c) / SUM(sample_count) AS iat
             FROM regime_summaries
-            WHERE log_id = ? AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE')
+            WHERE log_id = ? AND avg_ect_c >= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE')
             GROUP BY regime, rpm_bucket, map_bucket
             HAVING n >= 12
         ),
@@ -942,7 +1264,7 @@ def run_audit_regressions(db_path):
                    SUM(sample_count * avg_ect_c) / SUM(sample_count) AS ect,
                    SUM(sample_count * avg_iat_c) / SUM(sample_count) AS iat
             FROM regime_summaries
-            WHERE log_id = ? AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE')
+            WHERE log_id = ? AND avg_ect_c >= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE')
             GROUP BY regime, rpm_bucket, map_bucket
             HAVING n >= 12
         )
@@ -969,7 +1291,7 @@ def run_audit_regressions(db_path):
     conn.close()
 
 
-def run_investigate(db_path, episode_id=None, ep_type=None, rom_id=None, trace_latest=False, window_sec=2.5, limit=20):
+def run_investigate(db_path, episode_id=None, ep_type=None, root_cause=None, rom_id=None, trace_latest=False, window_sec=2.5, limit=20):
     conn = get_conn(db_path)
     cur = conn.cursor()
 
@@ -983,6 +1305,9 @@ def run_investigate(db_path, episode_id=None, ep_type=None, rom_id=None, trace_l
         if ep_type:
             clauses.append("ep.episode_type = ?")
             params.append(ep_type)
+        if root_cause:
+            clauses.append("ep.root_cause = ?")
+            params.append(root_cause)
         if rom_id is not None:
             clauses.append("ep.rom_id = ?")
             params.append(rom_id)
@@ -1000,13 +1325,16 @@ def run_investigate(db_path, episode_id=None, ep_type=None, rom_id=None, trace_l
             episode_id = r[0]
 
     if episode_id is None:
-        print("\n" + "=" * 104)
-        print("               CONTIGUOUS ANOMALY EPISODES BROWSER (`investigate --episode-id <ID>`)")
-        print("=" * 104)
+        print("\n" + "=" * 124)
+        print("                       CONTIGUOUS ANOMALY EPISODES BROWSER (`investigate --episode-id <ID>`)")
+        print("=" * 124)
         clauses, params = [], []
         if ep_type:
             clauses.append("ep.episode_type = ?")
             params.append(ep_type)
+        if root_cause:
+            clauses.append("ep.root_cause = ?")
+            params.append(root_cause)
         if rom_id is not None:
             clauses.append("ep.rom_id = ?")
             params.append(rom_id)
@@ -1029,15 +1357,15 @@ def run_investigate(db_path, episode_id=None, ep_type=None, rom_id=None, trace_l
             print("[*] No matching anomaly episodes found.")
             conn.close()
             return
-        print("  EpID | ROM | Log Timestamp       | Window (s)      | Type                      | G  | RPM         | MAP   | ECT/IAT/MAT | AFR/Tgt     | Sev")
-        print("  " + "-" * 136)
+        print("  EpID | ROM | Log Timestamp       | Window (s)      | Type                     | Root Cause                   | G  | RPM         | MAP   | AFR/Tgt     | Sev")
+        print("  " + "-" * 150)
         for row in rows:
             (eid, rid, rname, lname, etype, ssec, esec, fcnt, gear,
              rpms, rpme, mapm, ect, iat, mat, afrw, afrm, sev, cause) = row
             short_log = lname.replace("EvoScanDataLog_", "").replace(".csv", "")
             g_str = gear[:2] if gear != "IDLE_STATIONARY" else "ID"
-            print(f"  {eid:4d} | {rid:3d} | {short_log:<19} | {ssec:6.1f}..{esec:<6.1f}s | {etype:<25} | {g_str:<2} | {rpms:4.0f}->{rpme:<4.0f} | {mapm:5.1f} | {ect:3.0f}/{iat:2.0f}/{mat:2.0f}°C | {afrw:5.2f}/{afrm:<5.2f} | {sev:5.1f}")
-        print("=" * 104)
+            print(f"  {eid:4d} | {rid:3d} | {short_log:<19} | {ssec:6.1f}..{esec:<6.1f}s | {etype:<24} | {cause:<28} | {g_str:<2} | {rpms:4.0f}->{rpme:<4.0f} | {mapm:5.1f} | {afrw:5.2f}/{afrm:<5.2f} | {sev:5.1f}")
+        print("=" * 124)
         conn.close()
         return
 
@@ -1125,11 +1453,38 @@ def run_audit_events(db_path):
     conn = get_conn(db_path)
     cur = conn.cursor()
 
-    print("\n" + "=" * 84)
-    print("         OPERATIONAL ANOMALY EPISODES & EVENTS LEDGER AUDIT")
-    print("=" * 84)
+    print("\n" + "=" * 96)
+    print("               OPERATIONAL ANOMALY EPISODES & EVENTS LEDGER AUDIT")
+    print("=" * 96)
+
+    cur.execute("""
+    SELECT r.rom_id, r.rom_name
+    FROM roms r
+    JOIN datalogs d ON r.rom_id = d.rom_id
+    GROUP BY r.rom_id
+    ORDER BY r.file_mtime DESC
+    LIMIT 1;
+    """)
+    lat_rom = cur.fetchone()
 
     if _table_exists(cur, "anomaly_episodes"):
+        if lat_rom:
+            lat_id, lat_name = lat_rom
+            cur.execute("""
+            SELECT episode_type, root_cause, COUNT(*), SUM(frame_count), AVG(peak_severity), MAX(peak_severity)
+            FROM anomaly_episodes
+            WHERE rom_id = ?
+            GROUP BY episode_type, root_cause
+            ORDER BY COUNT(*) DESC, MAX(peak_severity) DESC;
+            """, (lat_id,))
+            lat_eps = cur.fetchall()
+            print(f"\n[+] Part A: Active Latest ROM {lat_id} ({lat_name[-28:]}) Contiguous Anomaly Episodes:")
+            if not lat_eps:
+                print("  [+] CLEAN: Zero anomaly episodes recorded on Active Latest ROM!")
+            else:
+                for etype, cause, ecnt, fcnt, asev, msev in lat_eps:
+                    print(f"  - {etype:<24} | {cause:<30} : {ecnt:>3} eps ({fcnt:>4} frames) | Mean Sev: {asev:5.1f} | Max: {msev:5.1f}")
+
         cur.execute("""
         SELECT episode_type, COUNT(*), SUM(frame_count), AVG(peak_severity), MAX(peak_severity)
         FROM anomaly_episodes
@@ -1138,7 +1493,7 @@ def run_audit_events(db_path):
         """)
         ep_summary = cur.fetchall()
         if ep_summary:
-            print("\n[+] Debounced Contiguous Anomaly Episodes (use `investigate` to inspect traces):")
+            print("\n[+] Part B: All-ROM Historical Fleet Episode Ledger (use `investigate` to inspect traces):")
             for etype, ecnt, fcnt, asev, msev in ep_summary:
                 print(f"  - {etype:<26}: {ecnt:>4} episodes ({fcnt:>5} frames) | Mean Peak Sev: {asev:6.2f} | Max: {msev:6.2f}")
 
@@ -1155,7 +1510,7 @@ def run_audit_events(db_path):
         conn.close()
         return
 
-    print("\n[+] Frame-Level Operational Event Counts:")
+    print("\n[+] Part C: Frame-Level Operational Event Counts (All Logged ROMs):")
     for etype, cnt, avg_sev, max_sev in rows:
         print(f"  - {etype:<26}: {cnt:>4} events | Mean Severity: {avg_sev:5.2f} | Max: {max_sev:5.2f}")
 
@@ -1195,7 +1550,7 @@ def run_audit_events(db_path):
             pass
         print(f"  [{short_rom:<16}] t={t:6.1f}s | {etype:<24} | G{gear:<2} | {rpm:5.0f} RPM | {kpa:5.1f} kPa | AFR={afr:4.1f}/{afrmap:4.1f} | Sev={sev:4.1f}")
 
-    print("=" * 84)
+    print("=" * 96)
     conn.close()
 
 
@@ -1226,7 +1581,7 @@ def run_audit_health(db_path):
     """)
     rom_rows = cur.fetchall()
 
-    print("\n[+] Chronological ROM Calibration Progression (Pure Open-Loop):")
+    print("\n[+] Chronological ROM Calibration Progression (Pure Open-Loop, Sample-Weighted):")
     print("  ROM | Name                     | Logs | Frames  | MinECT/IAT | Cruise Err | Clamp% | GenK/Flut | DFCO Cut/Leak | EpCnt | WHP/WTQ")
     print("  " + "-" * 128)
     latest_logged_rom_id = None
@@ -1235,8 +1590,10 @@ def run_audit_health(db_path):
             latest_logged_rom_id = rid
         cur.execute("""
         SELECT
-            AVG(CASE WHEN regime = 'STEADY_CRUISE' AND avg_ect_c >= 80.0 THEN (avg_afr_error - 1.0) * 100.0 END),
-            AVG(CASE WHEN map_bucket <= 80.0 THEN clamping_rate END),
+            SUM(CASE WHEN regime = 'STEADY_CRUISE' AND avg_ect_c >= 80.0 THEN sample_count * (avg_afr_error - 1.0) * 100.0 ELSE 0.0 END)
+                / NULLIF(SUM(CASE WHEN regime = 'STEADY_CRUISE' AND avg_ect_c >= 80.0 THEN sample_count ELSE 0 END), 0),
+            SUM(CASE WHEN map_bucket <= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE') THEN sample_count * clamping_rate ELSE 0.0 END)
+                / NULLIF(SUM(CASE WHEN map_bucket <= 80.0 AND regime IN ('STEADY_IDLE', 'STEADY_CRUISE', 'TRANSIENT_CRUISE') THEN sample_count ELSE 0 END), 0),
             COALESCE(SUM(knock_count_genuine), 0),
             COALESCE(SUM(knock_count_flutter), 0)
         FROM regime_summaries
@@ -1279,6 +1636,141 @@ def run_audit_health(db_path):
     vvt = cur.fetchone()
     if vvt and vvt[0] is not None:
         print(f"[+] MIVEC Cam Phaser Tracking Error (Mean Abs): Intake = {vvt[0]:.2f}° | Exhaust = {vvt[1]:.2f}°")
+
+    print("=" * 96)
+    conn.close()
+
+
+def run_audit_timing(db_path):
+    """Dedicated Ignition Timing & Historical Knock-Corridor Audit (`Lets improve timing` queries)."""
+    conn = get_conn(db_path)
+    cur = conn.cursor()
+
+    print("\n" + "=" * 96)
+    print("       IGNITION TIMING DELIVERY, LOAD-SHIFT DELTA & HISTORICAL KNOCK CORRIDOR AUDIT")
+    print("=" * 96)
+
+    cur.execute("""
+    SELECT r.rom_id, r.rom_name
+    FROM roms r
+    JOIN datalogs d ON r.rom_id = d.rom_id
+    GROUP BY r.rom_id
+    ORDER BY r.file_mtime DESC
+    LIMIT 1;
+    """)
+    lat = cur.fetchone()
+    if not lat:
+        print("[*] No logged ROMs found.")
+        conn.close()
+        return
+    lat_id, lat_name = lat
+
+    cur.execute("""
+    SELECT regime, rpm_bucket, map_bucket,
+           SUM(sample_count) AS n,
+           SUM(sample_count * avg_timing) / SUM(sample_count) AS act_tim,
+           SUM(sample_count * avg_rom_timing_high) / SUM(sample_count) AS hi_tim,
+           SUM(sample_count * avg_rom_timing_retard) / SUM(sample_count) AS tim_delta,
+           SUM(sample_count * avg_afr) / SUM(sample_count) AS mafr,
+           SUM(knock_count_genuine) AS gk,
+           SUM(knock_count_flutter) AS fk
+    FROM regime_summaries
+    WHERE rom_id = ? AND avg_ect_c >= 80.0
+      AND regime IN ('STEADY_CRUISE', 'SPOOL_RAMP', 'WOT_BOOST')
+    GROUP BY regime, rpm_bucket, map_bucket
+    HAVING n >= 15
+    ORDER BY map_bucket DESC, rpm_bucket ASC
+    LIMIT 24;
+    """, (lat_id,))
+    t_rows = cur.fetchall()
+    print(f"\n[+] Part A: Active ROM {lat_id} ({lat_name[-28:]}) Warm Spark Delivery (High-Load & Cruise):")
+    if t_rows:
+        print("  Regime           | RPM  | MAP   | Samples | Actual Spark | ROM HighOct | Act-HiOct | AFR   | GenK/Flut")
+        print("  " + "-" * 96)
+        for reg, rpm_b, map_b, n, act_t, hi_t, t_del, mafr, gk, fk in t_rows:
+            print(f"  {reg:<16} | {rpm_b:4d} | {map_b:5.0f} | {n:>7,} |    {act_t:5.1f}°    |    {hi_t:5.1f}°   |  {t_del:+5.1f}°   | {mafr:5.2f} |  {gk:2d} / {fk:<2d}")
+
+    cur.execute("""
+    SELECT rpm_bucket, map_bucket,
+           SUM(sample_count) AS total_n,
+           SUM(knock_count_genuine) AS gk,
+           SUM(knock_count_flutter) AS fk,
+           SUM(sample_count * avg_timing) / SUM(sample_count) AS mean_tim,
+           COUNT(DISTINCT rom_id) AS rom_cnt
+    FROM regime_summaries
+    GROUP BY rpm_bucket, map_bucket
+    HAVING gk > 0 OR fk > 0
+    ORDER BY gk DESC, fk DESC, map_bucket DESC;
+    """)
+    k_cells = cur.fetchall()
+    print("\n[+] Part B: Fleet-Wide Knock Corridor Map (Genuine Timing Knock vs Mechanical BOV Flutter):")
+    if not k_cells:
+        print("  [+] Zero knock events recorded across fleet.")
+    else:
+        print("  RPM  | MAP   | Fleet Frames | Genuine Knock (Rate%)   | BOV Flutter | Mean Spark | ROMs")
+        print("  " + "-" * 86)
+        for rpm_b, map_b, tot_n, gk, fk, m_tim, r_cnt in k_cells:
+            rate = (gk / max(1, tot_n)) * 100.0
+            print(f"  {rpm_b:4d} | {map_b:5.0f} | {tot_n:>12,} | {gk:4d} ({rate:6.2f}% of frames) | {fk:>11} |   {m_tim:5.1f}°   |  {r_cnt:2d}")
+
+    print("=" * 96)
+    conn.close()
+
+
+def run_audit_shifts(db_path):
+    """Dedicated Shift Quality, Rev-Hang, Post-Shift Bog/Lean & Drivetrain Slip Audit."""
+    conn = get_conn(db_path)
+    cur = conn.cursor()
+
+    print("\n" + "=" * 96)
+    print("          SHIFT QUALITY, REV-HANG, POST-SHIFT FUELING & DRIVETRAIN SLIP AUDIT")
+    print("=" * 96)
+
+    cur.execute("""
+    SELECT r.rom_id, r.rom_name,
+           SUM(CASE WHEN s.regime = 'SHIFT_TRANSITION' THEN s.sample_count ELSE 0 END) AS sh_frames,
+           SUM(CASE WHEN s.regime = 'SHIFT_TRANSITION' THEN s.sample_count * s.avg_rpm_accel ELSE 0.0 END)
+               / NULLIF(SUM(CASE WHEN s.regime = 'SHIFT_TRANSITION' THEN s.sample_count ELSE 0 END), 0) AS sh_rpms,
+           SUM(CASE WHEN s.regime = 'SHIFT_TRANSITION' THEN s.sample_count * s.avg_dbw_cut ELSE 0.0 END)
+               / NULLIF(SUM(CASE WHEN s.regime = 'SHIFT_TRANSITION' THEN s.sample_count ELSE 0 END), 0) AS sh_dbw
+    FROM roms r
+    JOIN regime_summaries s ON r.rom_id = s.rom_id
+    GROUP BY r.rom_id
+    HAVING sh_frames > 0
+    ORDER BY r.file_mtime DESC
+    LIMIT 6;
+    """)
+    sh_roms = cur.fetchall()
+    if sh_roms:
+        print("\n[+] Part A: Recent ROM Shift Transition Dynamics (`SHIFT_TRANSITION` Regime):")
+        print("  ROM | Name                         | Shift Frames | Mean Shift dRPM/dt | Mean APP-TPS Cut")
+        print("  " + "-" * 88)
+        for rid, rname, sh_n, sh_rpms, sh_dbw in sh_roms:
+            print(f"  {rid:3d} | {rname[-28:]:<28} | {sh_n:>12,} |    {sh_rpms or 0.0:+8.1f} RPM/s  |     {sh_dbw or 0.0:+5.1f}%")
+
+    if _table_exists(cur, "anomaly_episodes"):
+        cur.execute("""
+        SELECT ep.episode_id, ep.rom_id, d.log_name, ep.episode_type, ep.root_cause,
+               ep.start_sec, ep.end_sec, ep.gear, ep.rpm_start, ep.rpm_end,
+               ep.map_mean, ep.afr_worst, ep.afrmap_mean, ep.peak_severity
+        FROM anomaly_episodes ep
+        JOIN datalogs d ON ep.log_id = d.log_id
+        WHERE ep.episode_type IN ('SHIFT_ANOMALY', 'DRIVETRAIN_SLIP_OR_SPIN')
+           OR ep.root_cause IN ('POST_SHIFT_OR_TIP_IN_LEAN', 'POST_SHIFT_RICH_SPOOL', 'DECEL_DBW_DASHPOT_HOLD')
+        ORDER BY d.log_time DESC, ep.start_sec ASC
+        LIMIT 25;
+        """)
+        sh_eps = cur.fetchall()
+        print("\n[+] Part B: Recent Shift, Post-Shift, Dashpot & Slip/Spin Episodes:")
+        if not sh_eps:
+            print("  [+] CLEAN: Zero shift rev-hang, post-shift bog/hesitation, or slip/spin episodes detected.")
+        else:
+            print("  EpID | ROM | Log Timestamp       | Window (s)      | Cause                        | G  | RPM         | AFR/Tgt     | Sev")
+            print("  " + "-" * 124)
+            for eid, rid, lname, etype, cause, ssec, esec, gear, rpms, rpme, mapm, afrw, afrm, sev in sh_eps:
+                short_log = lname.replace("EvoScanDataLog_", "").replace(".csv", "")
+                g_str = gear[:2] if gear != "IDLE_STATIONARY" else "ID"
+                print(f"  {eid:4d} | {rid:3d} | {short_log:<19} | {ssec:6.1f}..{esec:<6.1f}s | {cause:<28} | {g_str:<2} | {rpms:4.0f}->{rpme:<4.0f} | {afrw:5.2f}/{afrm:<5.2f} | {sev:5.1f}")
 
     print("=" * 96)
     conn.close()
@@ -1332,18 +1824,23 @@ def main():
     # 8. investigate
     p_inv = subparsers.add_parser("investigate", help="Browse anomaly episodes or print frame-by-frame telemetry trace around an episode")
     p_inv.add_argument("--episode-id", type=int, help="Episode ID to trace frame-by-frame from classified CSV")
-    p_inv.add_argument("--type", dest="ep_type", help="Filter by episode_type (e.g. COLD_ECT_MISFUEL, KNOCK_GENUINE_TIMING, STEADY_PEDAL_POWER_DROP)")
+    p_inv.add_argument("--type", dest="ep_type", help="Filter by episode_type (e.g. SHIFT_ANOMALY, COLD_ECT_MISFUEL, KNOCK_GENUINE_TIMING)")
+    p_inv.add_argument("--root-cause", dest="root_cause", help="Filter by specific root_cause (e.g. POST_SHIFT_RICH_BOG, CROSSOVER_CLAMP_RECTIFICATION)")
     p_inv.add_argument("--rom-id", type=int, help="Filter by ROM ID")
     p_inv.add_argument("--trace-latest", action="store_true", help="Automatically trace the highest-severity episode on the latest drive")
     p_inv.add_argument("--window-sec", type=float, default=2.5, help="Context seconds before/after episode in trace (default: 2.5s)")
     p_inv.add_argument("--limit", type=int, default=20, help="Max episodes to list in browser mode (default: 20)")
 
     # 9. audit-events
-    subparsers.add_parser("audit-events", help="Inspect all recorded anomaly episodes & frame events (knock, flutter, overrun)")
+    subparsers.add_parser("audit-events", help="Inspect all recorded anomaly episodes & frame events (Active ROM + Fleet)")
 
     # 10. audit-health (and alias audit-decel)
     subparsers.add_parser("audit-health", help="ROM progression, weather envelope, DFCO overrun status, Virtual Dyno WHP/WTQ & VVT")
     subparsers.add_parser("audit-decel", help="Alias for audit-health focusing on DFCO overrun fuel cuts vs injector leaks")
+
+    # 11. audit-timing & audit-shifts
+    subparsers.add_parser("audit-timing", help="Ignition spark delivery vs ROM High Octane Timing & fleet-wide knock corridor audit")
+    subparsers.add_parser("audit-shifts", help="Shift quality, rev-hang, post-shift fueling bog/lean & drivetrain slip/spin audit")
 
     args = parser.parse_args()
 
@@ -1362,11 +1859,15 @@ def main():
     elif args.subcommand == "audit-regressions":
         run_audit_regressions(args.db)
     elif args.subcommand == "investigate":
-        run_investigate(args.db, args.episode_id, args.ep_type, args.rom_id, args.trace_latest, args.window_sec, args.limit)
+        run_investigate(args.db, args.episode_id, args.ep_type, args.root_cause, args.rom_id, args.trace_latest, args.window_sec, args.limit)
     elif args.subcommand == "audit-events":
         run_audit_events(args.db)
     elif args.subcommand in ("audit-health", "audit-decel"):
         run_audit_health(args.db)
+    elif args.subcommand == "audit-timing":
+        run_audit_timing(args.db)
+    elif args.subcommand == "audit-shifts":
+        run_audit_shifts(args.db)
 
 
 if __name__ == "__main__":

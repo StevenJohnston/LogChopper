@@ -25,7 +25,15 @@ TOOLS_DIR = os.path.join(REPO_ROOT, "tuning_tools", "tools")
 DEFAULT_DB = os.path.join(REPO_ROOT, "tuning_tools", "db", "calibration_experience.db")
 
 sys.path.insert(0, TOOLS_DIR)
-from ingest_experience import init_db, ingest_rom, parse_log_timestamp, get_matching_rom_id_and_path, ingest_classified_datalog  # noqa: E402
+from ingest_experience import (  # noqa: E402
+    init_db,
+    ingest_rom,
+    parse_log_timestamp,
+    get_matching_rom_id_and_path,
+    ingest_classified_datalog,
+    get_rom_unsoaked_refs,
+    get_daily_ambient_iat_ref,
+)
 from datalog_classifier import DatalogClassifier  # noqa: E402
 
 
@@ -80,7 +88,9 @@ def main():
 
         if lname not in existing_logs or (args.force_reclassify and is_latest_rom_log):
             print(f"[*] Auto-classifying & ingesting: {lname} (ROM ID {r_id})")
-            cl = DatalogClassifier(lp, rom_path=r_path)
+            fb_refs = get_rom_unsoaked_refs(args.db, r_id)
+            amb_iat = get_daily_ambient_iat_ref(args.db, log_ts)
+            cl = DatalogClassifier(lp, rom_path=r_path, fallback_unsoaked_err=fb_refs, ambient_iat_ref=amb_iat)
             cl.load_and_parse()
             cl.classify_all()
             out_csv = f"{os.path.splitext(lp)[0]}_classified.csv"

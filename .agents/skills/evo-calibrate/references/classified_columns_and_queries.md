@@ -22,12 +22,12 @@ Every EvoScan CSV processed by `tuning_tools/tools/datalog_classifier.py` (or `i
 ### B. Thermal Decoupling, Wideband Validity & 1D Airflow Aliasing (`7` Columns)
 | Column | Values / Units | Description |
 | :--- | :--- | :--- |
-| `diag_thermal_regime` | Enum | `ENGINE_OFF`, `POST_START_FLARE_DECAY` (`<90s` cold crank), `WARMUP_ECT_ACTIVE` (`>90s`, `ECT < 80°C`), `INTERCOOLER_BOOST_SPLIT` (`>=120 kPa`), `HEATSOAK_IDLE_SOAK`, `HEATSOAK_FLUSH_SPLIT` (`MAT - IAT >= 10°C`), `COLD_AMBIENT_STEADY` (`IAT <= 12°C`), `WARM_AMBIENT_STEADY`. |
+| `diag_thermal_regime` | Enum | `ENGINE_OFF`, `POST_START_FLARE_DECAY` (`<90s` cold crank), `POST_HOT_START_RAIL_SOAK` (stationary hot-restart fuel-rail vapor boil until stoich recovery or `<75s`), `WARMUP_ECT_ACTIVE` (`>90s`, `ECT < 80°C`), `INTERCOOLER_BOOST_SPLIT` (`>=120 kPa`), `HEATSOAK_IDLE_SOAK`, `HEATSOAK_FLUSH_SPLIT` (`MAT - IAT >= 10°C`), `UNDERHOOD_IAT_HEATSOAK` (`IAT` soaked `>=12°C` above daily outdoor ambient w/ `MAT >= 36°C`), `COLD_AMBIENT_STEADY` (`IAT <= 12°C`), `WARM_AMBIENT_STEADY`. |
 | `diag_iat_mat_delta_c` | `°C` | `MAT - IAT` (isolates manifold heat-soak above ambient MAF intake temperature). |
 | `diag_emp_map_density_mult` | Ratio | `MAPCalcs / diag_rom_map_ve_load` (empirical ECU air-density multiplier vs nominal `1.090`). |
 | `diag_emp_maf_temp_mult` | Ratio | `MAFCalcs / (4964.28 * diag_rom_maf_gs / RPM)` (confirms temperature invariance of `MAFCalcs`). |
-| `diag_wideband_state` | Enum | `ENGINE_OFF`, `SENSOR_WARMUP` (`<35s` post-crank heater warmup), `DFCO_AIR`, `RAIL_RICH_CLIP` (`<=10.08`), `RAIL_LEAN_CLIP` (`>=18.42`), `VALID`. |
-| `diag_maf_zone` | Enum | `IDLE_LOW_FLOW` (`<1.65V`), `PURE_VACUUM_MAF` (`<=105 kPa & <=2.68V`), `MAF_MAP_ALIAS_CONFLICT` (`<=105 kPa & >=2.74V`), `SPOOL_CROSSOVER_MAF`, `BOOST_SD_HEADROOM_OK` (`MAP/MAF <= 0.86`), `BOOST_MAF_UNDERCUT_RISK` (`MAP/MAF > 0.86` in boost). |
+| `diag_wideband_state` | Enum | `ENGINE_OFF`, `WIDEBAND_DROPOUT` (`AFR <= 5.0` key-off/power drop), `SENSOR_WARMUP` (`<35s` post-crank heater warmup, incl. stationary hot restarts), `DFCO_AIR`, `RAIL_RICH_CLIP` (`<=10.08`), `RAIL_LEAN_CLIP` (`>=18.42`), `VALID`. |
+| `diag_maf_zone` | Enum | `IDLE_LOW_FLOW` (`<1.65V`), `PURE_VACUUM_MAF` (`<=105 kPa & <=2.68V`), `MAF_MAP_ALIAS_CONFLICT` (`<=105 kPa & >=2.74V`), `SPOOL_CROSSOVER_MAF`, `BOOST_SHARED_BIN_SD_OK` (`<=2.86V` shared bin w/ `MAP < 0.98*MAF`), `BOOST_SD_HEADROOM_OK` (`>=2.89V` & `MAP/MAF <= 0.88`), `BOOST_MAF_UNDERCUT_RISK`. |
 | `diag_imap_window_pct` | `% Load` | `|IMAPCalcs - MAPCalcs|` (transient load clamp window width from `load_clamp_or_blend.c`). |
 
 ### C. Drivetrain, Decel Overrun & Virtual Dyno Physics (`12` Columns)
@@ -35,7 +35,7 @@ Every EvoScan CSV processed by `tuning_tools/tools/datalog_classifier.py` (or `i
 | :--- | :--- | :--- |
 | `diag_gear` | `IDLE_STATIONARY`, `1`..`5`, `NEUTRAL` | Gear inferred from `RPM / smooth_speed_kmh` ratio for USDM Evo X 5MT (`4.687` FD). |
 | `diag_shift_active` | `0` or `1` | `1` during clutch-in / gear transition (`NEUTRAL` rolling or rapid RPM drop under low TPS). |
-| `diag_decel_fuel_status` | Enum | `CUT_ACTIVE` (`IPW <= 0.05ms` or closed-pedal `AFR >= 18.42` w/ `IPW <= 0.45ms`), `DFCO_ENTRY_DELAY` (`<=1.25s`), `DFCO_LOW_RPM_RESUME`, `UNEXPECTED_FUELING` (`>1.25s` leak), `COAST_NEUTRAL`, `DFCO_RECOVERY`, `NORMAL_DRIVING`. |
+| `diag_decel_fuel_status` | Enum | `CUT_ACTIVE`, `DFCO_ENTRY_DELAY` (`<=1.25s`), `DFCO_LOW_RPM_RESUME`, `DBW_DASHPOT_HOLD` (`APP` closed, `TPS` held open by dashpot), `UNEXPECTED_FUELING` (`>1.25s` closed `APP` & `TPS` leak), `COAST_NEUTRAL`, `DFCO_RECOVERY`, `NORMAL_DRIVING`. |
 | `diag_smooth_speed_kmh` | `km/h` | 5-frame centered moving average of vehicle speed. |
 | `diag_smooth_accel_g` | `G` | Centered `~0.4s` OLS longitudinal acceleration slope. |
 | `diag_rpm_accel_rpms` | `RPM/s` | 15-frame (`~0.50s`) OLS rotational acceleration slope (suppresses RAX `7.8125 RPM` step noise). |
@@ -54,7 +54,7 @@ Every EvoScan CSV processed by `tuning_tools/tools/datalog_classifier.py` (or `i
 | `diag_dbw_throttle_cut` | `%` | `APP - TPS` (DBW throttle closure / torque intervention check). |
 | `diag_idc_pct` | `%` | True 4-stroke Injector Duty Cycle: `(RPM * IPW_ms) / 1200.0`. |
 | `diag_steady_confidence` | `0.000`–`1.000` | Continuous stationarity confidence penalized by `|dTPS/dt|`, `|dMAP/dt|`, and `|dRPM/dt|`. |
-| `diag_operating_regime` | Enum | `STEADY_IDLE`, `STEADY_CRUISE`, `TRANSIENT_CRUISE`, `SPOOL_RAMP`, `WOT_BOOST`, `TIP_IN`, `TIP_OUT`, `OVERRUN_DECEL`, `DFCO`, `DFCO_RECOVERY`. |
+| `diag_operating_regime` | Enum | `ENGINE_OFF`, `CRANKING` (`250 <= RPM < 450`), `LOG_FREEZE_GAP` (RAX key-off polling freeze / timestamp jump), `STEADY_IDLE`, `STEADY_CRUISE`, `TRANSIENT_CRUISE`, `SHIFT_TRANSITION`, `SPOOL_RAMP`, `WOT_BOOST`, `TIP_IN`, `TIP_OUT`, `OVERRUN_DECEL`, `DFCO`, `DFCO_RECOVERY`. |
 | `diag_knock_class` | Enum | `NONE`, `GENUINE_TIMING`, `BOV_FLUTTER`, `DRIVETRAIN_LASH`, `SHIFT_KNOCK` (strictly on $\Delta\text{KnockSum} > 0$). |
 | `diag_knock_confidence` | `0.00`–`1.00` | Classifier confidence for knock root-cause attribution. |
 | `diag_load_clamping_state` | Enum | `UNCLAMPED`, `VACUUM_CEILING_CLAMPED`, `CROSSOVER_TRANSITION`, `BOOST_SPEED_DENSITY`, `BOOST_FLOOR_CLAMPED`. |
@@ -66,18 +66,19 @@ Every EvoScan CSV processed by `tuning_tools/tools/datalog_classifier.py` (or `i
 | `diag_usable_for_maf` | `0` or `1` | `1` when warm (`>=80°C`), valid WB, unclamped, steady (`>=0.70`), `MAP <= 105 kPa`, `MAFV <= 2.74V`, non-DFCO, non-shift, non-flutter. |
 | `diag_usable_for_ve` | `0` or `1` | `1` when warm (`>=80°C`), valid WB, non-DFCO, non-overrun-leak, non-shift, non-flutter, steady or clean WOT/cruise/idle. |
 | `diag_usable_for_injector` | `0` or `1` | `1` when warm (`>=80°C`), valid WB, `MAP <= 105 kPa`, non-heatsoak, stationary (`>=0.75`), `|dTPS/dt| <= 1.5%/s`. |
-| `diag_rejection_reason` | `;`-list | Explicit reason(s) a row was excluded (`NONE`, `COLD_WARMUP`, `WIDEBAND_WARMUP`, `WIDEBAND_CLIPPED`, `DFCO`, `OVERRUN_FUEL_LEAK`, `SHIFT_ACTIVE`, `MAF_MAP_ALIAS_ZONE`, `VACUUM_CEILING_CLAMPED`, `UNSTEADY_THROTTLE`, `BOOST_REGIME`, `BOV_FLUTTER`). |
+| `diag_rejection_reason` | `;`-list | Explicit reason(s) a row was excluded (`NONE`, `LOG_FREEZE_GAP`, `ENGINE_OFF_OR_CRANK`, `POST_HOT_START_RAIL_SOAK`, `COLD_WARMUP`, `WIDEBAND_WARMUP`, `WIDEBAND_CLIPPED`, `DFCO`, `OVERRUN_FUEL_LEAK`, `SHIFT_ACTIVE`, `MAF_MAP_ALIAS_ZONE`, `VACUUM_CEILING_CLAMPED`, `UNSTEADY_THROTTLE`, `BOOST_REGIME`, `BOV_FLUTTER`). |
 
 ---
 
 ## 2. SQLite Experience Database Tables (`tuning_tools/db/calibration_experience.db`)
 
 - `roms` & `rom_tables`: Indexes `maf_scaling`, `map_load_calc_1`, `map_load_calc_2`, `high_octane_timing` (`0x55957`), `low_octane_timing` (`0x55B59`), `fuel_injector_scaling`, `injector_latency`, `fuel_comp_mat_vs_map` (firmware gain), `fuel_comp_mat_vs_map_gui` (`Percent128`), `ect_fuel_comp_1` (`0x5ADB9`), and `ect_fuel_comp_2` (`0x5AF31`).
-- `datalogs`: Drive-level weather/thermal envelope (`min_ect_c`, `max_ect_c`, `mean_iat_c`, `mean_mat_c`), `wideband_clipped_frames`, `alias_zone_frames`, `episode_count`, DFCO cut/leak frames, and peak Virtual Dyno WHP/WTQ.
-- `regime_summaries`: Valid-wideband-gated open-loop summaries across `(regime, rpm_bucket, map_bucket, mafv_bucket, mat_bucket, vbatt_bucket)`.
-- `maf_bin_experience`: Per-drive, per-bin (`0..129`) ledger tracking `unclamped_vac_samples`, `alias_vac_samples`, `boost_sd_samples`, `avg_boost_map_to_maf`, and `avg_boost_true_gs`.
-- `thermal_summaries`: Decoupled `(thermal_regime, ect_bucket, iat_bucket, mat_bucket, map_bucket)` table enabling within-drive `ECT` isolation and manifold `MAT - IAT` heat-soak queries.
-- `anomaly_episodes` & `operational_events`: Contiguous debounced anomaly episodes (`start_row..end_row`, `start_sec..end_sec`, `root_cause`, `peak_severity`) + frame-level event records.
+- `datalogs`: Drive-level weather/thermal envelope (`min_ect_c`, `max_ect_c`, `min_iat_c`, `mean_iat_c`, `mean_mat_c`), `wideband_clipped_frames`, `alias_zone_frames`, `episode_count`, DFCO cut/leak frames, and peak Virtual Dyno WHP/WTQ.
+- `regime_summaries`: Valid-wideband-gated open-loop summaries across `(regime, rpm_bucket, map_bucket, mafv_bucket, mat_bucket, vbatt_bucket)` (with `POST_HOT_START_SOAK` isolated from `STEADY_IDLE`).
+- `maf_bin_experience`: Per-drive, per-bin (`0..129`) ledger tracking strict `unclamped_vac_samples`, steady-pedal `quasi_vac_samples` (`avg_quasi_afr_err`), `alias_vac_samples`, `boost_sd_samples`, `avg_boost_map_to_maf`, and `avg_boost_true_gs`.
+- `map_cell_experience`: Per-drive, per-cell (`19 RPM rows × 20 MAP cols = 380` cells) bilinear ledger tracking `sample_count`, `weight_sum`, 5-frame exhaust-matched `avg_true_over_mapc` (`TrueLoad_5 / MAPCalcs_5`), `avg_true_table_ve`, and `avg_afr_error` across all warm valid drives. Used by `multi_rom_secant_balancer.py` and `experience_query.py` to distinguish empirically visited cells (`SUM(sample_count) >= 3 AND SUM(weight_sum) >= 0.5`) from unvisited cells requiring 2D shape-preserving interpolation + `+5%–10%` safety margin.
+- `thermal_summaries`: Decoupled `(thermal_regime, ect_bucket, iat_bucket, mat_bucket, map_bucket)` table enabling within-drive `ECT` isolation, manifold `MAT - IAT` heat-soak, underhood `IAT` soak, and hot-restart vapor purge queries.
+- `anomaly_episodes` & `operational_events`: Contiguous debounced anomaly episodes (`start_row..end_row`, `start_sec..end_sec`, `root_cause`, `peak_severity`, including `START_OR_IDLE_STALL`, `HOT_SOAK_VAPOR_LEAN`, `ELEVATED_IDLE_LOAD_ANOMALY`) + frame-level event records.
 
 ---
 
@@ -102,5 +103,20 @@ FROM maf_bin_experience
 WHERE bin_idx BETWEEN 60 AND 84
 GROUP BY bin_idx
 ORDER BY bin_idx ASC;
+"
+```
+
+### Example C: SQLite Query for `MAP based Load Calc` (`19×20`) Visited vs Unvisited Cell Coverage
+```bash
+sqlite3 -header -column tuning_tools/db/calibration_experience.db "
+SELECT row_idx, col_idx, rpm, map_kpa,
+       SUM(sample_count) AS fleet_n,
+       ROUND(SUM(weight_sum), 2) AS fleet_w,
+       ROUND(SUM(weight_sum * avg_true_over_mapc) / NULLIF(SUM(weight_sum), 0), 3) AS true_over_mapc,
+       ROUND((SUM(weight_sum * avg_afr_error) / NULLIF(SUM(weight_sum), 0) - 1.0) * 100.0, 2) AS afr_err_pct
+FROM map_cell_experience
+GROUP BY row_idx, col_idx
+HAVING fleet_n >= 3 AND fleet_w >= 0.5
+ORDER BY col_idx ASC, row_idx ASC;
 "
 ```

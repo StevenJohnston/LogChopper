@@ -23,6 +23,11 @@ Whenever performing telemetry analysis, balancer simulation, fuel/load verificat
    - **Mandatory Direct Disk Ingestion**: Clipboard paste blocks and report artifacts MUST ALWAYS be populated by reading directly from the verified toolchain export files on disk (`.tsv` / `.txt`).
    - **Mandatory Automated Parity Check**: Before presenting any table to the user, run an automated assertion verifying byte-for-byte or numeric equality between the presentation buffer and the disk export file (`assert disk_table == presentation_table`). If any discrepancy exists, the tool must abort and reload directly from disk.
 
+5. **Changed-Tables-Only Output Rule & Zero `±0.1` Phantom MAP Drift**:
+   - **ONLY output clipboard paste blocks and export files for tables that actually have cell changes (`changed_cells > 0` relative to the active target ROM).**
+   - Never output redundant paste blocks for unchanged tables (e.g., if `High Octane Timing Map`, `Low Octane Timing Map`, `ECT Fuel Compensation #1 & #2`, or `MIVEC` have `0` changed cells vs `--target-rom`, omit their paste blocks and simply note that they are unchanged).
+   - **Zero `±0.1` Phantom Drift in `MAP based Load Calc`**: Always round loaded `Loadify` table values (`x / 163.84`) to `round(..., 1)` on ingestion, apply 3-point vertical smoothing strictly to telemetry-driven cell deltas (`raw_map - map_curr`) on visited cells (`modified[r][m] == True`), and enforce a `±0.1` anti-jitter deadband (`|sm_delta| >= 0.15`) so untouched/unvisited cells NEVER drift by `±0.1` when pasted into EcuFlash.
+
 ---
 
 ## 2. Platform & Hardware Configuration
@@ -158,6 +163,10 @@ To prevent chronic vacuum clamping while ensuring clean transition to Speed Dens
 5. **3D VE RPM Slope Preservation & No Low-Voltage Idle Shelf**:
    - Never flatten `MAP based Load Calc` vertically across RPM above `2,000 RPM`; always preserve a non-decreasing VE curve along `V3.18`'s RPM slope.
    - Never inflate `Idx 31–38` (`1.21V–1.49V`) above the physical warm `50 kPa` idle curve (`~4.9–5.2 g/s` at `1.41V–1.45V`, `Idx 36–37`).
+6. **Unvisited Cell/Bin Shape-Preserving Interpolation + `+5%–10%` Safety Cushion (`MAF Scaling` & `MAP based Load Calc`)**:
+   - Whenever generating new `MAF Scaling Horizontal` (`1 × 130`) and `MAP based Load Calc #1/#2` (`19 × 20`) tables, all active cells/bins that have **never been hit** (`vis_maf[i] == False` for `Idx >= 35`, `vis_map[r][m] == False` for `Col >= 1` across CLI logs and `calibration_experience.db`'s `maf_bin_experience` / `map_cell_experience`) are **interpolated** from the visited (data-backed) cells/bins in normalized `V3.18` ratio space partitioned by physical regime, and multiplied by a **distance-graded `+5.0% to +10.0%` safety margin** (`+5.0%` at distance 1, `+7.5%` at distance 2, `+10.0%` at distance $\ge 3$).
+   - Raising unvisited load/airflow values by `+5%–10%` ensures the ECU commands **more fuel and less ignition timing** if the car enters unexplored operating regions for the first time.
+   - **Strict Visited-Cell Isolation**: Visited cells/bins (`has_data == True`) are never modified by the unvisited interpolation or `+5%–10%` safety margin, and unvisited interpolation is anchored strictly to visited cells/bins so repeated runs without new telemetry never ratchet unvisited cells higher.
 
 ---
 

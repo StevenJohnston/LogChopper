@@ -25,7 +25,18 @@ Implements the Evo X Safe Convergence Process:
        downward and starve fueling/advance timing at atmospheric crossover (95-115 kPa).
      - Enforces a Spool & Boost Safety Floor (>= 116.3 kPa never deflated below the
        knock-free V3.18 / ROM 25 floor on transient rich spool samples).
-  4. Dual-Table (#1 0x608AE & #2 0x605AC) Parity & --lower-only Timing Synchronization:
+  4. Unvisited Cell/Bin Shape-Preserving Interpolation + 5%-10% Safety Cushion:
+     - Identifies all MAF bins (Idx >= 35) and MAP based Load Calc cells (Col >= 1)
+       that have zero empirical telemetry coverage across the current logs, previous
+       ROM logs, and calibration_experience.db (maf_bin_experience & map_cell_experience).
+     - Interpolates unvisited cells/bins from visited (data-backed) anchors in
+       normalized V3.18 ratio space partitioned by physical regime, and applies a
+       distance-graded +5.0% to +10.0% safety cushion (+5.0% at distance 1, +7.5% at
+       distance 2, +10.0% at distance >= 3) so the ECU commands more fuel and less
+       ignition timing if the car enters unexplored regions for the first time.
+     - Strictly preserves all visited cells/bins (has_data == True) untouched by the
+       unvisited safety margin and prevents cumulative ratcheting across flashes.
+  5. Dual-Table (#1 0x608AE & #2 0x605AC) Parity & --lower-only Timing Synchronization:
      - Emits ready-to-paste EcuFlash tables (MAF 130 cells, MAP 19x20 cells, High/Low
        Octane Timing 23x22 cells).
 """
@@ -59,8 +70,8 @@ def load_rom(path):
     rpm_axis = [round(r * 1000.0 / 256.0) for r in r_axis_raw]
     raw_map1 = struct.unpack(">380H", d[0x608AE : 0x608AE + 760])
     raw_map2 = struct.unpack(">380H", d[0x605AC : 0x605AC + 760])
-    map_grid1 = [[(raw_map1[m * 19 + r] * 10.0 / 512.0) * 10.0 / 32.0 for m in range(20)] for r in range(19)]
-    map_grid2 = [[(raw_map2[m * 19 + r] * 10.0 / 512.0) * 10.0 / 32.0 for m in range(20)] for r in range(19)]
+    map_grid1 = [[round((raw_map1[m * 19 + r] * 10.0 / 512.0) * 10.0 / 32.0, 1) for m in range(20)] for r in range(19)]
+    map_grid2 = [[round((raw_map2[m * 19 + r] * 10.0 / 512.0) * 10.0 / 32.0, 1) for m in range(20)] for r in range(19)]
     mismatch = sum(1 for a, b in zip(raw_map1, raw_map2) if a != b)
     return {
         "path": path,
@@ -230,6 +241,156 @@ def collect_telemetry(log_files, volts, map_kpa, rpm_axis):
     return unclamped_maf, boost_true_gs, map_true_ratio, regimes, knock_clusters
 
 
+def _distance_safety_margin(dist_cells, margin_min=0.05, margin_max=0.10):
+    """
+    Distance-graded unvisited safety margin:
+      - d = 1 cell from nearest visited cell -> margin_min (+5.0%)
+      - d = 2 cells from nearest visited cell -> midpoint (+7.5%)
+      - d >= 3 cells from nearest visited cell -> margin_max (+10.0%)
+    """
+    if margin_max <= margin_min:
+        return margin_min
+    span = margin_max - margin_min
+    return max(margin_min, min(margin_max, margin_min + 0.5 * span * max(0.0, dist_cells - 1.0)))
+
+
+def _map_col_regime(col_idx):
+    if col_idx == 0:
+        return 0
+    if col_idx <= 5:
+        return 1  # Vacuum (22.1..75.9 kPa)
+    if col_idx <= 7:
+        return 2  # Atmospheric Crossover (89.4..102.8 kPa)
+    return 3      # Positive Boost SD (116.3..304.6 kPa)
+
+
+def interpolate_unvisited_map_cells(cal_map, vis_map, map318, margin_min=0.05, margin_max=0.10):
+    """
+    2D regime-aware shape-preserving interpolation + distance-graded [+5%, +10%] safety
+    margin for unvisited MAP based Load Calc cells (vis_map[r][m] == False, m >= 1).
+    Visited cells (vis_map[r][m] == True) are strictly preserved and never modified.
+    """
+    out_map = [[cal_map[r][m] for m in range(20)] for r in range(19)]
+    margin_grid = [[0.0 for _ in range(20)] for _ in range(19)]
+    rho_vis = [
+        [
+            (cal_map[r][m] / max(1.0, map318[r][m])) if vis_map[r][m] else None
+            for m in range(20)
+        ]
+        for r in range(19)
+    ]
+
+    for r in range(19):
+        for m in range(1, 20):
+            if vis_map[r][m]:
+                continue
+            reg = _map_col_regime(m)
+
+            # 1. Vertical interpolation/extrapolation along column m
+            v_rows = [rr for rr in range(19) if vis_map[rr][m]]
+            rho_v, d_v = None, 99.0
+            r_min_col = min(v_rows) if v_rows else None
+            if v_rows:
+                below = [rr for rr in v_rows if rr < r]
+                above = [rr for rr in v_rows if rr > r]
+                if below and above:
+                    r0, r1 = below[-1], above[0]
+                    t = (r - r0) / float(r1 - r0)
+                    rho_v = rho_vis[r0][m] * (1.0 - t) + rho_vis[r1][m] * t
+                    d_v = float(min(r - r0, r1 - r))
+                elif below:
+                    r0 = below[-1]
+                    rho_v = rho_vis[r0][m]
+                    d_v = float(r - r0)
+                else:
+                    r1 = above[0]
+                    rho_v = rho_vis[r1][m]
+                    d_v = float(r1 - r)
+
+            # 2. Horizontal interpolation/extrapolation along row r within same regime
+            h_cols = [mm for mm in range(1, 20) if vis_map[r][mm] and _map_col_regime(mm) == reg]
+            if not h_cols and reg == 3:
+                h_cols = [mm for mm in range(6, 20) if vis_map[r][mm]]
+            rho_h, d_h = None, 99.0
+            if h_cols:
+                left = [mm for mm in h_cols if mm < m]
+                right = [mm for mm in h_cols if mm > m]
+                if left and right:
+                    m0, m1 = left[-1], right[0]
+                    t = (m - m0) / float(m1 - m0)
+                    rho_h = rho_vis[r][m0] * (1.0 - t) + rho_vis[r][m1] * t
+                    d_h = float(min(m - m0, m1 - m))
+                elif left:
+                    m0 = left[-1]
+                    rho_h = rho_vis[r][m0]
+                    d_h = float(m - m0)
+                else:
+                    m1 = right[0]
+                    rho_h = rho_vis[r][m1]
+                    d_h = float(m1 - m)
+
+            # 3. Blend vertical & horizontal normalized ratios, or 2D IDW over regime visited cells
+            if rho_v is not None and rho_h is not None:
+                if reg == 1 and r_min_col is not None and r < r_min_col:
+                    # Low-RPM vacuum below lowest visited RPM in column m: anchor to min(rho_v, rho_h)
+                    rho_est = min(rho_v, rho_h)
+                else:
+                    wv = 1.0 / (d_v ** 2)
+                    wh = 1.0 / (d_h ** 2)
+                    rho_est = (wv * rho_v + wh * rho_h) / (wv + wh)
+                d_min = min(d_v, d_h)
+            elif rho_v is not None:
+                rho_est, d_min = rho_v, d_v
+            elif rho_h is not None:
+                rho_est, d_min = rho_h, d_h
+            else:
+                pts = [
+                    (rr, mm, rho_vis[rr][mm])
+                    for rr in range(19)
+                    for mm in range(1, 20)
+                    if vis_map[rr][mm] and _map_col_regime(mm) == reg
+                ]
+                if not pts:
+                    pts = [
+                        (rr, mm, rho_vis[rr][mm])
+                        for rr in range(19)
+                        for mm in range(1, 20)
+                        if vis_map[rr][mm]
+                    ]
+                w_sum, rw_sum, d_min = 0.0, 0.0, 99.0
+                for rr, mm, rv in pts:
+                    dist = math.hypot(r - rr, m - mm)
+                    d_min = min(d_min, dist)
+                    w = 1.0 / ((dist ** 2) + 0.25)
+                    w_sum += w
+                    rw_sum += w * rv
+                rho_est = (rw_sum / w_sum) if w_sum > 0 else 1.0
+
+            if reg == 3:
+                rho_est = max(1.0, rho_est)
+
+            margin = _distance_safety_margin(d_min, margin_min, margin_max)
+            margin_grid[r][m] = margin
+            interp_val = map318[r][m] * rho_est
+            # Unvisited safety cushion must NEVER reduce an unvisited cell below its current ROM value
+            # (reducing load would advance timing and lean out fuel).
+            out_map[r][m] = max(cal_map[r][m], round(interp_val * (1.0 + margin), 1))
+
+    # 4. Enforce non-decreasing monotonicity strictly on UNVISITED cells (visited cells are NEVER modified,
+    #    and unvisited cells are only ever adjusted upward so safety margin is never eroded)
+    for m in range(1, 20):
+        for r in range(7, 19):
+            if not vis_map[r][m] and out_map[r][m] < out_map[r - 1][m]:
+                out_map[r][m] = out_map[r - 1][m]
+
+    for r in range(19):
+        for m in range(1, 20):
+            if not vis_map[r][m] and out_map[r][m] <= out_map[r][m - 1]:
+                out_map[r][m] = round(out_map[r][m - 1] + 0.5, 1)
+
+    return out_map, margin_grid
+
+
 def print_regime_summary(label, regimes, knock_clusters):
     print(f"\n==================== {label} REGIME SUMMARY ====================")
     for rname, pts in regimes.items():
@@ -262,7 +423,29 @@ def main():
     parser.add_argument("--prev-logs1", nargs="*", help="Optional CSV logs for --prev-rom1")
     parser.add_argument("--prev-rom2", help="Optional previous ROM N-2 for secant bracketing")
     parser.add_argument("--prev-logs2", nargs="*", help="Optional CSV logs for --prev-rom2")
-    parser.add_argument("--export-dir", default=None, help="Directory to export maf.tsv, map.tsv, and timing maps")
+    parser.add_argument("--export-dir", default=None, help="Directory to export changed MAF and MAP paste tables")
+    parser.add_argument(
+        "--include-unchanged",
+        action="store_true",
+        help="Export tables even if 0 cells changed relative to --target-rom",
+    )
+    parser.add_argument(
+        "--unvisited-margin-min",
+        type=float,
+        default=0.05,
+        help="Minimum extra safety margin on unvisited interpolated cells/bins at distance 1 (default: 0.05 = +5%%)",
+    )
+    parser.add_argument(
+        "--unvisited-margin-max",
+        type=float,
+        default=0.10,
+        help="Maximum extra safety margin on unvisited interpolated cells/bins at distance >= 3 (default: 0.10 = +10%%)",
+    )
+    parser.add_argument(
+        "--no-unvisited-interp",
+        action="store_true",
+        help="Disable shape-preserving interpolation + 5-10%% safety cushion on unvisited cells/bins",
+    )
     args = parser.parse_args()
 
     v318 = load_rom(args.base_rom)
@@ -301,24 +484,68 @@ def main():
         fleet_boost_gs[bi][0] += bgs_curr[bi][0]
         fleet_boost_gs[bi][1] += bgs_curr[bi][1]
 
-    # Supplement boost TrueLoad g/s from calibration_experience.db if available
+    # Supplement boost TrueLoad g/s and fleet coverage from calibration_experience.db if available
+    db_maf_vac_n = [0 for _ in range(130)]
+    db_maf_bst_n = [0 for _ in range(130)]
+    db_map_vis = [[False for _ in range(20)] for _ in range(19)]
     if os.path.exists(DEFAULT_DB_PATH):
         try:
             conn = sqlite3.connect(DEFAULT_DB_PATH)
             cur = conn.cursor()
             cur.execute("""
-            SELECT bin_idx, SUM(boost_sd_samples), SUM(boost_sd_samples * avg_boost_true_gs)
+            SELECT bin_idx,
+                   COALESCE(SUM(unclamped_vac_samples), 0),
+                   COALESCE(SUM(boost_sd_samples), 0),
+                   COALESCE(SUM(boost_sd_samples * avg_boost_true_gs), 0.0)
             FROM maf_bin_experience
-            WHERE boost_sd_samples > 0 AND avg_boost_true_gs > 0
             GROUP BY bin_idx;
             """)
-            for b_idx, b_cnt, b_sum in cur.fetchall():
-                if 74 <= b_idx < 130 and fleet_boost_gs[b_idx][1] < 3.0:
+            for b_idx, u_cnt, b_cnt, b_sum in cur.fetchall():
+                if 0 <= b_idx < 130:
+                    db_maf_vac_n[b_idx] = int(u_cnt)
+                    db_maf_bst_n[b_idx] = int(b_cnt)
+                if 74 <= b_idx < 130 and b_cnt > 0 and b_sum > 0 and fleet_boost_gs[b_idx][1] < 3.0:
                     fleet_boost_gs[b_idx][0] += b_sum
                     fleet_boost_gs[b_idx][1] += b_cnt
+
+            cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='map_cell_experience';")
+            if cur.fetchone():
+                cur.execute("""
+                SELECT row_idx, col_idx, SUM(sample_count), SUM(weight_sum)
+                FROM map_cell_experience
+                GROUP BY row_idx, col_idx
+                HAVING SUM(sample_count) >= 3 AND SUM(weight_sum) >= 0.5;
+                """)
+                for r_i, c_i, _, _ in cur.fetchall():
+                    if 0 <= r_i < 19 and 0 <= c_i < 20:
+                        db_map_vis[r_i][c_i] = True
             conn.close()
         except Exception:
             pass
+
+    # Determine fleet-wide visited mask for MAF (130 bins) and MAP (19x20 cells)
+    vis_maf = [False for _ in range(130)]
+    for i in range(35):
+        vis_maf[i] = True  # Sub-idle bins locked (Safeguard #5: No Low-Voltage Idle Shelf)
+    for i in range(35, 74):
+        has_cli_vac = (u_curr[i][2] >= 3 and u_curr[i][1] > 0.3) or any(
+            p_u[i][2] >= 3 and p_u[i][1] > 0.4 for _, p_u, _ in prev_history
+        )
+        if has_cli_vac or db_maf_vac_n[i] >= 5:
+            vis_maf[i] = True
+    for i in range(74, 130):
+        if fleet_boost_gs[i][1] >= 5.0 or db_maf_bst_n[i] >= 5:
+            vis_maf[i] = True
+
+    vis_map = [[False for _ in range(20)] for _ in range(19)]
+    for r in range(19):
+        vis_map[r][0] = True  # Lock Col 0 (13.7 kPa extreme closed-throttle overrun DFCO)
+        for m in range(1, 20):
+            has_cli_map = (mtr_curr[r][m][2] >= 3 and mtr_curr[r][m][1] >= 0.5) or any(
+                p_mtr[r][m][2] >= 3 and p_mtr[r][m][1] >= 0.5 for _, _, p_mtr in prev_history
+            )
+            if has_cli_map or db_map_vis[r][m]:
+                vis_map[r][m] = True
 
     # 1. Solve MAF Scaling Horizontal (130 cells)
     maf_curr = curr["maf"]
@@ -326,6 +553,7 @@ def main():
     new_maf = list(maf_curr)
     raw_maf = list(maf_curr)
     brackets = {}
+    maf_unvisited_margins = {}
 
     for i in range(35, 74):
         cs, ws, n = u_curr[i]
@@ -374,11 +602,15 @@ def main():
             elif raw_maf[idx_b] > max_sd_headroom:
                 raw_maf[idx_b] = 0.5 * (raw_maf[idx_b] + max_sd_headroom)
 
-    # 3-point multiplier smoothing across Pure Vacuum MAF range (Idx 36..72) with Bracket Invariance
+    # 3-point multiplier smoothing across visited Pure Vacuum MAF range (Idx 36..72) with Bracket Invariance
     for i in range(36, 73):
-        m_prev = raw_maf[i - 1] / maf_curr[i - 1]
+        if not vis_maf[i]:
+            continue
+        left_i = i - 1 if vis_maf[i - 1] else i
+        right_i = i + 1 if vis_maf[i + 1] else i
+        m_prev = raw_maf[left_i] / maf_curr[left_i]
         m_curr = raw_maf[i] / maf_curr[i]
-        m_next = raw_maf[i + 1] / maf_curr[i + 1]
+        m_next = raw_maf[right_i] / maf_curr[right_i]
         val = maf_curr[i] * (0.25 * m_prev + 0.50 * m_curr + 0.25 * m_next)
         if i in brackets:
             val = max(brackets[i][0], min(brackets[i][1], val))
@@ -387,110 +619,285 @@ def main():
     for i in range(73, 130):
         new_maf[i] = raw_maf[i]
 
-    # Enforce smooth 1st-derivative curve continuity along V3.18 intake slope across Idx 73..78 (heals shelf)
-    for i in range(73, 79):
-        v318_step = max(0.50, maf_318[i] - maf_318[i - 1])
-        min_smooth_step = 0.72 * v318_step
-        if (new_maf[i] - new_maf[i - 1]) < min_smooth_step:
-            new_maf[i] = new_maf[i - 1] + min_smooth_step
+    # Heal any localized 3-point concavity / flat-line shelf across visited vacuum bins Idx 55..70
+    for i in range(55, 70):
+        if vis_maf[i - 1] and vis_maf[i] and vis_maf[i + 1]:
+            d_curr = new_maf[i] - new_maf[i - 1]
+            d_prev = new_maf[i - 1] - new_maf[i - 2]
+            d_next = new_maf[i + 1] - new_maf[i]
+            ref_slope = 0.5 * (max(0.01, d_prev) + max(0.01, d_next))
+            if ref_slope >= 0.80 and d_curr < 0.42 * ref_slope:
+                w318 = (maf_318[i] - maf_318[i - 1]) / max(0.1, maf_318[i + 1] - maf_318[i - 1])
+                new_maf[i] = new_maf[i - 1] + w318 * (new_maf[i + 1] - new_maf[i - 1])
+
+    if not args.no_unvisited_interp:
+        # 1a. Interpolate unvisited shared vacuum/crossover bins (Idx 35..73 where vis_maf[i] == False)
+        vis_vac_bins = [j for j in range(35, 74) if vis_maf[j]]
+        if vis_vac_bins:
+            for i in range(35, 74):
+                if vis_maf[i]:
+                    continue
+                left_bins = [j for j in vis_vac_bins if j < i]
+                right_bins = [j for j in vis_vac_bins if j > i]
+                if left_bins and right_bins:
+                    j0, j1 = left_bins[-1], right_bins[0]
+                    t = (i - j0) / float(j1 - j0)
+                    rho_interp = (new_maf[j0] / maf_318[j0]) * (1.0 - t) + (new_maf[j1] / maf_318[j1]) * t
+                    d_min = float(min(i - j0, j1 - i))
+                elif left_bins:
+                    j0 = left_bins[-1]
+                    rho_interp = new_maf[j0] / maf_318[j0]
+                    d_min = float(i - j0)
+                else:
+                    j1 = right_bins[0]
+                    rho_interp = new_maf[j1] / maf_318[j1]
+                    d_min = float(j1 - i)
+                margin = _distance_safety_margin(d_min, args.unvisited_margin_min, args.unvisited_margin_max)
+                maf_unvisited_margins[i] = margin
+                # Cap shared bins <= 73 strictly below Safeguard #1 limit (1.135x V3.18)
+                new_maf[i] = min(maf_318[i] * 1.135, maf_318[i] * rho_interp * (1.0 + margin))
+
+        # Smoothly bridge visited transition boost bins Idx 74..77 between Idx 73 and Idx 78 along V3.18 steps
+        if new_maf[78] > new_maf[73] and (maf_318[78] - maf_318[73]) > 0:
+            span_new = new_maf[78] - new_maf[73]
+            span_318 = maf_318[78] - maf_318[73]
+            for idx_b in range(74, 78):
+                prop_val = new_maf[73] + span_new * ((maf_318[idx_b] - maf_318[73]) / span_318)
+                if fleet_boost_gs[idx_b][1] >= 3.0:
+                    emp_tgs = fleet_boost_gs[idx_b][0] / fleet_boost_gs[idx_b][1]
+                    prop_val = max(emp_tgs * 1.22, prop_val)
+                new_maf[idx_b] = prop_val
+
+        # 1b. Interpolate unvisited high-voltage boost bins (Idx 74..129 where vis_maf[i] == False)
+        vis_bst_bins = [j for j in range(74, 130) if vis_maf[j]]
+        if vis_bst_bins:
+            for i in range(74, 130):
+                if vis_maf[i]:
+                    continue
+                left_bins = [j for j in vis_bst_bins if j < i]
+                right_bins = [j for j in vis_bst_bins if j > i]
+                if left_bins and right_bins:
+                    j0, j1 = left_bins[-1], right_bins[0]
+                    t = (i - j0) / float(j1 - j0)
+                    rho_interp = (new_maf[j0] / maf_318[j0]) * (1.0 - t) + (new_maf[j1] / maf_318[j1]) * t
+                    d_min = float(min(i - j0, j1 - i))
+                    interp_gs = maf_318[i] * rho_interp
+                elif left_bins:
+                    j0 = left_bins[-1]
+                    d_min = float(i - j0)
+                    # Extrapolate along visited boost curve growth rate at j0 (anchored strictly to visited bins)
+                    if j0 >= 75 and vis_maf[j0 - 1] and new_maf[j0 - 1] > 0:
+                        g_rate = max(1.03, min(1.06, new_maf[j0] / new_maf[j0 - 1]))
+                        interp_gs = new_maf[j0] * (g_rate ** d_min)
+                    else:
+                        interp_gs = maf_318[i] * (new_maf[j0] / maf_318[j0])
+                else:
+                    j1 = right_bins[0]
+                    d_min = float(j1 - i)
+                    interp_gs = maf_318[i] * (new_maf[j1] / maf_318[j1])
+                # Ramp margin smoothly over d=1..4 on high-slope boost curve to avoid step cliffs while delivering +5%..+10%
+                span_m = max(0.0, args.unvisited_margin_max - args.unvisited_margin_min)
+                margin = min(args.unvisited_margin_max, args.unvisited_margin_min + (span_m / 3.0) * max(0.0, d_min - 1.0))
+                maf_unvisited_margins[i] = margin
+                new_maf[i] = min(655.35, max(maf_curr[i], interp_gs * (1.0 + margin)))
+    else:
+        # Legacy continuity step across Idx 73..78 when unvisited interpolation is disabled
+        for i in range(73, 79):
+            v318_step = max(0.50, maf_318[i] - maf_318[i - 1])
+            min_smooth_step = 0.72 * v318_step
+            if (new_maf[i] - new_maf[i - 1]) < min_smooth_step:
+                new_maf[i] = new_maf[i - 1] + min_smooth_step
 
     for i in range(1, 130):
         if new_maf[i] <= new_maf[i - 1] and maf_curr[i] > maf_curr[i - 1]:
-            new_maf[i] = new_maf[i - 1] + max(0.01, (maf_curr[i] - maf_curr[i - 1]) * 0.25)
+            if new_maf[i - 1] >= 655.35:
+                new_maf[i] = 655.35
+            else:
+                new_maf[i] = min(655.35, new_maf[i - 1] + max(0.01, (maf_curr[i] - maf_curr[i - 1]) * 0.25))
     new_maf = [round(x, 2) for x in new_maf]
 
     # 2. Solve MAP based Load Calc (19 RPM rows x 20 MAP columns)
     map_curr = curr["map_grid"]
+    map_curr2 = curr["map_grid2"]
     map318 = v318["map_grid"]
-    new_map = [[map_curr[r][m] for m in range(20)] for r in range(19)]
+    raw_map = [[map_curr[r][m] for m in range(20)] for r in range(19)]
+    modified = [[False for _ in range(20)] for _ in range(19)]
 
-    # Vacuum (m = 2..5: 35.6..75.9 kPa) -> 1.20 * TrueLoad_5frame
-    for m in range(2, 6):
-        for r in range(4, 15):
+    # Vacuum (m = 1..5: 22.1..75.9 kPa) -> 1.20 * TrueLoad_5frame on telemetry-visited cells
+    for m in range(1, 6):
+        for r in range(1, 19):
             cs, ws, n = mtr_curr[r][m]
             if n >= 3 and ws > 0.5:
-                eff_tbl = 0.5 * (curr["map_grid"][r][m] + curr["map_grid2"][r][m])
+                eff_tbl = 0.5 * (map_curr[r][m] + map_curr2[r][m])
                 target_tbl = eff_tbl * (cs / ws) * 1.20
                 conf = (ws ** 2) / (ws ** 2 + 10.0)
                 step = 0.50 * conf * (target_tbl - map_curr[r][m])
                 if r >= 7 and step < 0:
                     continue
-                new_map[r][m] = map_curr[r][m] + max(-1.5, min(2.5, step))
+                raw_map[r][m] = map_curr[r][m] + max(-1.5, min(2.5, step))
+                modified[r][m] = True
 
     # Crossover Anti-Rectification (m = 6: 89.4 kPa -> 1.14x, m = 7: 102.8 kPa -> 1.06x)
-    for r in range(5, 19):
+    # Only update rows that actually have telemetry coverage; never nudge unvisited cells by +/-0.1
+    for r in range(1, 19):
         cs6, ws6, n6 = mtr_curr[r][6]
         if n6 >= 3 and ws6 > 2.0:
-            eff6 = 0.5 * (curr["map_grid"][r][6] + curr["map_grid2"][r][6])
+            eff6 = 0.5 * (map_curr[r][6] + map_curr2[r][6])
             ref6 = max(0.5 * (eff6 * (cs6 / ws6) * 1.14 + map318[r][6]), eff6 * (cs6 / ws6) * 1.14)
-        else:
-            ref6 = map318[r][6]
-        if ref6 > map_curr[r][6]:
-            new_map[r][6] = map_curr[r][6] + 0.65 * (ref6 - map_curr[r][6])
+            if ref6 > map_curr[r][6]:
+                raw_map[r][6] = map_curr[r][6] + 0.65 * (ref6 - map_curr[r][6])
+                modified[r][6] = True
 
         cs7, ws7, n7 = mtr_curr[r][7]
         if n7 >= 3 and ws7 > 2.0:
-            eff7 = 0.5 * (curr["map_grid"][r][7] + curr["map_grid2"][r][7])
+            eff7 = 0.5 * (map_curr[r][7] + map_curr2[r][7])
             ref7 = max(eff7 * (cs7 / ws7) * 1.06, map318[r][7] - 1.5)
-        else:
-            ref7 = map318[r][7]
-        if ref7 > map_curr[r][7]:
-            new_map[r][7] = map_curr[r][7] + 0.70 * (ref7 - map_curr[r][7])
+            if ref7 > map_curr[r][7]:
+                raw_map[r][7] = map_curr[r][7] + 0.70 * (ref7 - map_curr[r][7])
+                modified[r][7] = True
 
-    # Spool Floor (m = 8: 116.3 kPa, m = 9: 129.7 kPa) & Sustained Boost VE Convergence (m = 10..13: 143.2..183.5 kPa)
+    # Spool Floor (m = 8: 116.3 kPa, m = 9: 129.7 kPa) & Sustained Boost VE Convergence (m = 10..19: 143.2..304.6 kPa)
     for m in (8, 9):
         for r in range(6, 19):
-            new_map[r][m] = max([map_curr[r][m], map318[r][m]] + [p[0]["map_grid"][r][m] for p in prev_history])
+            if vis_map[r][m] or args.no_unvisited_interp:
+                floor_val = round(max([map_curr[r][m], map318[r][m]] + [p[0]["map_grid"][r][m] for p in prev_history]), 1)
+                if floor_val > map_curr[r][m] + 0.15:
+                    raw_map[r][m] = floor_val
+                    modified[r][m] = True
 
-    for m in range(10, 14):
+    for m in range(10, 20):
         trimmed_rows = []
-        for r in range(7, 15):
+        for r in range(6, 19):
             cs, ws, n = mtr_curr[r][m]
             if n >= 8 and ws >= 4.0:
-                eff_tbl = 0.5 * (curr["map_grid"][r][m] + curr["map_grid2"][r][m])
+                eff_tbl = 0.5 * (map_curr[r][m] + map_curr2[r][m])
                 true_tbl = eff_tbl * (cs / ws)
                 conf = (ws ** 2) / (ws ** 2 + 12.0)
                 target_tbl = max(map318[r][m], true_tbl)
                 step = 0.60 * conf * (target_tbl - map_curr[r][m])
-                new_map[r][m] = map_curr[r][m] + max(-4.0, min(2.5, step))
-                if new_map[r][m] < map_curr[r][m] - 0.2:
+                raw_map[r][m] = map_curr[r][m] + max(-4.0, min(2.5, step))
+                modified[r][m] = True
+                if raw_map[r][m] < map_curr[r][m] - 0.2:
                     trimmed_rows.append(r)
-        if trimmed_rows:
+        if trimmed_rows and args.no_unvisited_interp:
             r_ref = trimmed_rows[0]
-            delta_ref = new_map[r_ref][m] - map318[r_ref][m]
+            delta_ref = raw_map[r_ref][m] - map318[r_ref][m]
             for r in range(2, r_ref):
                 taper_val = map318[r][m] + delta_ref
-                if taper_val < new_map[r][m]:
-                    new_map[r][m] = max(map_curr[r][m] - 3.5, max(map318[r][m], taper_val))
+                if taper_val < raw_map[r][m]:
+                    raw_map[r][m] = max(map_curr[r][m] - 3.5, max(map318[r][m], taper_val))
+                    modified[r][m] = True
 
-    for m in range(2, 14):
-        col = [new_map[r][m] for r in range(19)]
-        sm = list(col)
-        for r in range(4, 15):
-            sm[r] = 0.25 * col[r - 1] + 0.50 * col[r] + 0.25 * col[r + 1]
-        for r in range(7, 19):
-            v_slope = max(0.0, map318[r][m] - map318[r - 1][m])
-            min_allowed = sm[r - 1] + min(0.3, v_slope * 0.5)
-            if sm[r] < min_allowed:
-                sm[r] = min_allowed
+    # Delta-only vertical smoothing restricted to telemetry-modified cells with +/-0.1 anti-jitter deadband.
+    # Prevents untouched visited cells from drifting by +/-0.1 when pasted into EcuFlash.
+    cal_map = [[map_curr[r][m] for m in range(20)] for r in range(19)]
+    for m in range(1, 20):
+        deltas = [raw_map[r][m] - map_curr[r][m] for r in range(19)]
+        sm_deltas = list(deltas)
+        for r in range(1, 18):
+            if modified[r][m]:
+                sm_deltas[r] = 0.25 * deltas[r - 1] + 0.50 * deltas[r] + 0.25 * deltas[r + 1]
         for r in range(19):
-            new_map[r][m] = round(sm[r], 1)
+            if modified[r][m] and abs(sm_deltas[r]) >= 0.15:
+                cal_map[r][m] = round(map_curr[r][m] + sm_deltas[r], 1)
+            else:
+                cal_map[r][m] = map_curr[r][m]
+        if any(cal_map[r][m] != map_curr[r][m] for r in range(19)):
+            for r in range(7, 19):
+                if vis_map[r][m] and cal_map[r][m] < cal_map[r - 1][m]:
+                    cal_map[r][m] = cal_map[r - 1][m]
 
     for r in range(19):
-        for m in range(1, 20):
-            if new_map[r][m] <= new_map[r][m - 1]:
-                new_map[r][m] = round(new_map[r][m - 1] + 0.5, 1)
+        if any(cal_map[r][m] != map_curr[r][m] for m in range(20)):
+            for m in range(1, 20):
+                if vis_map[r][m] and cal_map[r][m] <= cal_map[r][m - 1]:
+                    cal_map[r][m] = round(cal_map[r][m - 1] + 0.5, 1)
+
+    if not args.no_unvisited_interp:
+        new_map, map_margin_grid = interpolate_unvisited_map_cells(
+            cal_map, vis_map, map318, args.unvisited_margin_min, args.unvisited_margin_max
+        )
+    else:
+        new_map = [list(row) for row in cal_map]
+        map_margin_grid = [[0.0 for _ in range(20)] for _ in range(19)]
+
+    # 3. Diff vs Target ROM & Export Only Changed Tables
+    maf_diffs = [
+        (i, volts[i], maf_curr[i], new_maf[i], round(new_maf[i] - maf_curr[i], 2), vis_maf[i])
+        for i in range(130)
+        if round(new_maf[i], 2) != round(maf_curr[i], 2)
+    ]
+    map_diffs = [
+        (r, m, rpm_axis[r], map_kpa[m], map_curr[r][m], new_map[r][m], round(new_map[r][m] - map_curr[r][m], 1), vis_map[r][m], map_margin_grid[r][m])
+        for r in range(19)
+        for m in range(20)
+        if round(new_map[r][m], 1) != round(map_curr[r][m], 1)
+        or round(new_map[r][m], 1) != round(map_curr2[r][m], 1)
+    ]
+
+    maf_vis_diffs = [d for d in maf_diffs if d[5]]
+    maf_unvis_diffs = [d for d in maf_diffs if not d[5]]
+    map_vis_diffs = [d for d in map_diffs if d[7]]
+    map_unvis_diffs = [d for d in map_diffs if not d[7]]
+    total_vis_maf = sum(1 for i in range(35, 130) if vis_maf[i])
+    total_unvis_maf = sum(1 for i in range(35, 130) if not vis_maf[i])
+    total_vis_map = sum(1 for r in range(19) for m in range(1, 20) if vis_map[r][m])
+    total_unvis_map = sum(1 for r in range(19) for m in range(1, 20) if not vis_map[r][m])
+
+    print("\n==================== CALIBRATION CHANGE SUMMARY ====================")
+    print(
+        f"  MAF Scaling Horizontal    : {len(maf_diffs):3d} / 130 bins changed "
+        f"({len(maf_vis_diffs)} visited telemetry, {len(maf_unvis_diffs)} unvisited interp +5..10% safety; "
+        f"coverage={total_vis_maf}/95 active bins)"
+    )
+    print(
+        f"  MAP based Load Calc #1/#2 : {len(map_diffs):3d} / 380 cells changed "
+        f"({len(map_vis_diffs)} visited telemetry, {len(map_unvis_diffs)} unvisited interp +5..10% safety; "
+        f"coverage={total_vis_map}/361 active cells)"
+    )
+    if map_vis_diffs:
+        print("  [Visited Telemetry-Driven MAP Cell Updates]:")
+        for _, _, rpm_v, kpa_v, old_v, new_v, d_v, _, _ in map_vis_diffs:
+            print(f"    • {rpm_v:4d} RPM @ {kpa_v:5.1f} kPa: {old_v:5.1f} -> {new_v:5.1f} ({d_v:+4.1f}) [VISITED]")
+    if map_unvis_diffs:
+        print(f"  [Unvisited Interpolated + {args.unvisited_margin_min*100:.0f}%..{args.unvisited_margin_max*100:.0f}% Safety Cushion MAP Cells ({len(map_unvis_diffs)} cells)]:")
+        for _, _, rpm_v, kpa_v, old_v, new_v, d_v, _, marg in map_unvis_diffs[:12]:
+            print(f"    • {rpm_v:4d} RPM @ {kpa_v:5.1f} kPa: {old_v:5.1f} -> {new_v:5.1f} ({d_v:+4.1f}, safety=+{marg*100:.1f}%) [UNVISITED]")
+        if len(map_unvis_diffs) > 12:
+            print(f"    ... and {len(map_unvis_diffs) - 12} additional unvisited interpolated cells.")
 
     if args.export_dir:
         os.makedirs(args.export_dir, exist_ok=True)
-        maf_path = os.path.join(args.export_dir, "new_maf_scaling.tsv")
-        map_path = os.path.join(args.export_dir, "new_map_load_calc.tsv")
-        with open(maf_path, "w") as f:
-            f.write("\t".join(f"{x:.2f}" for x in new_maf) + "\n")
-        with open(map_path, "w") as f:
-            for r in range(19):
-                f.write("\t".join(f"{new_map[r][m]:.1f}" for m in range(20)) + "\n")
-        print(f"\n[+] Exported MAF and MAP paste tables to {args.export_dir}")
+        maf_tsv = os.path.join(args.export_dir, "new_maf_scaling.tsv")
+        maf_txt = os.path.join(args.export_dir, "new_maf_scaling.txt")
+        map_tsv = os.path.join(args.export_dir, "new_map_load_calc.tsv")
+        map_txt = os.path.join(args.export_dir, "new_map_load_calc.txt")
+
+        if maf_diffs or args.include_unchanged:
+            maf_str = "\t".join(f"{x:.2f}" for x in new_maf) + "\n"
+            with open(maf_tsv, "w", encoding="utf-8") as f:
+                f.write(maf_str)
+            with open(maf_txt, "w", encoding="utf-8") as f:
+                f.write(maf_str)
+            print(f"[+] Exported MAF Scaling Horizontal ({len(maf_diffs)} bins changed) -> {args.export_dir}")
+        else:
+            for p in (maf_tsv, maf_txt):
+                if os.path.exists(p):
+                    os.remove(p)
+            print("[=] MAF Scaling Horizontal: 0 bins changed vs target ROM (omitted from export)")
+
+        if map_diffs or args.include_unchanged:
+            map_str = "".join("\t".join(f"{new_map[r][m]:.1f}" for m in range(20)) + "\n" for r in range(19))
+            with open(map_tsv, "w", encoding="utf-8") as f:
+                f.write(map_str)
+            with open(map_txt, "w", encoding="utf-8") as f:
+                f.write(map_str)
+            print(f"[+] Exported MAP based Load Calc #1 & #2 ({len(map_diffs)} cells changed) -> {args.export_dir}")
+        else:
+            for p in (map_tsv, map_txt):
+                if os.path.exists(p):
+                    os.remove(p)
+            print("[=] MAP based Load Calc #1 & #2: 0 cells changed vs target ROM (omitted from export)")
 
 
 if __name__ == "__main__":

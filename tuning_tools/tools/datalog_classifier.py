@@ -234,10 +234,14 @@ class RomTableEvaluator:
 
 
 class DatalogClassifier:
-    def __init__(self, log_path, rom_path=None):
+    def __init__(self, log_path, rom_path=None, fallback_unsoaked_err=None, ambient_iat_ref=None):
         self.log_path = log_path
         self.rom_path = rom_path
         self.rom_evaluator = RomTableEvaluator(rom_path) if rom_path else None
+        # Optional dict {"idle": float, "cruise": float} from same ROM's unsoaked warm logs for hot-restart logs
+        self.fallback_unsoaked_err = fallback_unsoaked_err or {}
+        # Optional outdoor ambient IAT (°C) from same-day logs to decouple underhood open-cone IAT soak from summer air
+        self.ambient_iat_ref = ambient_iat_ref
 
         self.raw_rows = []
         self.parsed = []
@@ -325,56 +329,153 @@ class DatalogClassifier:
 
     def _detect_engine_run_time_and_wb_warmup(self):
         """
-        Tracks elapsed seconds since engine crank (RPM > 400) and detects Bosch LSU wideband
-        sensor heater warmup at the start of cold/key-on logs so sensor light-off never
-        masquerades as an open-loop fueling error.
+        Tracks contiguous logging segments (detecting RAX key-off polling freezes), elapsed seconds
+        since engine start (RPM >= 450), Bosch LSU wideband heater warmup (including mid-start log entry),
+        and stationary hot-restart fuel-rail vapor purge windows.
         """
         n = len(self.parsed)
         run_secs = [0.0] * n
         wb_ready = [True] * n
+        seg_ids = [0] * n
+        is_freeze_gap = [False] * n
+        is_hot_rail_soak = [False] * n
 
-        # Determine if log started already running mid-drive vs fresh key-on / cold crank
-        started_running = (self.parsed[0]["rpm"] >= 500.0 and self.parsed[0]["speed"] >= 3.0) or (
-            self.parsed[0]["rpm"] >= 600.0 and self.parsed[0]["ect"] >= 65.0
+        curr_seg = 0
+        for i in range(1, n):
+            raw_dt = self.parsed[i]["sec"] - self.parsed[i - 1]["sec"]
+            same_snapshot = (
+                self.parsed[i]["rpm"] >= 400.0
+                and self.parsed[i]["rpm"] == self.parsed[i - 1]["rpm"]
+                and self.parsed[i]["kpa"] == self.parsed[i - 1]["kpa"]
+                and self.parsed[i]["ipw"] == self.parsed[i - 1]["ipw"]
+                and raw_dt > 0.25
+            )
+            if raw_dt > 0.50 or raw_dt <= 0.0 or same_snapshot:
+                curr_seg += 1
+                is_freeze_gap[i] = True
+                is_freeze_gap[i - 1] = True
+            seg_ids[i] = curr_seg
+
+        # Determine if log genuinely started mid-drive with an already-heated wideband vs fresh cold/hot start
+        t0 = self.parsed[0]["sec"]
+        early_afrs = [p["afr"] for i_p, p in enumerate(self.parsed[:min(n, 45)])
+                      if (p["sec"] - t0) <= 1.5 and seg_ids[i_p] == 0]
+        early_wb_live = (
+            bool(early_afrs)
+            and all(10.3 < a < 17.9 for a in early_afrs)
+            and (max(early_afrs) - min(early_afrs) >= 0.06)
+        )
+
+        # Check for stationary hot-restart vapor-boil contour when logging began 1-3s after crank
+        early_stat_lean = [
+            p["afr"] for p in self.parsed
+            if 10.0 <= (p["sec"] - t0) <= 28.0 and p["speed"] < 2.0 and p["afr"] > 5.0
+        ]
+        later_stat_afrs = [
+            p["afr"] for p in self.parsed
+            if 45.0 <= (p["sec"] - t0) <= 75.0 and p["speed"] < 2.0 and p["afr"] > 5.0
+        ]
+        looks_like_fresh_hot_start = (
+            self.parsed[0]["speed"] < 2.0
+            and self.parsed[0]["ect"] >= 75.0
+            and (self.parsed[0]["mat"] >= 42.0 or self.parsed[0]["iat"] >= 30.0)
+            and (
+                not early_wb_live
+                or (
+                    len(early_stat_lean) >= 10 and len(later_stat_afrs) >= 10
+                    and (sum(early_stat_lean) / len(early_stat_lean)) >= 16.0
+                    and ((sum(early_stat_lean) / len(early_stat_lean)) - (sum(later_stat_afrs) / len(later_stat_afrs))) >= 1.0
+                )
+            )
+        )
+
+        started_running = (
+            not looks_like_fresh_hot_start
+            and (
+                (self.parsed[0]["rpm"] >= 500.0 and self.parsed[0]["speed"] >= 3.0 and early_wb_live)
+                or (self.parsed[0]["rpm"] >= 600.0 and self.parsed[0]["ect"] >= 65.0 and early_wb_live)
+            )
         )
         crank_sec = -999.0 if started_running else None
+        hot_start_active = False
+        hot_soak_purged = True
+        purged_streak = 0
 
         for i, p in enumerate(self.parsed):
-            if p["rpm"] < 250.0:
+            if is_freeze_gap[i]:
+                wb_ready[i] = False
+                # If logger froze across a multi-second key-off (ECT cooled or battery dipped), reset engine run timer
+                if i > 0 and (p["sec"] - self.parsed[i - 1]["sec"]) > 5.0 and (
+                    p["ect"] <= self.parsed[i - 1]["ect"] - 1.5 or p["vbatt"] < 12.2 or p["rpm"] < 450.0
+                ):
+                    crank_sec = None
+                    hot_start_active = False
+                    hot_soak_purged = True
+                    purged_streak = 0
+                run_secs[i] = 0.0 if crank_sec is None else max(0.0, p["sec"] - crank_sec)
+                continue
+
+            if p["rpm"] < 450.0:
                 crank_sec = None
+                hot_start_active = False
+                hot_soak_purged = True
+                purged_streak = 0
                 run_secs[i] = 0.0
                 wb_ready[i] = False
             else:
                 if crank_sec is None:
                     crank_sec = p["sec"]
+                    hot_start_active = (
+                        p["speed"] < 3.0
+                        and p["ect"] >= 75.0
+                        and (p["mat"] >= 42.0 or p["iat"] >= 30.0)
+                    )
+                    hot_soak_purged = not hot_start_active
+                    purged_streak = 0
+
                 elapsed = p["sec"] - crank_sec
                 run_secs[i] = elapsed
                 if elapsed < 35.0:
-                    # Check local AFR variance; during LSU heater warmup AFR sits pegged/flat on a dummy value
                     w0 = max(0, i - 8)
                     w1 = min(n, i + 9)
-                    afrs = [self.parsed[k]["afr"] for k in range(w0, w1)]
-                    span = max(afrs) - min(afrs) if afrs else 0.0
-                    if elapsed < 12.0 or span < 0.06 or p["afr"] >= 18.0 or p["afr"] <= 10.2:
+                    afrs = [self.parsed[k]["afr"] for k in range(w0, w1) if seg_ids[k] == seg_ids[i]]
+                    span = (max(afrs) - min(afrs)) if afrs else 0.0
+                    if (
+                        elapsed < 12.0
+                        or span < 0.06
+                        or p["afr"] <= 5.0
+                        or (elapsed < 18.0 and (p["afr"] >= 18.42 or p["afr"] <= 10.2))
+                    ):
                         wb_ready[i] = False
-        return run_secs, wb_ready
+
+                if hot_start_active and not hot_soak_purged:
+                    if elapsed >= 75.0 or p["speed"] >= 5.0:
+                        hot_soak_purged = True
+                    else:
+                        if elapsed >= 20.0 and wb_ready[i] and 10.5 < p["afr"] <= (p["afrmap"] * 1.02):
+                            purged_streak += 1
+                            if purged_streak >= 20:
+                                hot_soak_purged = True
+                        else:
+                            purged_streak = 0
+                        if not hot_soak_purged:
+                            is_hot_rail_soak[i] = True
+
+        return run_secs, wb_ready, seg_ids, is_freeze_gap, is_hot_rail_soak
 
     def classify_all(self):
         n = len(self.parsed)
         if n == 0:
             return
 
-        run_secs, wb_ready = self._detect_engine_run_time_and_wb_warmup()
+        run_secs, wb_ready, seg_ids, is_freeze_gap, is_hot_rail_soak = self._detect_engine_run_time_and_wb_warmup()
 
-        # 1. Continuous Physical Derivatives
+        # 1. Continuous Physical Derivatives (zeroed across RAX freeze/timeout boundaries)
         derivatives = []
         for i in range(n):
-            if i == 0:
-                dt = self.parsed[1]["sec"] - self.parsed[0]["sec"] if n > 1 else 0.033
-                if dt <= 0.001 or dt > 0.5:
-                    dt = 0.033
+            if i == 0 or seg_ids[i] != seg_ids[i - 1] or is_freeze_gap[i]:
                 derivatives.append({
-                    "dt": dt,
+                    "dt": 0.033,
                     "d_tps": 0.0,
                     "d_map": 0.0,
                     "d_mafv": 0.0,
@@ -396,7 +497,7 @@ class DatalogClassifier:
                     "d_knock": max(0.0, curr["knock"] - prev["knock"]),
                 })
 
-        # 2. Dynamic Exhaust Transport Delay & Forward-Aligned AFR
+        # 2. Dynamic Exhaust Transport Delay & Forward-Aligned AFR (bounded within contiguous segment)
         aligned_afr_data = []
         for i in range(n):
             curr = self.parsed[i]
@@ -409,7 +510,7 @@ class DatalogClassifier:
             best_idx = i
             best_diff = 999.0
             j = i
-            while j < n and (self.parsed[j]["sec"] - curr["sec"]) <= 0.60:
+            while j < n and seg_ids[j] == seg_ids[i] and (self.parsed[j]["sec"] - curr["sec"]) <= 0.60:
                 diff = abs(self.parsed[j]["sec"] - target_time)
                 if diff < best_diff:
                     best_diff = diff
@@ -510,18 +611,24 @@ class DatalogClassifier:
                     }
                 })
 
-        # 4. Speed Smoothing, Longitudinal Accel & Quantization-Immune OLS Rotational Accel
+        # 4. Speed Smoothing, Longitudinal Accel & Quantization-Immune OLS Rotational Accel (bounded by seg_ids)
         smooth_speeds = []
         for i in range(n):
             w_start = max(0, i - 2)
             w_end = min(n, i + 3)
-            sub = [self.parsed[k]["speed"] for k in range(w_start, w_end)]
-            smooth_speeds.append(sum(sub) / len(sub))
+            sub = [self.parsed[k]["speed"] for k in range(w_start, w_end) if seg_ids[k] == seg_ids[i]]
+            smooth_speeds.append(sum(sub) / len(sub) if sub else self.parsed[i]["speed"])
 
         smooth_accels_g = [0.0] * n
         for i in range(1, n):
-            w_lo = max(0, i - 5)
-            w_hi = min(n - 1, i + 5)
+            if is_freeze_gap[i] or seg_ids[i] != seg_ids[i - 1]:
+                continue
+            w_lo = i
+            while w_lo > max(0, i - 5) and seg_ids[w_lo - 1] == seg_ids[i]:
+                w_lo -= 1
+            w_hi = i
+            while w_hi < min(n - 1, i + 5) and seg_ids[w_hi + 1] == seg_ids[i]:
+                w_hi += 1
             dt_win = self.parsed[w_hi]["sec"] - self.parsed[w_lo]["sec"]
             if dt_win > 0.08:
                 dv_ms = (smooth_speeds[w_hi] - smooth_speeds[w_lo]) / 3.6
@@ -538,17 +645,21 @@ class DatalogClassifier:
         ols_tps_s = [0.0] * n
         ols_map_s = [0.0] * n
         for i in range(n):
+            if is_freeze_gap[i]:
+                continue
             w_lo = max(0, i - 7)
             w_hi = min(n, i + 8)
-            t_sub = [self.parsed[k]["sec"] for k in range(w_lo, w_hi)]
-            r_sub = [self.parsed[k]["rpm"] for k in range(w_lo, w_hi)]
-            rpm_accels_rpms[i] = ols_slope(t_sub, r_sub)
+            k_15 = [k for k in range(w_lo, w_hi) if seg_ids[k] == seg_ids[i] and not is_freeze_gap[k]]
+            if len(k_15) >= 2:
+                rpm_accels_rpms[i] = ols_slope([self.parsed[k]["sec"] for k in k_15], [self.parsed[k]["rpm"] for k in k_15])
 
             w9_lo = max(0, i - 4)
             w9_hi = min(n, i + 5)
-            t9_sub = [self.parsed[k]["sec"] for k in range(w9_lo, w9_hi)]
-            ols_tps_s[i] = ols_slope(t9_sub, [self.parsed[k]["tps"] for k in range(w9_lo, w9_hi)])
-            ols_map_s[i] = ols_slope(t9_sub, [self.parsed[k]["kpa"] for k in range(w9_lo, w9_hi)])
+            k_9 = [k for k in range(w9_lo, w9_hi) if seg_ids[k] == seg_ids[i] and not is_freeze_gap[k]]
+            if len(k_9) >= 2:
+                t9_sub = [self.parsed[k]["sec"] for k in k_9]
+                ols_tps_s[i] = ols_slope(t9_sub, [self.parsed[k]["tps"] for k in k_9])
+                ols_map_s[i] = ols_slope(t9_sub, [self.parsed[k]["kpa"] for k in k_9])
 
         # Rolling 7-frame local standard deviation for MAP and Load
         map_vars = [0.0] * n
@@ -556,46 +667,89 @@ class DatalogClassifier:
         for i in range(n):
             w_s = max(0, i - 3)
             w_e = min(n, i + 4)
-            m_sub = [self.parsed[k]["kpa"] for k in range(w_s, w_e)]
-            l_sub = [self.parsed[k]["chosenc"] for k in range(w_s, w_e)]
+            k_7 = [k for k in range(w_s, w_e) if seg_ids[k] == seg_ids[i]]
+            m_sub = [self.parsed[k]["kpa"] for k in k_7]
+            l_sub = [self.parsed[k]["chosenc"] for k in k_7]
             m_m = sum(m_sub) / len(m_sub)
             l_m = sum(l_sub) / len(l_sub)
             map_vars[i] = math.sqrt(sum((x - m_m) ** 2 for x in m_sub) / len(m_sub))
             load_vars[i] = math.sqrt(sum((x - l_m) ** 2 for x in l_sub) / len(l_sub))
 
-        # 5. Gear Detection (USDM 5MT: Final Drive 4.687, Circumference ~2.03m)
+        # 5. Gear Detection, Shift Windows & WOT Slip/Spin Protection (USDM 5MT: FD 4.687, Circ ~2.03m)
+        gear_bands = {
+            "1": (115.0, 155.0),
+            "2": (72.0, 98.0),
+            "3": (51.0, 69.0),
+            "4": (38.0, 50.0),
+            "5": (27.0, 37.0),
+        }
         gear_labels = []
         shift_flags = []
+        slip_or_spin_flags = []
+        shift_start_secs = []
+        since_shift_end_secs = []
+        prev_engaged_gear = None
+        active_shift_start = None
+        last_shift_end_sec = -999.0
+
         for i in range(n):
             curr = self.parsed[i]
             rpm = curr["rpm"]
             spd = smooth_speeds[i]
             d = derivatives[i]
+            sec = curr["sec"]
 
             if spd < 3.5:
-                gear_labels.append("IDLE_STATIONARY")
-                shift_flags.append(0)
+                gear = "IDLE_STATIONARY"
+                is_shifting = 0
+                is_slip = False
+                prev_engaged_gear = None
+                active_shift_start = None
             else:
                 ratio = rpm / max(1.0, spd)
-                if 115.0 <= ratio <= 155.0:
-                    gear = "1"
-                elif 72.0 <= ratio <= 98.0:
-                    gear = "2"
-                elif 51.0 <= ratio <= 69.0:
-                    gear = "3"
-                elif 38.0 <= ratio <= 50.0:
-                    gear = "4"
-                elif 27.0 <= ratio <= 37.0:
-                    gear = "5"
-                else:
-                    gear = "NEUTRAL"
+                gear = "NEUTRAL"
+                for g_lbl, (lo_r, hi_r) in gear_bands.items():
+                    if lo_r <= ratio <= hi_r:
+                        gear = g_lbl
+                        break
+                # Apply +-1.5 ratio hysteresis on the currently engaged gear to prevent 1-bit RAX RPM quantization flicker
+                if gear == "NEUTRAL" and prev_engaged_gear in gear_bands:
+                    p_lo, p_hi = gear_bands[prev_engaged_gear]
+                    if (p_lo - 1.5) <= ratio <= (p_hi + 1.5) and abs(d["d_rpm"]) < 350.0:
+                        gear = prev_engaged_gear
 
+                is_slip = False
                 is_shifting = 0
-                if gear == "NEUTRAL" or (d["d_rpm"] < -450.0 and curr["tps"] < 25.0 and spd > 15.0):
+                if gear == "NEUTRAL":
+                    # Under heavy boost/throttle, RPM/Speed jumping above the engaged gear band is wheelspin/clutch slip, NOT a shift!
+                    if (prev_engaged_gear in gear_bands and curr["tps"] >= 55.0
+                            and curr["kpa"] >= 130.0 and spd >= 15.0
+                            and ratio > gear_bands[prev_engaged_gear][1] * 1.03):
+                        gear = prev_engaged_gear
+                        is_slip = True
+                        is_shifting = 0
+                    else:
+                        is_shifting = 1
+                elif d["d_rpm"] < -450.0 and curr["tps"] < 25.0 and spd > 15.0:
                     is_shifting = 1
 
-                gear_labels.append(gear)
-                shift_flags.append(is_shifting)
+                if is_shifting == 1:
+                    if active_shift_start is None:
+                        active_shift_start = sec
+                else:
+                    if active_shift_start is not None and gear in gear_bands:
+                        shift_dur = sec - active_shift_start
+                        if (prev_engaged_gear is not None and gear != prev_engaged_gear) or shift_dur >= 0.18:
+                            last_shift_end_sec = sec
+                    active_shift_start = None
+                    if gear in gear_bands:
+                        prev_engaged_gear = gear
+
+            gear_labels.append(gear)
+            shift_flags.append(is_shifting)
+            slip_or_spin_flags.append(is_slip)
+            shift_start_secs.append(active_shift_start)
+            since_shift_end_secs.append(sec - last_shift_end_sec)
 
         # 6. Decel Overrun Fuel Leakage Diagnostics (Wideband ceiling is 18.50 AFR)
         decel_statuses = []
@@ -604,6 +758,7 @@ class DatalogClassifier:
         closed_pedal_start_sec = None
         has_app = ("APP" in self.raw_rows[0]) if self.raw_rows else False
         min_app = min((r["app"] for r in self.parsed if r["app"] >= 0.0), default=0.0)
+        min_tps = min((r["tps"] for r in self.parsed if r["rpm"] >= 500.0 and r["tps"] > 1.0), default=13.0)
 
         for i in range(n):
             curr = self.parsed[i]
@@ -616,7 +771,14 @@ class DatalogClassifier:
             is_shifting = shift_flags[i]
             align_afr = aligned_afr_data[i]["aligned_afr"]
 
-            is_closed_pedal = (curr["app"] <= min_app + 1.5) if (has_app and curr["app"] >= 0.0) else (tps <= 14.5)
+            if rpm < 450.0 or is_freeze_gap[i]:
+                # Never treat engine-off or starter cranking (IPW=0) as overrun DFCO cut!
+                last_dfco_time = -999.0
+                closed_pedal_start_sec = None
+                decel_statuses.append("NORMAL_DRIVING")
+                continue
+
+            is_closed_pedal = (curr["app"] <= min_app + 1.5) if (has_app and curr["app"] >= 0.0) else (tps <= min_tps + 1.5)
             if is_closed_pedal:
                 if closed_pedal_start_sec is None:
                     closed_pedal_start_sec = sec
@@ -627,19 +789,29 @@ class DatalogClassifier:
             is_dfco_cut = (ipw <= 0.05) or (is_closed_pedal and ipw <= 0.45 and (curr["afr"] >= 18.42 or align_afr >= 18.42))
             if is_dfco_cut:
                 last_dfco_time = sec
+                # Reset entry timer during active fuel cut so exiting DFCO never inherits pre-cut elapsed time
+                closed_pedal_start_sec = sec
 
             is_recovery = ((sec - last_dfco_time) <= 0.55) and not is_dfco_cut
+            if is_recovery and is_closed_pedal:
+                closed_pedal_start_sec = sec
+
             in_gear_driving = (gear in ("1", "2", "3", "4", "5")) and (is_shifting == 0)
 
             if is_closed_pedal and spd > 12.0 and rpm > 1200.0:
                 if is_dfco_cut:
                     status = "CUT_ACTIVE"
+                elif is_recovery:
+                    status = "DFCO_RECOVERY"
                 elif in_gear_driving:
                     closed_dur = (sec - closed_pedal_start_sec) if closed_pedal_start_sec is not None else 0.0
                     if rpm < 1900.0 or curr["ect"] < 68.0:
                         status = "DFCO_LOW_RPM_RESUME"
                     elif closed_dur <= 1.25:
                         status = "DFCO_ENTRY_DELAY"
+                    elif tps > (min_tps + 1.6):
+                        # Foot is off APP, but DBW throttle plate is held slightly open (dashpot / rev-hang) above ECU DFCO TPS gate
+                        status = "DBW_DASHPOT_HOLD"
                     else:
                         status = "UNEXPECTED_FUELING"
                         if (sec - last_overrun_event_sec) >= 1.0:
@@ -660,11 +832,12 @@ class DatalogClassifier:
                                 "afr": round(curr["afr"], 2),
                                 "afrmap": round(curr["afrmap"], 2),
                                 "severity": round(ipw, 2),
-                                "classification": "DECEL_INJECTOR_LEAK",
+                                "classification": "DECEL_INJECTOR_OR_TABLE_LEAK",
                                 "confidence": 0.90,
                                 "detail_json": {
                                     "ipw_during_decel": round(ipw, 2),
                                     "closed_pedal_sec": round(closed_dur, 2),
+                                    "min_tps_ref": round(min_tps, 2),
                                     "gear": gear,
                                 }
                             })
@@ -729,7 +902,8 @@ class DatalogClassifier:
         last_high_idc_sec = -999.0
         last_power_drop_sec = -999.0
 
-        # Pre-evaluate steady pedal drop candidate streak to require >= 6 consecutive frames (~0.20s)
+        # Pre-evaluate steady pedal drop candidate streak to require >= 5 consecutive frames (~0.17s+)
+        # Must remain in the SAME engaged gear with zero shift flags across the 0.45s lookback window!
         raw_power_drop_flags = [False] * n
         for i in range(n):
             curr = self.parsed[i]
@@ -737,20 +911,26 @@ class DatalogClassifier:
             shift = shift_flags[i]
             spd = smooth_speeds[i]
             if gear in ("1", "2", "3", "4", "5") and shift == 0 and spd > 18.0 and curr["rpm"] > 1400.0 and curr["tps"] >= 18.0:
-                w_s_p = max(0, i - 9)
-                w_e_p = min(n, i + 6)
-                app_sub = [self.parsed[k]["app"] for k in range(w_s_p, w_e_p) if self.parsed[k]["app"] >= 0.0]
-                tps_sub = [self.parsed[k]["tps"] for k in range(w_s_p, w_e_p)]
-                app_rng = (max(app_sub) - min(app_sub)) if app_sub else 99.0
-                tps_rng = max(tps_sub) - min(tps_sub)
-                if (app_rng <= 1.5 or tps_rng <= 1.6) and abs(derivatives[i]["d_tps"]) <= 3.5:
-                    past_idx = max(0, i - 12)
-                    past_rot = rpm_accels_rpms[past_idx]
-                    curr_rot = rpm_accels_rpms[i]
-                    past_g = smooth_accels_g[past_idx]
-                    curr_g = smooth_accels_g[i]
-                    if past_rot >= 90.0 and curr_rot <= -20.0 and (past_rot - curr_rot) >= 160.0 and (past_g - curr_g) >= 0.03:
-                        raw_power_drop_flags[i] = True
+                past_idx = max(0, i - 12)
+                gear_check_lo = max(0, i - 14)
+                same_gear_window = all(
+                    gear_labels[k] == gear and shift_flags[k] == 0 and seg_ids[k] == seg_ids[i] and not is_freeze_gap[k]
+                    for k in range(gear_check_lo, i + 1)
+                )
+                if same_gear_window:
+                    w_s_p = max(0, i - 9)
+                    w_e_p = min(n, i + 6)
+                    app_sub = [self.parsed[k]["app"] for k in range(w_s_p, w_e_p) if self.parsed[k]["app"] >= 0.0]
+                    tps_sub = [self.parsed[k]["tps"] for k in range(w_s_p, w_e_p)]
+                    app_rng = (max(app_sub) - min(app_sub)) if app_sub else 99.0
+                    tps_rng = max(tps_sub) - min(tps_sub)
+                    if (app_rng <= 1.5 or tps_rng <= 1.6) and abs(derivatives[i]["d_tps"]) <= 3.5:
+                        past_rot = rpm_accels_rpms[past_idx]
+                        curr_rot = rpm_accels_rpms[i]
+                        past_g = smooth_accels_g[past_idx]
+                        curr_g = smooth_accels_g[i]
+                        if past_rot >= 90.0 and curr_rot <= -20.0 and (past_rot - curr_rot) >= 160.0 and (past_g - curr_g) >= 0.03:
+                            raw_power_drop_flags[i] = True
 
         # Keep only streaks >= 5 consecutive frames (~0.17s+)
         sustained_power_drop = [False] * n
@@ -767,7 +947,135 @@ class DatalogClassifier:
             else:
                 idx_scan += 1
 
+        # Resolve Outdoor Ambient IAT Anchor (same-day DB anchor + high-speed airflow minimum)
+        moving_iats = [
+            self.parsed[k]["iat"] for k in range(n)
+            if self.parsed[k]["rpm"] >= 600.0 and smooth_speeds[k] >= 40.0 and not is_freeze_gap[k]
+        ]
+        eff_ambient_iat = self.ambient_iat_ref
+        if moving_iats:
+            min_mov_iat = min(moving_iats)
+            eff_ambient_iat = min(eff_ambient_iat, min_mov_iat) if eff_ambient_iat is not None else min_mov_iat
+
+        started_hot_soaked = (
+            self.parsed[0]["ect"] >= 75.0 and (self.parsed[0]["mat"] >= 42.0 or self.parsed[0]["iat"] >= 32.0)
+        )
+        is_underhood_iat_soaked = [False] * n
+        for i in range(n):
+            c_p = self.parsed[i]
+            soak_by_ref = (eff_ambient_iat is not None and (c_p["iat"] - eff_ambient_iat) >= 12.0 and c_p["mat"] >= 36.0)
+            soak_by_hot_start = (started_hot_soaked and c_p["iat"] >= 33.0 and c_p["mat"] >= 38.0)
+            is_underhood_iat_soaked[i] = soak_by_ref or soak_by_hot_start
+
+        # Precompute Decoupled Unsoaked Warm Baseline AFR Error (AGENTS.md §4.1 Thermal Decoupling Rule)
+        # Excludes hot-start rail vapor soak and underhood open-cone IAT soak so cool_ref is never inverted!
+        unsoaked_idle_errs = []
+        unsoaked_cruise_errs = []
+        warm_cell_buckets = {}
+        for i in range(n):
+            c_p = self.parsed[i]
+            al_p = aligned_afr_data[i]
+            if (not is_freeze_gap[i] and not is_hot_rail_soak[i] and not is_underhood_iat_soaked[i]
+                    and c_p["ect"] >= 80.0 and al_p["aligned_wb_ready"]
+                    and 10.08 < al_p["aligned_afr"] < 18.42
+                    and decel_statuses[i] == "NORMAL_DRIVING" and shift_flags[i] == 0):
+                split_p = c_p["mat"] - c_p["iat"]
+                st_pen = abs(ols_tps_s[i]) / 8.0 + abs(ols_map_s[i]) / 20.0 + abs(rpm_accels_rpms[i]) / 250.0
+                if smooth_speeds[i] < 2.0 and c_p["tps"] <= 15.5 and c_p["mat"] < 38.0 and abs(rpm_accels_rpms[i]) < 120.0:
+                    if c_p["kpa"] <= 55.0:
+                        unsoaked_idle_errs.append(al_p["aligned_afr_error"])
+                elif smooth_speeds[i] >= 15.0 and c_p["kpa"] <= 95.0 and split_p < 10.0 and st_pen <= 0.30:
+                    unsoaked_cruise_errs.append(al_p["aligned_afr_error"])
+
+                # Within-drive warm (>=82°C) matched-(RPM, MAP) lookup for validating COLD_ECT_MISFUEL
+                if c_p["ect"] >= 82.0 and c_p["mat"] < 42.0 and st_pen <= 0.35:
+                    cell_k = (int(round(c_p["rpm"] / 250.0) * 250), int(round(c_p["kpa"] / 4.0) * 4))
+                    warm_cell_buckets.setdefault(cell_k, []).append(al_p["aligned_afr_error"])
+
+        def _median(vals):
+            if not vals:
+                return None
+            s_v = sorted(vals)
+            m_i = len(s_v) // 2
+            return s_v[m_i] if (len(s_v) % 2 == 1) else 0.5 * (s_v[m_i - 1] + s_v[m_i])
+
+        idle_cool_ref = _median(unsoaked_idle_errs) if len(unsoaked_idle_errs) >= 40 else self.fallback_unsoaked_err.get("idle")
+        cruise_cool_ref = _median(unsoaked_cruise_errs) if len(unsoaked_cruise_errs) >= 40 else self.fallback_unsoaked_err.get("cruise")
+        warm_cell_refs = {ck: _median(vs) for ck, vs in warm_cell_buckets.items() if len(vs) >= 15}
+
         row_episode_tags = [[] for _ in range(n)]
+
+        # Detect Failed Cranking Starts & Stationary Idle Stalls (distinguished from intentional end-of-drive key-off)
+        idx_st = 0
+        while idx_st < n:
+            if not is_freeze_gap[idx_st] and self.parsed[idx_st]["rpm"] >= 500.0 and smooth_speeds[idx_st] < 3.0:
+                run_start = idx_st
+                peak_rpm_burst = self.parsed[idx_st]["rpm"]
+                while idx_st < n and not is_freeze_gap[idx_st] and self.parsed[idx_st]["rpm"] >= 200.0:
+                    if self.parsed[idx_st]["rpm"] > peak_rpm_burst:
+                        peak_rpm_burst = self.parsed[idx_st]["rpm"]
+                    idx_st += 1
+                burst_end = idx_st - 1
+                # Check if engine died to <200 RPM within continuous logging (not a logger freeze or moving drive)
+                if (idx_st < n and not is_freeze_gap[idx_st]
+                        and (burst_end - run_start) >= 2 and smooth_speeds[burst_end] < 3.0):
+                    zero_end = idx_st
+                    while zero_end < n and not is_freeze_gap[zero_end] and self.parsed[zero_end]["rpm"] < 200.0:
+                        zero_end += 1
+                    if (zero_end - idx_st) >= 5:
+                        collapse_lo = max(run_start, burst_end - 8)
+                        ipw_while_dying = any(
+                            220.0 <= self.parsed[k]["rpm"] <= 600.0 and self.parsed[k]["ipw"] >= 1.0
+                            for k in range(collapse_lo, burst_end + 1)
+                        )
+                        recranked = any(
+                            (self.parsed[k]["sec"] - self.parsed[idx_st]["sec"]) <= 60.0
+                            and self.parsed[k]["rpm"] >= 450.0
+                            for k in range(zero_end, min(n, zero_end + 2500))
+                        )
+                        key_stayed_on = (
+                            (self.parsed[min(n - 1, zero_end - 1)]["sec"] - self.parsed[idx_st]["sec"]) >= 2.0
+                            and self.parsed[idx_st]["vbatt"] >= 11.2
+                        )
+                        if recranked or (ipw_while_dying and key_stayed_on):
+                            st_ect = self.parsed[burst_end]["ect"]
+                            if run_secs[burst_end] <= 15.0:
+                                st_cause = "COLD_START_CRANK_STALL" if st_ect < 45.0 else "WARM_OR_HOT_START_STALL"
+                            else:
+                                st_cause = "IDLE_DIP_STALL"
+                            st_sev = round(min(25.0, max(8.0, peak_rpm_burst / 60.0)), 1)
+                            tag_lo = max(run_start, burst_end - 4)
+                            tag_hi = min(n - 1, idx_st + 4)
+                            for k_tag in range(tag_lo, tag_hi + 1):
+                                row_episode_tags[k_tag].append(("START_OR_IDLE_STALL", st_cause, st_sev))
+                            st_p = self.parsed[burst_end]
+                            self.operational_events.append({
+                                "event_type": "START_OR_IDLE_STALL",
+                                "log_id": os.path.basename(self.log_path),
+                                "row_idx": burst_end,
+                                "time_sec": round(st_p["sec"], 3),
+                                "rpm": round(st_p["rpm"], 1),
+                                "map_kpa": round(st_p["kpa"], 1),
+                                "tps": round(st_p["tps"], 1),
+                                "mafv": round(st_p["mafv"], 3),
+                                "ipw_ms": round(st_p["ipw"], 2),
+                                "vbatt": round(st_p["vbatt"], 2),
+                                "mat_c": round(st_p["mat"], 1),
+                                "ect_c": round(st_ect, 1),
+                                "afr": round(st_p["afr"], 2),
+                                "afrmap": round(st_p["afrmap"], 2),
+                                "severity": st_sev,
+                                "classification": st_cause,
+                                "confidence": 0.95,
+                                "detail_json": {
+                                    "peak_rpm_before_stall": round(peak_rpm_burst, 1),
+                                    "run_secs_before_stall": round(run_secs[burst_end], 2),
+                                    "recranked": recranked,
+                                },
+                            })
+                    idx_st = zero_end
+                    continue
+            idx_st += 1
 
         for i in range(n):
             curr = self.parsed[i]
@@ -786,11 +1094,21 @@ class DatalogClassifier:
             is_dfco_recovery = (decel == "DFCO_RECOVERY")
             is_dfco_entry = (decel == "DFCO_ENTRY_DELAY")
             is_overrun_leak = (decel == "UNEXPECTED_FUELING")
+            is_low_rpm_resume = (decel == "DFCO_LOW_RPM_RESUME")
+            is_dashpot_hold = (decel == "DBW_DASHPOT_HOLD")
+            is_coast_neutral = (decel == "COAST_NEUTRAL")
+            is_any_overrun = (is_dfco_entry or is_overrun_leak or is_low_rpm_resume or is_dashpot_hold or is_coast_neutral)
             is_warm = curr["ect"] >= 80.0  # ECT Fuel Comp #1/#2 locks at 100.0% >= 77-82C
 
             # Pure Open-Loop Wideband Validity State
-            if curr["rpm"] < 250.0:
+            if is_freeze_gap[i]:
+                wb_state = "LOG_FREEZE_GAP"
+            elif curr["rpm"] < 250.0:
                 wb_state = "ENGINE_OFF"
+            elif curr["rpm"] < 450.0:
+                wb_state = "CRANKING"
+            elif curr["afr"] <= 5.0 or align["aligned_afr"] <= 5.0:
+                wb_state = "WIDEBAND_DROPOUT"
             elif not align["aligned_wb_ready"]:
                 wb_state = "SENSOR_WARMUP"
             elif is_dfco_frame or is_dfco_recovery:
@@ -808,17 +1126,23 @@ class DatalogClassifier:
             map_penalty = abs(ols_map_s[i]) / 20.0
             rpm_penalty = abs(rpm_accels_rpms[i]) / 250.0
             tot_penalty = tps_penalty + map_penalty + rpm_penalty
-            stationarity = 0.0 if is_dfco_frame else max(0.0, min(1.0, 1.0 - tot_penalty))
+            stationarity = 0.0 if (is_dfco_frame or is_freeze_gap[i] or curr["rpm"] < 450.0) else max(0.0, min(1.0, 1.0 - tot_penalty))
 
-            # Operational Regime
-            if is_dfco_frame:
+            # Operational Regime (Zero-drop: every frame gets its true operating bucket, including shifts & overrun)
+            if is_freeze_gap[i]:
+                regime = "LOG_FREEZE_GAP"
+            elif curr["rpm"] < 450.0:
+                regime = "ENGINE_OFF_OR_CRANK"
+            elif is_dfco_frame:
                 regime = "DFCO"
             elif is_dfco_recovery:
                 regime = "DFCO_RECOVERY"
-            elif is_dfco_entry or is_overrun_leak:
+            elif is_any_overrun:
                 regime = "OVERRUN_DECEL"
-            elif spd < 2.0 and curr["tps"] <= 15.0 and abs(rpm_accels_rpms[i]) < 120.0:
+            elif spd < 2.0 and curr["tps"] <= 15.5 and abs(rpm_accels_rpms[i]) < 120.0:
                 regime = "STEADY_IDLE"
+            elif shift == 1 and spd >= 8.0:
+                regime = "SHIFT_TRANSITION"
             elif spd >= 15.0 and stationarity >= 0.70 and curr["kpa"] <= 95.0 and shift == 0:
                 regime = "STEADY_CRUISE"
             elif curr["tps"] >= 65.0 and ols_tps_s[i] >= -2.0 and curr["kpa"] >= 115.0 and shift == 0:
@@ -833,10 +1157,12 @@ class DatalogClassifier:
                 regime = "TRANSIENT_CRUISE"
             regime_counts[regime] = regime_counts.get(regime, 0) + 1
 
-            # Decoupled Thermal Regime (ECT vs MAT vs IAT)
+            # Decoupled Thermal Regime (ECT vs MAT vs IAT vs Hot-Start Fuel-Rail Purge)
             iat_mat_delta = curr["mat"] - curr["iat"]
-            if curr["rpm"] < 250.0:
+            if is_freeze_gap[i] or curr["rpm"] < 450.0:
                 thermal_regime = "ENGINE_OFF"
+            elif is_hot_rail_soak[i]:
+                thermal_regime = "POST_HOT_START_RAIL_SOAK"
             elif run_secs[i] < 90.0 and curr["ect"] < 78.0:
                 thermal_regime = "POST_START_FLARE_DECAY"
             elif curr["ect"] < 80.0:
@@ -847,13 +1173,15 @@ class DatalogClassifier:
                 thermal_regime = "HEATSOAK_IDLE_SOAK"
             elif spd >= 15.0 and iat_mat_delta >= 10.0:
                 thermal_regime = "HEATSOAK_FLUSH_SPLIT"
+            elif spd >= 15.0 and is_underhood_iat_soaked[i]:
+                thermal_regime = "UNDERHOOD_IAT_HEATSOAK"
             elif curr["iat"] <= 12.0 and abs(iat_mat_delta) < 10.0:
                 thermal_regime = "COLD_AMBIENT_STEADY"
             else:
                 thermal_regime = "WARM_AMBIENT_STEADY"
             thermal_counts[thermal_regime] = thermal_counts.get(thermal_regime, 0) + 1
 
-            # Load Clamping & 1D MAF Aliasing Zone
+            # Load Clamping & 1D MAF Aliasing Zone (Safeguard #1 compliant: <=2.85V shared vs >=2.89V pure boost)
             mafc = curr["mafc"]
             mapc = curr["mapc"]
             imapc = curr["imapc"]
@@ -863,7 +1191,7 @@ class DatalogClassifier:
             if curr["kpa"] <= 85.0:
                 clamp_state = "UNCLAMPED" if mapc >= 0.99 * mafc else "VACUUM_CEILING_CLAMPED"
             elif curr["kpa"] >= 120.0:
-                clamp_state = "BOOST_SPEED_DENSITY" if mapc <= 0.95 * mafc else "BOOST_FLOOR_CLAMPED"
+                clamp_state = "BOOST_SPEED_DENSITY" if mapc <= 0.98 * mafc else "BOOST_FLOOR_CLAMPED"
             else:
                 clamp_state = "CROSSOVER_TRANSITION"
 
@@ -875,7 +1203,9 @@ class DatalogClassifier:
                 maf_zone = "MAF_MAP_ALIAS_CONFLICT"
             elif curr["kpa"] < 120.0:
                 maf_zone = "SPOOL_CROSSOVER_MAF"
-            elif ratio <= 0.86:
+            elif curr["mafv"] <= 2.86:
+                maf_zone = "BOOST_SHARED_BIN_SD_OK" if ratio < 0.98 else "BOOST_MAF_UNDERCUT_RISK"
+            elif ratio <= 0.88:
                 maf_zone = "BOOST_SD_HEADROOM_OK"
             else:
                 maf_zone = "BOOST_MAF_UNDERCUT_RISK"
@@ -913,14 +1243,41 @@ class DatalogClassifier:
             base_maf_load = (4964.28 * rom_maf_gs / curr["rpm"]) if (rom_maf_gs >= 3.5 and curr["rpm"] >= 550.0) else 0.0
             emp_maf_mult = (mafc / base_maf_load) if (base_maf_load >= 8.0 and mafc >= 8.0) else 1.000
 
-            # Operational Events & Episode Row Tagging
+            # Operational Events & Episode Row Tagging (Zero-drop, root-cause sub-classified)
             if k_cls != "NONE":
                 row_episode_tags[i].append((f"KNOCK_{k_cls}", k_cls, float(derivatives[i]["d_knock"])))
 
             if is_overrun_leak:
-                row_episode_tags[i].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_INJECTOR_LEAK", curr["ipw"]))
+                row_episode_tags[i].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_INJECTOR_OR_TABLE_LEAK", curr["ipw"]))
+            elif is_dashpot_hold:
+                row_episode_tags[i].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_DBW_DASHPOT_HOLD", curr["ipw"]))
 
-            if (is_warm and wb_state in ("VALID", "RAIL_LEAN_CLIP") and shift == 0
+            if slip_or_spin_flags[i]:
+                row_episode_tags[i].append(("DRIVETRAIN_SLIP_OR_SPIN", "CLUTCH_SLIP_OR_WHEELSPIN", round(curr["rpm"] / max(1.0, spd), 1)))
+
+            # Shift & Post-Shift Drivability Diagnostics (Rev-Hang, Post-Shift Rich Bog, Post-Shift Lean Stumble)
+            since_sh = since_shift_end_secs[i]
+            local_back = max(0, i - 4)
+            local_dt = max(0.08, curr["sec"] - self.parsed[local_back]["sec"])
+            local_rpm_slope = (curr["rpm"] - self.parsed[local_back]["rpm"]) / local_dt if seg_ids[local_back] == seg_ids[i] else -999.0
+            if (shift == 1 and gear == "NEUTRAL" and shift_start_secs[i] is not None
+                    and (curr["sec"] - shift_start_secs[i]) >= 0.40 and curr["rpm"] >= 2300.0
+                    and spd >= 20.0 and decel in ("COAST_NEUTRAL", "DBW_DASHPOT_HOLD")
+                    and rpm_accels_rpms[i] >= -60.0 and local_rpm_slope >= -60.0):
+                hang_sev = max(5.0, min(40.0, (rpm_accels_rpms[i] + 80.0) * 0.25))
+                row_episode_tags[i].append(("SHIFT_ANOMALY", "SHIFT_REV_HANG", hang_sev))
+            elif (is_warm and wb_state in ("VALID", "RAIL_RICH_CLIP") and shift == 0
+                  and gear in ("1", "2", "3", "4", "5") and 0.08 <= since_sh <= 0.80
+                  and curr["tps"] >= 22.0 and align["aligned_afr_error"] <= 0.86):
+                row_episode_tags[i].append(("SHIFT_ANOMALY", "POST_SHIFT_RICH_BOG", (1.0 - align["aligned_afr_error"]) * 100.0))
+            elif (is_warm and wb_state in ("VALID", "RAIL_LEAN_CLIP") and shift == 0
+                  and gear in ("1", "2", "3", "4", "5") and 0.08 <= since_sh <= 0.80
+                  and curr["tps"] >= 22.0 and align["aligned_afr_error"] >= 1.07):
+                row_episode_tags[i].append(("SHIFT_ANOMALY", "POST_SHIFT_LEAN_HESITATION", (align["aligned_afr_error"] - 1.0) * 100.0))
+
+            # Lean Boost Excursion: stays active even during WOT wheelspin/clutch-slip!
+            if (is_warm and wb_state in ("VALID", "RAIL_LEAN_CLIP")
+                    and (shift == 0 or (curr["tps"] >= 60.0 and curr["kpa"] >= 135.0))
                     and curr["kpa"] >= 130.0 and curr["tps"] >= 45.0 and align["aligned_afr_error"] >= 1.05):
                 err_pct = (align["aligned_afr_error"] - 1.0) * 100.0
                 row_episode_tags[i].append(("LEAN_BOOST_EXCURSION", "LEAN_UNDER_BOOST", err_pct))
@@ -954,24 +1311,81 @@ class DatalogClassifier:
 
             if (is_warm and wb_state in ("VALID", "RAIL_RICH_CLIP") and shift == 0
                     and 100.0 <= curr["kpa"] <= 145.0 and curr["tps"] >= 25.0 and align["aligned_afr_error"] <= 0.88):
-                row_episode_tags[i].append(("RICH_SPOOL_BOG", "RICH_TRANSIENT_OR_IMAP", (1.0 - align["aligned_afr_error"]) * 100.0))
+                r_cause = "POST_SHIFT_RICH_SPOOL" if since_sh <= 0.80 else "RICH_TRANSIENT_OR_IMAP"
+                row_episode_tags[i].append(("RICH_SPOOL_BOG", r_cause, (1.0 - align["aligned_afr_error"]) * 100.0))
 
             if (is_warm and wb_state in ("VALID", "RAIL_LEAN_CLIP") and shift == 0
                     and 88.0 <= curr["kpa"] <= 118.0 and curr["tps"] >= 18.0 and align["aligned_afr_error"] >= 1.06):
-                row_episode_tags[i].append(("CROSSOVER_LEAN_SPIKE", "CROSSOVER_RECTIFICATION_OR_VE", (align["aligned_afr_error"] - 1.0) * 100.0))
+                if ratio <= 1.02:
+                    c_cause = "CROSSOVER_CLAMP_RECTIFICATION"
+                elif since_sh <= 0.75 or ols_tps_s[i] >= 10.0 or rpm_accels_rpms[i] >= 450.0:
+                    c_cause = "POST_SHIFT_OR_TIP_IN_LEAN"
+                else:
+                    c_cause = "STEADY_CROSSOVER_FLOW_LEAN"
+                row_episode_tags[i].append(("CROSSOVER_LEAN_SPIKE", c_cause, (align["aligned_afr_error"] - 1.0) * 100.0))
 
-            if is_warm and shift == 0 and curr["kpa"] >= 120.0 and curr["tps"] >= 40.0 and ratio >= 0.90:
-                row_episode_tags[i].append(("BOOST_MAF_UNDERCUT", "INSUFFICIENT_MAF_HEADROOM", ratio * 100.0))
+            # Safeguard #1 Boost MAF Undercut vs Pure Boost Headroom (Idx >= 74, >= 2.89V)
+            if is_warm and curr["kpa"] >= 120.0 and curr["tps"] >= 35.0 and ratio >= 0.99:
+                row_episode_tags[i].append(("BOOST_MAF_UNDERCUT", "ACTUAL_BOOST_MAF_UNDERCUT", ratio * 100.0))
+            elif (is_warm and shift == 0 and curr["kpa"] >= 120.0 and curr["tps"] >= 40.0
+                  and curr["mafv"] >= 2.89 and ratio >= 0.90):
+                row_episode_tags[i].append(("BOOST_MAF_UNDERCUT", "INSUFFICIENT_SD_MAF_HEADROOM", ratio * 100.0))
+
+            if (thermal_regime == "POST_HOT_START_RAIL_SOAK" and wb_state in ("VALID", "RAIL_LEAN_CLIP")
+                    and align["aligned_afr_error"] >= 1.06):
+                row_episode_tags[i].append((
+                    "HOT_SOAK_VAPOR_LEAN",
+                    "FUEL_RAIL_VAPOR_OR_POST_START_DECAY",
+                    (align["aligned_afr_error"] - 1.0) * 100.0,
+                ))
 
             if (thermal_regime == "WARMUP_ECT_ACTIVE" and wb_state in ("VALID", "RAIL_RICH_CLIP", "RAIL_LEAN_CLIP")
-                    and stationarity >= 0.65 and not is_dfco_frame and abs(align["aligned_afr_error"] - 1.0) >= 0.07):
-                cause = "ECT_COMP_TOO_RICH" if align["aligned_afr_error"] < 1.0 else "ECT_COMP_TOO_LEAN"
-                row_episode_tags[i].append(("COLD_ECT_MISFUEL", cause, abs(align["aligned_afr_error"] - 1.0) * 100.0))
+                    and stationarity >= 0.65 and not is_dfco_frame and not is_any_overrun
+                    and abs(align["aligned_afr_error"] - 1.0) >= 0.07):
+                cell_k = (int(round(curr["rpm"] / 250.0) * 250), int(round(curr["kpa"] / 4.0) * 4))
+                warm_match = warm_cell_refs.get(cell_k)
+                if warm_match is None:
+                    warm_match = warm_cell_refs.get((cell_k[0], cell_k[1] - 4)) or warm_cell_refs.get((cell_k[0], cell_k[1] + 4))
+                if warm_match is not None and warm_match > 0.5:
+                    ect_delta = (align["aligned_afr_error"] / warm_match) - 1.0
+                    if abs(ect_delta) >= 0.045 and ((ect_delta > 0) == (align["aligned_afr_error"] > 1.0)):
+                        cause = "ECT_COMP_TOO_RICH" if ect_delta < 0.0 else "ECT_COMP_TOO_LEAN"
+                        row_episode_tags[i].append(("COLD_ECT_MISFUEL", cause, abs(ect_delta) * 100.0))
+                    elif spd < 2.0 and curr["kpa"] >= 55.5 and align["aligned_afr_error"] >= 1.055:
+                        row_episode_tags[i].append((
+                            "ELEVATED_IDLE_LOAD_ANOMALY",
+                            "HIGH_MAP_ACCESSORY_IDLE_MAF_LEAN",
+                            (align["aligned_afr_error"] - 1.0) * 100.0,
+                        ))
+                else:
+                    cause = "ECT_COMP_TOO_RICH" if align["aligned_afr_error"] < 1.0 else "ECT_COMP_TOO_LEAN"
+                    row_episode_tags[i].append(("COLD_ECT_MISFUEL", cause, abs(align["aligned_afr_error"] - 1.0) * 100.0))
 
-            if (thermal_regime in ("HEATSOAK_FLUSH_SPLIT", "HEATSOAK_IDLE_SOAK") and wb_state == "VALID"
-                    and stationarity >= 0.65 and abs(align["aligned_afr_error"] - 1.0) >= 0.06):
-                cause = "MAT_COMP_TOO_RICH" if align["aligned_afr_error"] < 1.0 else "MAT_COMP_TOO_LEAN"
-                row_episode_tags[i].append(("HEATSOAK_THERMAL_DRIFT", cause, abs(align["aligned_afr_error"] - 1.0) * 100.0))
+            if (is_warm and regime == "STEADY_IDLE" and thermal_regime != "POST_HOT_START_RAIL_SOAK"
+                    and wb_state in ("VALID", "RAIL_LEAN_CLIP") and stationarity >= 0.70
+                    and curr["kpa"] >= 55.5 and align["aligned_afr_error"] >= 1.055):
+                row_episode_tags[i].append((
+                    "ELEVATED_IDLE_LOAD_ANOMALY",
+                    "HIGH_MAP_ACCESSORY_IDLE_MAF_LEAN",
+                    (align["aligned_afr_error"] - 1.0) * 100.0,
+                ))
+
+            # Thermal Decoupling Rule (AGENTS.md §4.1): Measure MAT drift vs warm unsoaked baseline
+            # Includes directional sanity guard so cool_ref bias never labels richer-than-target AFR as TOO_LEAN!
+            if (thermal_regime in ("HEATSOAK_FLUSH_SPLIT", "HEATSOAK_IDLE_SOAK", "UNDERHOOD_IAT_HEATSOAK") and wb_state == "VALID"
+                    and curr["mat"] >= 34.0 and stationarity >= 0.65 and not is_any_overrun and gear != "NEUTRAL"):
+                cool_ref = idle_cool_ref if thermal_regime == "HEATSOAK_IDLE_SOAK" else cruise_cool_ref
+                if cool_ref is not None and cool_ref > 0.5:
+                    therm_delta = (align["aligned_afr_error"] / cool_ref) - 1.0
+                    if therm_delta <= -0.05 and align["aligned_afr_error"] < 0.99:
+                        row_episode_tags[i].append(("HEATSOAK_THERMAL_DRIFT", "MAT_COMP_TOO_RICH", abs(therm_delta) * 100.0))
+                    elif therm_delta >= 0.05 and align["aligned_afr_error"] > 1.01:
+                        row_episode_tags[i].append(("HEATSOAK_THERMAL_DRIFT", "MAT_COMP_TOO_LEAN", abs(therm_delta) * 100.0))
+                else:
+                    raw_delta = align["aligned_afr_error"] - 1.0
+                    if abs(raw_delta) >= 0.06:
+                        cause = "MAT_COMP_TOO_RICH_NO_COOL_REF" if raw_delta < 0.0 else "MAT_COMP_TOO_LEAN_NO_COOL_REF"
+                        row_episode_tags[i].append(("HEATSOAK_THERMAL_DRIFT", cause, abs(raw_delta) * 100.0))
 
             if idc_pct >= 85.0:
                 row_episode_tags[i].append(("HIGH_IDC_WARNING", "INJECTOR_DUTY_HIGH", idc_pct))
@@ -1006,7 +1420,9 @@ class DatalogClassifier:
                 if sustained_power_drop[i]:
                     pedal_state = "STEADY_PEDAL_POWER_DROP"
                     drop_mag = max(10.0, past_rot_accel - curr_rot_accel)
-                    if align["aligned_afr_error"] >= 1.05:
+                    if not is_warm:
+                        p_cause = "COLD_WARMUP_TORQUE_DIP"
+                    elif align["aligned_afr_error"] >= 1.05:
                         p_cause = "LEAN_STUMBLE"
                     elif align["aligned_afr_error"] <= 0.90:
                         p_cause = "RICH_BOG"
@@ -1073,10 +1489,18 @@ class DatalogClassifier:
             usable_inj = False
             rej_reasons = []
 
+            if is_freeze_gap[i]:
+                rej_reasons.append("LOG_FREEZE_GAP")
+            elif curr["rpm"] < 450.0:
+                rej_reasons.append("CRANKING_OR_OFF")
             if not is_warm:
                 rej_reasons.append("COLD_WARMUP")
+            if thermal_regime == "POST_HOT_START_RAIL_SOAK":
+                rej_reasons.append("HOT_START_RAIL_SOAK")
             if wb_state == "SENSOR_WARMUP":
                 rej_reasons.append("WIDEBAND_WARMUP")
+            elif wb_state == "WIDEBAND_DROPOUT":
+                rej_reasons.append("WIDEBAND_DROPOUT")
             elif wb_state in ("RAIL_RICH_CLIP", "RAIL_LEAN_CLIP"):
                 rej_reasons.append("WIDEBAND_CLIPPED")
             if is_dfco_frame:
@@ -1087,13 +1511,23 @@ class DatalogClassifier:
                 rej_reasons.append("DFCO_ENTRY_DELAY")
             elif is_overrun_leak:
                 rej_reasons.append("OVERRUN_FUEL_LEAK")
+            elif is_dashpot_hold:
+                rej_reasons.append("DBW_DASHPOT_HOLD")
+            elif is_low_rpm_resume:
+                rej_reasons.append("DFCO_LOW_RPM_RESUME")
+            elif is_coast_neutral:
+                rej_reasons.append("COAST_NEUTRAL")
             if shift == 1:
                 rej_reasons.append("SHIFT_ACTIVE")
 
             clean_fuel_state = (
-                is_warm and wb_state == "VALID"
+                not is_freeze_gap[i]
+                and curr["rpm"] >= 450.0
+                and is_warm
+                and thermal_regime != "POST_HOT_START_RAIL_SOAK"
+                and wb_state == "VALID"
                 and not is_dfco_frame and not is_dfco_recovery
-                and not is_dfco_entry and not is_overrun_leak and shift == 0
+                and not is_any_overrun and shift == 0
             )
 
             if clean_fuel_state:
@@ -1116,9 +1550,10 @@ class DatalogClassifier:
                     usable_ve = True
                     usability_counts["ve"] += 1
 
-            # Pure Open-Loop Injector Diagnostic Usability (ECT >= 80C, steady vacuum/idle, valid wideband)
+            # Pure Open-Loop Injector Diagnostic Usability (ECT >= 80C, steady unsoaked vacuum/idle, valid wideband)
             if clean_fuel_state and curr["kpa"] <= 105.0:
-                if stationarity >= 0.75 and abs(ols_tps_s[i]) <= 2.5 and thermal_regime not in ("HEATSOAK_FLUSH_SPLIT", "HEATSOAK_IDLE_SOAK"):
+                if (stationarity >= 0.75 and abs(ols_tps_s[i]) <= 2.5
+                        and thermal_regime not in ("HEATSOAK_FLUSH_SPLIT", "HEATSOAK_IDLE_SOAK", "UNDERHOOD_IAT_HEATSOAK")):
                     usable_inj = True
                     usability_counts["injector"] += 1
 
@@ -1213,6 +1648,10 @@ class DatalogClassifier:
             "steady_power_drop_events": sum(1 for e in self.operational_events if e["event_type"] == "STEADY_PEDAL_POWER_DROP"),
             "operational_events_count": len(self.operational_events),
             "anomaly_episodes_count": len(self.anomaly_episodes),
+            "unsoaked_warm_refs": {
+                "idle": round(idle_cool_ref, 4) if idle_cool_ref is not None else None,
+                "cruise": round(cruise_cool_ref, 4) if cruise_cool_ref is not None else None,
+            },
         }
 
     def _build_anomaly_episodes(self, row_episode_tags, aligned_afr_data, gear_labels):
@@ -1229,8 +1668,13 @@ class DatalogClassifier:
             "BOOST_MAF_UNDERCUT": 0.20,
             "COLD_ECT_MISFUEL": 1.00,
             "HEATSOAK_THERMAL_DRIFT": 1.50,
+            "HOT_SOAK_VAPOR_LEAN": 1.50,
+            "ELEVATED_IDLE_LOAD_ANOMALY": 2.00,
+            "START_OR_IDLE_STALL": 0.10,
             "STEADY_PEDAL_POWER_DROP": 0.16,
             "HIGH_IDC_WARNING": 0.10,
+            "SHIFT_ANOMALY": 0.20,
+            "DRIVETRAIN_SLIP_OR_SPIN": 0.20,
         }
 
         active = {}  # ep_type -> dict
@@ -1280,7 +1724,9 @@ class DatalogClassifier:
             s_idx, e_idx = ep["start_row"], ep["end_row"]
             dur = max(0.03, ep["end_sec"] - ep["start_sec"])
             min_req = min_dur_by_type.get(ep_type, 0.0)
-            if not ep_type.startswith("KNOCK_") and dur < min_req and ep["frames"] < 3:
+            if ep["cause"] == "DECEL_DBW_DASHPOT_HOLD":
+                min_req = max(min_req, 0.65)
+            if not ep_type.startswith("KNOCK_") and ep_type != "START_OR_IDLE_STALL" and (dur < min_req or ep["frames"] < 3):
                 continue
 
             sl = self.parsed[s_idx:e_idx + 1]
@@ -1341,6 +1787,7 @@ def main():
     parser = argparse.ArgumentParser(description="Multi-Domain Telemetry Classifier & Diagnostic Enrichment Engine")
     parser.add_argument("input_log", help="Path to raw EvoScan CSV datalog")
     parser.add_argument("--target-rom", help="Optional path to matching calibration ROM (.srf/.bin)")
+    parser.add_argument("--ambient-iat", type=float, default=None, help="Optional outdoor ambient IAT (°C) anchor")
     parser.add_argument("--export-csv", help="Custom output path for enriched CSV (*_classified.csv)")
     parser.add_argument("--export-events", help="Output path for operational events & episodes JSON ledger")
     parser.add_argument("--export-summary", help="Output path for summary statistics JSON")
@@ -1350,7 +1797,7 @@ def main():
         sys.exit(f"Error: Log file not found: {args.input_log}")
 
     print(f"[*] Processing telemetry: {args.input_log}")
-    classifier = DatalogClassifier(args.input_log, args.target_rom)
+    classifier = DatalogClassifier(args.input_log, args.target_rom, ambient_iat_ref=args.ambient_iat)
     classifier.load_and_parse()
     classifier.classify_all()
 

@@ -113,6 +113,7 @@ def init_db(db_path, reset=False):
         steady_power_drop_frames INTEGER DEFAULT 0,
         min_ect_c REAL DEFAULT 0.0,
         max_ect_c REAL DEFAULT 0.0,
+        min_iat_c REAL DEFAULT 20.0,
         mean_iat_c REAL DEFAULT 0.0,
         mean_mat_c REAL DEFAULT 0.0,
         wideband_clipped_frames INTEGER DEFAULT 0,
@@ -135,6 +136,7 @@ def init_db(db_path, reset=False):
         ("steady_power_drop_frames", "INTEGER DEFAULT 0"),
         ("min_ect_c", "REAL DEFAULT 0.0"),
         ("max_ect_c", "REAL DEFAULT 0.0"),
+        ("min_iat_c", "REAL DEFAULT 20.0"),
         ("mean_iat_c", "REAL DEFAULT 0.0"),
         ("mean_mat_c", "REAL DEFAULT 0.0"),
         ("wideband_clipped_frames", "INTEGER DEFAULT 0"),
@@ -221,6 +223,8 @@ def init_db(db_path, reset=False):
         rom_maf_gs REAL,
         unclamped_vac_samples INTEGER DEFAULT 0,
         avg_unclamped_afr_err REAL DEFAULT 1.0,
+        quasi_vac_samples INTEGER DEFAULT 0,
+        avg_quasi_afr_err REAL DEFAULT 1.0,
         alias_vac_samples INTEGER DEFAULT 0,
         avg_alias_afr_err REAL DEFAULT 1.0,
         boost_sd_samples INTEGER DEFAULT 0,
@@ -231,6 +235,31 @@ def init_db(db_path, reset=False):
     );
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_maf_bin_exp ON maf_bin_experience(bin_idx, rom_id);")
+    _ensure_columns(cur, "maf_bin_experience", [
+        ("quasi_vac_samples", "INTEGER DEFAULT 0"),
+        ("avg_quasi_afr_err", "REAL DEFAULT 1.0"),
+    ])
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS map_cell_experience (
+        map_exp_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        log_id INTEGER,
+        rom_id INTEGER,
+        row_idx INTEGER,
+        col_idx INTEGER,
+        rpm INTEGER,
+        map_kpa REAL,
+        rom_map_ve REAL,
+        sample_count INTEGER DEFAULT 0,
+        weight_sum REAL DEFAULT 0.0,
+        avg_true_over_mapc REAL DEFAULT 1.0,
+        avg_true_table_ve REAL DEFAULT 0.0,
+        avg_afr_error REAL DEFAULT 1.0,
+        FOREIGN KEY(log_id) REFERENCES datalogs(log_id),
+        FOREIGN KEY(rom_id) REFERENCES roms(rom_id)
+    );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_map_cell_exp ON map_cell_experience(row_idx, col_idx, rom_id);")
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS thermal_summaries (
@@ -506,6 +535,17 @@ def _f(row, key, default=0.0):
         return default
 
 
+def _get_axis_float_idx(arr, val):
+    if val <= arr[0]:
+        return 0.0
+    if val >= arr[-1]:
+        return float(len(arr) - 1)
+    for i in range(len(arr) - 1):
+        if arr[i] <= val <= arr[i + 1]:
+            return i + (val - arr[i]) / (arr[i + 1] - arr[i]) if arr[i + 1] != arr[i] else float(i)
+    return 0.0
+
+
 def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed_episodes=None):
     if not os.path.exists(csv_path):
         print(f"[!] File not found: {csv_path}", file=sys.stderr)
@@ -531,6 +571,14 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
     ORDER BY col_idx ASC;
     """, (rom_id,))
     maf_rom_bins = cur.fetchall()
+
+    # Fetch 19x20 MAP based Load Calc cells for this ROM so map_cell_experience stores exact table VE
+    cur.execute("""
+    SELECT row_idx, col_idx, cell_value FROM rom_tables
+    WHERE rom_id = ? AND table_name = 'map_load_calc_1'
+    ORDER BY row_idx ASC, col_idx ASC;
+    """, (rom_id,))
+    map_rom_grid = {(r_i, c_i): val for r_i, c_i, val in cur.fetchall()}
 
     with open(csv_path, "r", encoding="latin1") as f:
         reader = list(csv.DictReader(f))
@@ -569,12 +617,43 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
         b_idx: {
             "volts": b_v, "rom_gs": b_gs,
             "unc_n": 0, "unc_err_sum": 0.0,
+            "quasi_n": 0, "quasi_err_sum": 0.0,
             "als_n": 0, "als_err_sum": 0.0,
             "bst_n": 0, "bst_rat_sum": 0.0, "bst_tgs_sum": 0.0,
         }
         for b_idx, b_v, b_gs in maf_rom_bins
     }
     maf_volts_list = [b[1] for b in maf_rom_bins]
+    map_cell_exp = {
+        (r_i, c_i): {
+            "rpm": RPM_MAP_AXIS[r_i],
+            "map_kpa": MAP_KPA_AXIS[c_i],
+            "rom_ve": map_rom_grid.get((r_i, c_i), 0.0),
+            "n": 0,
+            "w_sum": 0.0,
+            "tom_wsum": 0.0,
+            "err_wsum": 0.0,
+        }
+        for r_i in range(len(RPM_MAP_AXIS))
+        for c_i in range(len(MAP_KPA_AXIS))
+    }
+
+    # Precompute 5-frame (~0.17-0.25s) exhaust-window smoothed AFR error and window arrays
+    raw_lag_errs = [_f(r, "diag_aligned_afr_error", 1.0) for r in reader]
+    raw_wb_states = [(r.get("diag_wideband_state") or "VALID") for r in reader]
+    raw_ipws = [_f(r, "IPW", 0.0) for r in reader]
+    raw_tps = [_f(r, "TPS", 0.0) for r in reader]
+    raw_kpa = [_f(r, "MAP", 0.0) for r in reader]
+    raw_mafc = [_f(r, "MAFCalcs", 0.0) for r in reader]
+    raw_mapc = [_f(r, "MAPCalcs", 0.0) for r in reader]
+    smooth_lag_errs = []
+    for i_s in range(n):
+        w_vals = [
+            raw_lag_errs[k_s]
+            for k_s in range(max(0, i_s - 2), min(n, i_s + 3))
+            if raw_wb_states[k_s] == "VALID"
+        ]
+        smooth_lag_errs.append((sum(w_vals) / len(w_vals)) if w_vals else raw_lag_errs[i_s])
 
     events = []
     ep_tags_fallback = [[] for _ in range(n)]
@@ -648,7 +727,7 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
             load_var = _f(r, "diag_load_variance", 0.0)
             pedal_state = r.get("diag_pedal_accel_state") or "STEADY_CRUISE_FLAT"
 
-            if rpm >= 400.0:
+            if rpm >= 450.0 and wb_state != "LOG_FREEZE_GAP":
                 ects_running.append(ect)
                 iats_running.append(iat)
                 mats_running.append(mat)
@@ -676,13 +755,20 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
                 clean_whps.append(whp)
                 clean_wtqs.append(wtq)
 
-            # Accumulate per-bin MAF experience across all 130 bins
-            if maf_volts_list and rpm >= 550.0 and wb_state == "VALID" and decel_status == "NORMAL_DRIVING" and shift_act == 0:
+            # Accumulate per-bin MAF experience across all 130 bins (strict unclamped + steady-pedal quasi-steady tier)
+            if (maf_volts_list and rpm >= 550.0 and wb_state == "VALID"
+                    and thermal_regime != "POST_HOT_START_RAIL_SOAK"
+                    and decel_status == "NORMAL_DRIVING" and shift_act == 0):
                 near_idx = min(range(len(maf_volts_list)), key=lambda bi: abs(maf_volts_list[bi] - mafv))
                 me = maf_exp[near_idx]
                 if u_maf == 1:
                     me["unc_n"] += 1
                     me["unc_err_sum"] += lag_err
+                elif (near_idx <= 73 and kpa <= 105.0 and ect >= 80.0 and k_cls != "BOV_FLUTTER"
+                      and mapc >= 1.00 * mafc and pedal_state in ("STEADY_ACCEL_LINEAR", "STEADY_CRUISE_FLAT")
+                      and abs(rpm_accel) <= 850.0 and map_var <= 4.5):
+                    me["quasi_n"] += 1
+                    me["quasi_err_sum"] += smooth_lag_errs[idx]
                 elif maf_zone == "MAF_MAP_ALIAS_CONFLICT" and steady_conf >= 0.55 and ect >= 80.0:
                     me["als_n"] += 1
                     me["als_err_sum"] += lag_err
@@ -692,6 +778,41 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
                     me["bst_n"] += 1
                     me["bst_rat_sum"] += ratio_m2m
                     me["bst_tgs_sum"] += true_gs
+
+            # Accumulate per-cell MAP based Load Calc experience (bilinear 19 RPM x 20 MAP grid)
+            if (20 <= idx < n - 15 and wb_state == "VALID"
+                    and thermal_regime != "POST_HOT_START_RAIL_SOAK"
+                    and decel_status == "NORMAL_DRIVING" and shift_act == 0
+                    and ect >= 80.0 and mafc > 0.0 and mapc > 0.0):
+                spd = _f(r, "Speed", 0.0)
+                app = _f(r, "APP", tps)
+                if not any(raw_ipws[k_i] <= 0.0 for k_i in range(idx - 16, idx + 9)):
+                    if not (spd > 1.0 and (tps < 14.2 or app < 11.0 or kpa < 32.0 or (rpm > 2000.0 and kpa < 38.0 and tps < 15.8))):
+                        tps_w = raw_tps[idx - 4 : idx + 5]
+                        kpa_w = raw_kpa[idx - 4 : idx + 5]
+                        if (max(tps_w) - min(tps_w) <= 3.5
+                                and max(kpa_w) - min(kpa_w) <= 8.0
+                                and (raw_tps[idx + 4] - raw_tps[idx - 4]) >= -1.0):
+                            w_s = 0.05 if (spd < 2.0 and rpm < 1200.0) else 1.0
+                            chosen_5 = sum(min(raw_mafc[k_i], raw_mapc[k_i]) for k_i in range(idx - 2, idx + 3)) / 5.0
+                            mapc_5 = sum(raw_mapc[k_i] for k_i in range(idx - 2, idx + 3)) / 5.0
+                            if mapc_5 > 0.0:
+                                c_true_over_mapc = (chosen_5 * lag_err) / mapc_5
+                                kx = _get_axis_float_idx(MAP_KPA_AXIS, kpa)
+                                rx = _get_axis_float_idx(RPM_MAP_AXIS, rpm)
+                                k0, k1 = int(math.floor(kx)), int(math.ceil(kx))
+                                r0, r1 = int(math.floor(rx)), int(math.ceil(rx))
+                                wk1, wr1 = kx - k0, rx - r0
+                                wk0, wr0 = 1.0 - wk1, 1.0 - wr1
+                                for ki, kw in [(k0, wk0), (k1, wk1)]:
+                                    for ri, rw in [(r0, wr0), (r1, wr1)]:
+                                        w_cell = kw * rw * w_s
+                                        if w_cell > 0.001 and ki < 20 and ri < 19:
+                                            mce = map_cell_exp[(ri, ki)]
+                                            mce["n"] += 1
+                                            mce["w_sum"] += w_cell
+                                            mce["tom_wsum"] += c_true_over_mapc * w_cell
+                                            mce["err_wsum"] += lag_err * w_cell
 
             # Accumulate Decoupled Thermal Summaries (only valid wideband, non-DFCO, non-shift)
             if rpm >= 550.0 and wb_state == "VALID" and decel_status == "NORMAL_DRIVING" and shift_act == 0:
@@ -744,16 +865,19 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
                 ))
 
             if decel_status == "UNEXPECTED_FUELING":
-                ep_tags_fallback[idx].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_INJECTOR_LEAK", ipw))
+                ep_tags_fallback[idx].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_INJECTOR_OR_TABLE_LEAK", ipw))
                 if (sec - last_overrun_sec) >= 1.0:
                     last_overrun_sec = sec
                     detail = json.dumps({"ipw_during_decel": round(ipw, 2), "gear": gear, "rom_mat_comp_mult": round(rom_mat_comp, 2)})
                     events.append((
                         0, rom_id, "OVERRUN_FUEL_LEAKAGE", idx, sec, rpm, kpa, tps, mafv, ipw, vbatt,
-                        mat, ect, afr, afrmap, round(ipw, 2), "DECEL_INJECTOR_LEAK", 0.90, detail
+                        mat, ect, afr, afrmap, round(ipw, 2), "DECEL_INJECTOR_OR_TABLE_LEAK", 0.90, detail
                     ))
+            elif decel_status == "DBW_DASHPOT_HOLD":
+                ep_tags_fallback[idx].append(("OVERRUN_FUEL_LEAKAGE", "DECEL_DBW_DASHPOT_HOLD", ipw))
 
-            if (ect >= 80.0 and wb_state in ("VALID", "RAIL_LEAN_CLIP") and shift_act == 0
+            if (ect >= 80.0 and wb_state in ("VALID", "RAIL_LEAN_CLIP")
+                    and (shift_act == 0 or (tps >= 60.0 and kpa >= 135.0))
                     and kpa >= 135.0 and tps >= 50.0 and lag_err >= 1.06):
                 err_pct = round((lag_err - 1.0) * 100.0, 2)
                 ep_tags_fallback[idx].append(("LEAN_BOOST_EXCURSION", "LEAN_UNDER_BOOST", err_pct))
@@ -793,9 +917,12 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
                         mat, ect, lag_afr, afrmap, sev_pd, "POWER_DROP_STEADY_PEDAL", 0.88, detail
                     ))
 
-            # Skip unheated wideband or rail-clipped frames when computing regime_summaries AFR means
+            # Skip unheated wideband, freeze gaps, or rail-clipped frames when computing regime_summaries AFR means
             if wb_state not in ("VALID", "DFCO_AIR"):
                 continue
+
+            # Isolate post-hot-start fuel-rail vapor boil from STEADY_IDLE in regime_summaries
+            eff_regime = "POST_HOT_START_SOAK" if thermal_regime == "POST_HOT_START_RAIL_SOAK" else regime
 
             b_rpm = bucket_value(rpm, rpm_buckets)
             b_map = bucket_value(kpa, map_buckets)
@@ -803,7 +930,7 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
             b_mat = bucket_value(mat, mat_buckets)
             b_vbatt = bucket_value(vbatt, vbatt_buckets)
 
-            b_key = (regime, b_rpm, b_map, b_mafv, b_mat, b_vbatt)
+            b_key = (eff_regime, b_rpm, b_map, b_mafv, b_mat, b_vbatt)
             if b_key not in buckets:
                 buckets[b_key] = {
                     "count": 0, "steady_count": 0, "afr_sum": 0.0, "afrmap_sum": 0.0,
@@ -884,17 +1011,37 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
     peak_wtq = max(dyno_wtqs) if dyno_wtqs else (max(clean_wtqs) if clean_wtqs else 0.0)
     min_ect = min(ects_running) if ects_running else 0.0
     max_ect = max(ects_running) if ects_running else 0.0
+    min_iat = min(iats_running) if iats_running else 20.0
     mean_iat = (sum(iats_running) / len(iats_running)) if iats_running else 0.0
     mean_mat = (sum(mats_running) / len(mats_running)) if mats_running else 0.0
 
     episodes_list = precomputed_episodes if precomputed_episodes is not None else []
     ep_count = len(episodes_list)
 
+    # Mirror start/stall & hot-soak vapor episodes into operational_events so audit-events Part C surfaces them
+    for ep in episodes_list:
+        if ep["episode_type"] in ("START_OR_IDLE_STALL", "HOT_SOAK_VAPOR_LEAN"):
+            s_idx_ev = min(max(0, ep["start_row"]), n - 1)
+            r_ev = reader[s_idx_ev]
+            events.append((
+                0, rom_id, ep["episode_type"], s_idx_ev, ep["start_sec"],
+                ep["rpm_start"], ep["map_mean"], _f(r_ev, "TPS", 0.0), ep["mafv_mean"],
+                _f(r_ev, "IPW", 0.0), _f(r_ev, "Battery", 12.5),
+                ep["mat_c"], ep["ect_c"], ep["afr_worst"], ep["afrmap_mean"],
+                ep["peak_severity"], ep["root_cause"], ep["confidence"], ep["detail_json"]
+            ))
+
     cur.execute("SELECT log_id FROM datalogs WHERE log_name = ?", (log_name,))
     existing = cur.fetchone()
     if existing:
         log_id = existing[0]
-        for tbl_del in ("regime_summaries", "maf_bin_experience", "thermal_summaries", "anomaly_episodes", "operational_events"):
+        del_tables = ["regime_summaries", "maf_bin_experience", "map_cell_experience", "thermal_summaries", "operational_events"]
+        if precomputed_episodes is not None:
+            del_tables.append("anomaly_episodes")
+        else:
+            cur.execute("SELECT COUNT(*) FROM anomaly_episodes WHERE log_id = ?", (log_id,))
+            ep_count = (cur.fetchone() or [0])[0]
+        for tbl_del in del_tables:
             cur.execute(f"DELETE FROM {tbl_del} WHERE log_id = ?", (log_id,))
         cur.execute("""
         UPDATE datalogs SET
@@ -902,14 +1049,14 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
             total_records = ?, peak_whp = ?, peak_wtq = ?, decel_cut_frames = ?, decel_leak_frames = ?,
             shift_frames = ?, usable_maf_frames = ?, usable_ve_frames = ?, usable_injector_frames = ?,
             usable_dyno_frames = ?, steady_power_drop_frames = ?,
-            min_ect_c = ?, max_ect_c = ?, mean_iat_c = ?, mean_mat_c = ?,
+            min_ect_c = ?, max_ect_c = ?, min_iat_c = ?, mean_iat_c = ?, mean_mat_c = ?,
             wideband_clipped_frames = ?, alias_zone_frames = ?, episode_count = ?
         WHERE log_id = ?
         """, (
             raw_file_path, os.path.abspath(csv_path), rom_id, log_time, round(duration, 1), n,
             round(peak_whp, 1), round(peak_wtq, 1), decel_cut_frames, decel_leak_frames,
             shift_frames, usable_maf_frames, usable_ve_frames, usable_inj_frames, usable_dyno_frames,
-            steady_power_drop_frames, round(min_ect, 1), round(max_ect, 1), round(mean_iat, 1),
+            steady_power_drop_frames, round(min_ect, 1), round(max_ect, 1), round(min_iat, 1), round(mean_iat, 1),
             round(mean_mat, 1), wb_clipped_frames, alias_zone_frames, ep_count, log_id
         ))
     else:
@@ -918,14 +1065,14 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
             log_name, file_path, classified_csv_path, rom_id, log_time, duration_sec, total_records,
             peak_whp, peak_wtq, decel_cut_frames, decel_leak_frames, shift_frames,
             usable_maf_frames, usable_ve_frames, usable_injector_frames, usable_dyno_frames,
-            steady_power_drop_frames, min_ect_c, max_ect_c, mean_iat_c, mean_mat_c,
+            steady_power_drop_frames, min_ect_c, max_ect_c, min_iat_c, mean_iat_c, mean_mat_c,
             wideband_clipped_frames, alias_zone_frames, episode_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             log_name, raw_file_path, os.path.abspath(csv_path), rom_id, log_time, round(duration, 1), n,
             round(peak_whp, 1), round(peak_wtq, 1), decel_cut_frames, decel_leak_frames,
             shift_frames, usable_maf_frames, usable_ve_frames, usable_inj_frames, usable_dyno_frames,
-            steady_power_drop_frames, round(min_ect, 1), round(max_ect, 1), round(mean_iat, 1),
+            steady_power_drop_frames, round(min_ect, 1), round(max_ect, 1), round(min_iat, 1), round(mean_iat, 1),
             round(mean_mat, 1), wb_clipped_frames, alias_zone_frames, ep_count
         ))
         log_id = cur.lastrowid
@@ -1001,10 +1148,11 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
     # 2. Insert maf_bin_experience (only bins with at least 1 sample in any domain)
     maf_exp_rows = []
     for b_idx, me in sorted(maf_exp.items()):
-        if me["unc_n"] + me["als_n"] + me["bst_n"] > 0:
+        if me["unc_n"] + me["quasi_n"] + me["als_n"] + me["bst_n"] > 0:
             maf_exp_rows.append((
                 log_id, rom_id, b_idx, me["volts"], me["rom_gs"],
                 me["unc_n"], round(me["unc_err_sum"] / me["unc_n"], 4) if me["unc_n"] else 1.0,
+                me["quasi_n"], round(me["quasi_err_sum"] / me["quasi_n"], 4) if me["quasi_n"] else 1.0,
                 me["als_n"], round(me["als_err_sum"] / me["als_n"], 4) if me["als_n"] else 1.0,
                 me["bst_n"],
                 round(me["bst_rat_sum"] / me["bst_n"], 4) if me["bst_n"] else 0.80,
@@ -1015,10 +1163,32 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
         INSERT INTO maf_bin_experience (
             log_id, rom_id, bin_idx, volts, rom_maf_gs,
             unclamped_vac_samples, avg_unclamped_afr_err,
+            quasi_vac_samples, avg_quasi_afr_err,
             alias_vac_samples, avg_alias_afr_err,
             boost_sd_samples, avg_boost_map_to_maf, avg_boost_true_gs
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """, maf_exp_rows)
+
+    # 2b. Insert map_cell_experience (only cells with at least 1 bilinear sample)
+    map_exp_rows = []
+    for (r_i, c_i), mce in sorted(map_cell_exp.items()):
+        if mce["n"] > 0 and mce["w_sum"] > 0.0:
+            avg_tom = mce["tom_wsum"] / mce["w_sum"]
+            avg_err = mce["err_wsum"] / mce["w_sum"]
+            map_exp_rows.append((
+                log_id, rom_id, r_i, c_i, mce["rpm"], mce["map_kpa"], mce["rom_ve"],
+                mce["n"], round(mce["w_sum"], 4),
+                round(avg_tom, 4),
+                round(mce["rom_ve"] * avg_tom, 2),
+                round(avg_err, 4),
+            ))
+    if map_exp_rows:
+        cur.executemany("""
+        INSERT INTO map_cell_experience (
+            log_id, rom_id, row_idx, col_idx, rpm, map_kpa, rom_map_ve,
+            sample_count, weight_sum, avg_true_over_mapc, avg_true_table_ve, avg_afr_error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """, map_exp_rows)
 
     # 3. Insert thermal_summaries
     therm_rows = []
@@ -1082,6 +1252,66 @@ def ingest_classified_datalog(csv_path, db_path, target_rom_id=None, precomputed
     return log_id
 
 
+def get_rom_unsoaked_refs(db_path, rom_id):
+    """
+    Query existing unsoaked warm steady baselines for `rom_id` from `regime_summaries` / `thermal_summaries`
+    so 100% hot-restart soaked logs still decouple MAT thermal drift against that ROM's true cool baseline.
+    """
+    if rom_id is None or not os.path.exists(db_path):
+        return {}
+    refs = {}
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT SUM(sample_count), SUM(sample_count * avg_afr_error) / SUM(sample_count)
+            FROM regime_summaries
+            WHERE rom_id = ? AND regime = 'STEADY_IDLE' AND avg_ect_c >= 80.0
+              AND mat_bucket < 38.0 AND map_bucket <= 50.0;
+        """, (rom_id,))
+        r_idle = cur.fetchone()
+        if r_idle and r_idle[0] and r_idle[0] >= 40 and r_idle[1]:
+            refs["idle"] = float(r_idle[1])
+
+        cur.execute("""
+            SELECT SUM(sample_count), SUM(sample_count * avg_afr_error) / SUM(sample_count)
+            FROM thermal_summaries
+            WHERE rom_id = ? AND thermal_regime IN ('COLD_AMBIENT_STEADY', 'WARM_AMBIENT_STEADY')
+              AND ect_bucket >= 85 AND map_bucket BETWEEN 35.0 AND 90.0;
+        """, (rom_id,))
+        r_cruise = cur.fetchone()
+        if r_cruise and r_cruise[0] and r_cruise[0] >= 40 and r_cruise[1]:
+            refs["cruise"] = float(r_cruise[1])
+        conn.close()
+    except sqlite3.Error:
+        pass
+    return refs
+
+
+def get_daily_ambient_iat_ref(db_path, log_time):
+    """
+    Query minimum running IAT (°C) recorded across same-day logs (±18 hours) in `calibration_experience.db`
+    so short hot-restart drives with heat-soaked open-cone MAF housings know true outdoor ambient temperature.
+    """
+    if log_time is None or not os.path.exists(db_path):
+        return None
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT MIN(min_iat_c)
+            FROM datalogs
+            WHERE ABS(log_time - ?) <= 64800.0 AND total_records >= 100;
+        """, (log_time,))
+        row = cur.fetchone()
+        conn.close()
+        if row and row[0] is not None:
+            return float(row[0])
+    except sqlite3.Error:
+        pass
+    return None
+
+
 def rehydrate_database(db_path, roms_dir, scans_dir, since_date_str):
     from datalog_classifier import DatalogClassifier
 
@@ -1119,7 +1349,9 @@ def rehydrate_database(db_path, roms_dir, scans_dir, since_date_str):
         r_id, r_path = get_matching_rom_id_and_path(log_ts, db_path)
         r_label = os.path.basename(r_path) if r_path else "UNMATCHED"
         print(f"  -> {os.path.basename(raw_path)}  ==>  ROM {r_id}: {r_label}")
-        cl = DatalogClassifier(raw_path, rom_path=r_path)
+        fb_refs = get_rom_unsoaked_refs(db_path, r_id)
+        amb_iat = get_daily_ambient_iat_ref(db_path, log_ts)
+        cl = DatalogClassifier(raw_path, rom_path=r_path, fallback_unsoaked_err=fb_refs, ambient_iat_ref=amb_iat)
         cl.load_and_parse()
         cl.classify_all()
         out_csv = f"{os.path.splitext(raw_path)[0]}_classified.csv"
@@ -1168,8 +1400,14 @@ def main():
             eps = None
             if os.path.exists(raw_cand):
                 log_time = parse_log_timestamp(raw_cand)
-                _, r_path = get_matching_rom_id_and_path(log_time, args.db)
-                cl = DatalogClassifier(raw_cand, rom_path=args.target_rom or r_path)
+                r_match_id, r_path = get_matching_rom_id_and_path(log_time, args.db)
+                eff_rid = explicit_rom_id or r_match_id
+                fb_refs = get_rom_unsoaked_refs(args.db, eff_rid)
+                amb_iat = get_daily_ambient_iat_ref(args.db, log_time)
+                cl = DatalogClassifier(
+                    raw_cand, rom_path=args.target_rom or r_path,
+                    fallback_unsoaked_err=fb_refs, ambient_iat_ref=amb_iat
+                )
                 cl.load_and_parse()
                 cl.classify_all()
                 eps = cl.anomaly_episodes
@@ -1186,7 +1424,9 @@ def main():
             print(f"[*] Classifying raw log: {raw_path}")
             if r_path:
                 print(f"    -> Using matching ROM: {os.path.basename(r_path)} (ID: {r_id})")
-            cl = DatalogClassifier(raw_path, rom_path=r_path)
+            fb_refs = get_rom_unsoaked_refs(args.db, r_id)
+            amb_iat = get_daily_ambient_iat_ref(args.db, log_time)
+            cl = DatalogClassifier(raw_path, rom_path=r_path, fallback_unsoaked_err=fb_refs, ambient_iat_ref=amb_iat)
             cl.load_and_parse()
             cl.classify_all()
             base = os.path.splitext(raw_path)[0]

@@ -347,6 +347,8 @@ def main():
                         help="Force timing retard even on isolated single-count (KnockSum=1) knock events")
     parser.add_argument("--export-dir", default=None,
                         help="Optional directory to save exported table files (.txt and .tsv)")
+    parser.add_argument("--include-unchanged", action="store_true",
+                        help="Output and export tables even when 0 cells changed relative to --target-rom")
     parser.add_argument("--all", action="store_true",
                         help="Output sensor tables, paste buffers, and comparison reports")
     args = parser.parse_args()
@@ -383,16 +385,25 @@ def main():
             "mapc": base_data["mapc"]
         }
 
-    if args.maf_table and args.map_table:
-        print(f"Target Load Tables : Standalone Files ({os.path.basename(args.maf_table)}, {os.path.basename(args.map_table)})")
-        maf_vals = parse_numeric_file(args.maf_table)
-        map_vals = parse_numeric_file(args.map_table)
-        if len(maf_vals) != 130:
-            sys.exit(f"Error: MAF table must contain exactly 130 values (found {len(maf_vals)})")
-        if len(map_vals) != 380:
-            sys.exit(f"Error: MAP table must contain exactly 380 values (found {len(map_vals)})")
-        target_data["maf"] = maf_vals
-        target_data["mapc"] = [[map_vals[r * 20 + m] * K_MAP_RUNTIME for m in range(20)] for r in range(19)]
+    if args.maf_table:
+        if os.path.exists(args.maf_table):
+            print(f"Target MAF Table   : Standalone File ({os.path.basename(args.maf_table)})")
+            maf_vals = parse_numeric_file(args.maf_table)
+            if len(maf_vals) != 130:
+                sys.exit(f"Error: MAF table must contain exactly 130 values (found {len(maf_vals)})")
+            target_data["maf"] = maf_vals
+        else:
+            print(f"Target MAF Table   : {os.path.basename(args.maf_table)} not present (unchanged — using target ROM MAF)")
+
+    if args.map_table:
+        if os.path.exists(args.map_table):
+            print(f"Target MAP Table   : Standalone File ({os.path.basename(args.map_table)})")
+            map_vals = parse_numeric_file(args.map_table)
+            if len(map_vals) != 380:
+                sys.exit(f"Error: MAP table must contain exactly 380 values (found {len(map_vals)})")
+            target_data["mapc"] = [[map_vals[r * 20 + m] * K_MAP_RUNTIME for m in range(20)] for r in range(19)]
+        else:
+            print(f"Target MAP Table   : {os.path.basename(args.map_table)} not present (unchanged — using target ROM MAP)")
 
     # 3. Sensor Responsibility Tables
     if args.sensor_tables or args.all:
@@ -538,69 +549,140 @@ def main():
                 print(f"    • RPM {rpm_val:4d} @ Load {load_val:5.1f}% ({inceptions:2d} inceptions, max={max_knk:.0f}, {visits} visits, {freq_pct:4.1f}% freq): {old_hi:2d} deg -> {remap_high[r_idx][c_idx]:2d} deg (-1 deg)")
             print("!"*80)
 
-    # 5. Output Remapped Paste Buffers
+    # Compute changed cell counts relative to target_data
+    hi_diffs = sum(
+        1 for r in range(23) for c in range(22)
+        if int(remap_high[r][c]) != int(target_data["timing"][r][c])
+    )
+    lo_diffs = sum(
+        1 for r in range(23) for c in range(22)
+        if int(remap_low[r][c]) != int(target_data["low_timing"][r][c])
+    )
+    min_diffs = sum(
+        1 for r in range(24) for c in range(21)
+        if round(remap_min[r][c], 1) != round(target_data["mivec_in"][r][c], 1)
+    )
+    mex_diffs = sum(
+        1 for r in range(24) for c in range(21)
+        if round(remap_mex[r][c], 1) != round(target_data["mivec_ex"][r][c], 1)
+    )
+
+    print("\n" + "="*80)
+    print("TIMING & MIVEC CHANGE SUMMARY vs TARGET ROM")
+    print("="*80)
+    print(f"  High Octane Timing Map : {hi_diffs:3d} / 506 cells changed")
+    print(f"  Low Octane Timing Map  : {lo_diffs:3d} / 506 cells changed")
+    if args.paste_mivec or args.all:
+        print(f"  MIVEC Intake Map       : {min_diffs:3d} / 504 cells changed")
+        print(f"  MIVEC Exhaust Map      : {mex_diffs:3d} / 504 cells changed")
+
+    # 5. Output Remapped Paste Buffers (only tables with changes unless --include-unchanged)
     if args.paste_timing or args.all:
         print("\n" + "#"*80)
         print("# SECTION 2: ECUFLASH CLIPBOARD PASTE BUFFERS (TIMING)")
         print("#"*80)
 
-        print_table_header("HIGH OCTANE TIMING MAP (23 RPM Rows x 22 Load Columns)", 23, 22)
-        print(format_tsv_grid(remap_high))
+        if hi_diffs > 0 or args.include_unchanged:
+            print_table_header(f"HIGH OCTANE TIMING MAP (23 RPM Rows x 22 Load Columns, {hi_diffs} cells changed)", 23, 22)
+            print(format_tsv_grid(remap_high))
+        else:
+            print("\n[=] High Octane Timing Map: 0 cells changed vs target ROM (no paste needed — omitted)")
 
-        print_table_header("LOW OCTANE TIMING MAP (23 RPM Rows x 22 Load Columns)", 23, 22)
-        print(format_tsv_grid(remap_low))
+        if lo_diffs > 0 or args.include_unchanged:
+            print_table_header(f"LOW OCTANE TIMING MAP (23 RPM Rows x 22 Load Columns, {lo_diffs} cells changed)", 23, 22)
+            print(format_tsv_grid(remap_low))
+        else:
+            print("\n[=] Low Octane Timing Map: 0 cells changed vs target ROM (no paste needed — omitted)")
 
     if args.paste_mivec or args.all:
         print("\n" + "#"*80)
         print("# SECTION 3: ECUFLASH CLIPBOARD PASTE BUFFERS (MIVEC)")
         print("#"*80)
 
-        print_table_header("MIVEC INTAKE NORMAL COOLANT TEMP (24 RPM Rows x 21 Load Columns)", 24, 21)
-        print(format_tsv_grid(remap_min))
+        if min_diffs > 0 or args.include_unchanged:
+            print_table_header(f"MIVEC INTAKE NORMAL COOLANT TEMP (24 RPM Rows x 21 Load Columns, {min_diffs} cells changed)", 24, 21)
+            print(format_tsv_grid(remap_min))
+        else:
+            print("\n[=] MIVEC Intake Normal Coolant Temp: 0 cells changed vs target ROM (no paste needed — omitted)")
 
-        print_table_header("MIVEC EXHAUST NORMAL COOLANT TEMP (24 RPM Rows x 21 Load Columns)", 24, 21)
-        print(format_tsv_grid(remap_mex))
+        if mex_diffs > 0 or args.include_unchanged:
+            print_table_header(f"MIVEC EXHAUST NORMAL COOLANT TEMP (24 RPM Rows x 21 Load Columns, {mex_diffs} cells changed)", 24, 21)
+            print(format_tsv_grid(remap_mex))
+        else:
+            print("\n[=] MIVEC Exhaust Normal Coolant Temp: 0 cells changed vs target ROM (no paste needed — omitted)")
 
-    # 6. Export Files to Directory
+    # 6. Export Files to Directory (only changed tables unless --include-unchanged)
     if args.export_dir:
         os.makedirs(args.export_dir, exist_ok=True)
+        hi_txt = os.path.join(args.export_dir, "new_high_octane_timing_map.txt")
+        hi_tsv = os.path.join(args.export_dir, "new_high_octane_timing_map.tsv")
+        lo_txt = os.path.join(args.export_dir, "new_low_octane_timing_map.txt")
+        lo_tsv = os.path.join(args.export_dir, "new_low_octane_timing_map.tsv")
+        min_txt = os.path.join(args.export_dir, "new_mivec_intake_map.txt")
+        min_tsv = os.path.join(args.export_dir, "new_mivec_intake_map.tsv")
+        mex_txt = os.path.join(args.export_dir, "new_mivec_exhaust_map.txt")
+        mex_tsv = os.path.join(args.export_dir, "new_mivec_exhaust_map.tsv")
+
         # High Timing
-        with open(os.path.join(args.export_dir, "new_high_octane_timing_map.txt"), "w") as f:
-            for row in remap_high:
-                f.write("\t".join(str(x) for x in row) + "\n")
-        with open(os.path.join(args.export_dir, "new_high_octane_timing_map.tsv"), "w") as f:
-            f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_TIMING_AXIS) + "\n")
-            for r_val, row in zip(RPM_TIMING_AXIS, remap_high):
-                f.write(f"{r_val}\t" + "\t".join(str(x) for x in row) + "\n")
+        if hi_diffs > 0 or args.include_unchanged:
+            with open(hi_txt, "w", encoding="utf-8") as f:
+                for row in remap_high:
+                    f.write("\t".join(str(x) for x in row) + "\n")
+            with open(hi_tsv, "w", encoding="utf-8") as f:
+                f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_TIMING_AXIS) + "\n")
+                for r_val, row in zip(RPM_TIMING_AXIS, remap_high):
+                    f.write(f"{r_val}\t" + "\t".join(str(x) for x in row) + "\n")
+            print(f"[+] Exported High Octane Timing Map ({hi_diffs} cells changed) -> {args.export_dir}")
+        else:
+            for p in (hi_txt, hi_tsv):
+                if os.path.exists(p):
+                    os.remove(p)
+            print("[=] High Octane Timing Map: 0 cells changed vs target ROM (omitted from export)")
 
         # Low Timing
-        with open(os.path.join(args.export_dir, "new_low_octane_timing_map.txt"), "w") as f:
-            for row in remap_low:
-                f.write("\t".join(str(x) for x in row) + "\n")
-        with open(os.path.join(args.export_dir, "new_low_octane_timing_map.tsv"), "w") as f:
-            f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_TIMING_AXIS) + "\n")
-            for r_val, row in zip(RPM_TIMING_AXIS, remap_low):
-                f.write(f"{r_val}\t" + "\t".join(str(x) for x in row) + "\n")
+        if lo_diffs > 0 or args.include_unchanged:
+            with open(lo_txt, "w", encoding="utf-8") as f:
+                for row in remap_low:
+                    f.write("\t".join(str(x) for x in row) + "\n")
+            with open(lo_tsv, "w", encoding="utf-8") as f:
+                f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_TIMING_AXIS) + "\n")
+                for r_val, row in zip(RPM_TIMING_AXIS, remap_low):
+                    f.write(f"{r_val}\t" + "\t".join(str(x) for x in row) + "\n")
+            print(f"[+] Exported Low Octane Timing Map ({lo_diffs} cells changed) -> {args.export_dir}")
+        else:
+            for p in (lo_txt, lo_tsv):
+                if os.path.exists(p):
+                    os.remove(p)
+            print("[=] Low Octane Timing Map: 0 cells changed vs target ROM (omitted from export)")
 
-        # MIVEC Intake
-        with open(os.path.join(args.export_dir, "new_mivec_intake_map.txt"), "w") as f:
-            for row in remap_min:
-                f.write("\t".join(f"{x:.1f}" for x in row) + "\n")
-        with open(os.path.join(args.export_dir, "new_mivec_intake_map.tsv"), "w") as f:
-            f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_MIVEC_AXIS) + "\n")
-            for r_val, row in zip(RPM_MIVEC_AXIS, remap_min):
-                f.write(f"{r_val}\t" + "\t".join(f"{x:.1f}" for x in row) + "\n")
+        # MIVEC Intake & Exhaust (only export when --paste-mivec or --include-unchanged is requested)
+        if (args.paste_mivec and min_diffs > 0) or args.include_unchanged:
+            with open(min_txt, "w", encoding="utf-8") as f:
+                for row in remap_min:
+                    f.write("\t".join(f"{x:.1f}" for x in row) + "\n")
+            with open(min_tsv, "w", encoding="utf-8") as f:
+                f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_MIVEC_AXIS) + "\n")
+                for r_val, row in zip(RPM_MIVEC_AXIS, remap_min):
+                    f.write(f"{r_val}\t" + "\t".join(f"{x:.1f}" for x in row) + "\n")
+            print(f"[+] Exported MIVEC Intake Map ({min_diffs} cells changed) -> {args.export_dir}")
+        else:
+            for p in (min_txt, min_tsv):
+                if os.path.exists(p):
+                    os.remove(p)
 
-        # MIVEC Exhaust
-        with open(os.path.join(args.export_dir, "new_mivec_exhaust_map.txt"), "w") as f:
-            for row in remap_mex:
-                f.write("\t".join(f"{x:.1f}" for x in row) + "\n")
-        with open(os.path.join(args.export_dir, "new_mivec_exhaust_map.tsv"), "w") as f:
-            f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_MIVEC_AXIS) + "\n")
-            for r_val, row in zip(RPM_MIVEC_AXIS, remap_mex):
-                f.write(f"{r_val}\t" + "\t".join(f"{x:.1f}" for x in row) + "\n")
-
-        print(f"\n[+] Successfully exported Timing & MIVEC tables to: {args.export_dir}")
+        if (args.paste_mivec and mex_diffs > 0) or args.include_unchanged:
+            with open(mex_txt, "w", encoding="utf-8") as f:
+                for row in remap_mex:
+                    f.write("\t".join(f"{x:.1f}" for x in row) + "\n")
+            with open(mex_tsv, "w", encoding="utf-8") as f:
+                f.write("RPM\t" + "\t".join(f"{l:.1f}" for l in LOAD_MIVEC_AXIS) + "\n")
+                for r_val, row in zip(RPM_MIVEC_AXIS, remap_mex):
+                    f.write(f"{r_val}\t" + "\t".join(f"{x:.1f}" for x in row) + "\n")
+            print(f"[+] Exported MIVEC Exhaust Map ({mex_diffs} cells changed) -> {args.export_dir}")
+        else:
+            for p in (mex_txt, mex_tsv):
+                if os.path.exists(p):
+                    os.remove(p)
 
     # 7. Comparison Summary
     if args.all:

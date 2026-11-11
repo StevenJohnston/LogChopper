@@ -19,6 +19,8 @@ def get_file_info(directory, extensions):
     
     file_list = []
     for f in set(files):
+        if f.lower().endswith("_classified.csv"):
+            continue
         try:
             mtime = os.path.getmtime(f)
             file_list.append((mtime, f))

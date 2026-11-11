@@ -19,15 +19,19 @@ When invoked with driver notes (e.g. `/evo-calibrate <additional thoughts>`), tr
 1. **Extract Operating Coordinates & Conditions**:
    - Map any mentioned RPM, gear, boost/vacuum, throttle feel, coolant/ambient/heat-soak state, or time-of-drive notes directly into filters on `*_classified.csv` and `experience_query.py` (`--rpm`, `--map`, `--mafv`, `--mat`, `--vbatt`, `--gear`, `investigate --type`).
 2. **Branch Diagnostics to Match the User's Focus**:
-   - **Cold Weather / Warmup / Morning-vs-Afternoon AFR Shifts**:
-     - Run `experience_query.py audit-thermal` and `audit-regressions` to decouple **Coolant Warmup (`ECT Fuel Comp #1/#2` `0x5ADB9`/`0x5AF31`)** vs **Manifold Heat-Soak (`Fuel Comp MAT vs MAP` `0x60FCD`, firmware gain `(raw + 384)/512`)** vs **Seasonal Outdoor `IAT` / `MAPCalcs` Charge Density**.
-     - Trace cold-ECT misfuel episodes via `experience_query.py investigate --type COLD_ECT_MISFUEL`.
-   - **MAF Flat-Lining / Spool Crossover / 1D Aliasing**:
-     - Run `experience_query.py audit-maf-envelope` to check 130-bin curve monotonicity, flat-line slope kinks, unvisited bins (`N=0`), `MAF_MAP_ALIAS_CONFLICT` (`>= 2.74V` in vacuum vs boost), and `1.25x` Speed Density headroom.
+   - **Cold Weather / Warmup / Hot-Restart Soak / Morning-vs-Afternoon AFR Shifts**:
+     - Run `experience_query.py audit-thermal` and `audit-regressions` to decouple **Coolant Warmup (`ECT Fuel Comp #1/#2` `0x5ADB9`/`0x5AF31`)** vs **Manifold Heat-Soak & Static `MAT vs MAP` Envelope (`0x60FCD`, firmware gain `(raw + 384)/512`)** vs **Underhood MAF `IAT` Soak (`UNDERHOOD_IAT_HEATSOAK`)** vs **Hot-Start Fuel-Rail Vapor Purge (`POST_HOT_START_RAIL_SOAK` / `HOT_SOAK_VAPOR_LEAN`)** vs **Seasonal Outdoor `IAT` / `MAPCalcs` Charge Density**.
+     - Trace start/idle stalls, hot-soak vapor, elevated-MAP accessory idle, or cold-ECT misfuel episodes via `experience_query.py investigate --type START_OR_IDLE_STALL`, `investigate --type HOT_SOAK_VAPOR_LEAN`, `investigate --type ELEVATED_IDLE_LOAD_ANOMALY`, or `investigate --type COLD_ECT_MISFUEL`.
+   - **MAF Flat-Lining / Ramp-to-Shelf Cliffs / Shared-Bin (`Idx <= 73`) Boost Inflation / 1D Aliasing**:
+     - Run `experience_query.py audit-maf-envelope` to check 130-bin curve monotonicity, symmetric & one-sided ramp-to-shelf cliffs, Safeguard #1 shared-bin (`Idx <= 73`) premature boost inflation, strict (`N`) + steady-pedal quasi-steady (`Q`) vacuum coverage, `MAF_MAP_ALIAS_CONFLICT` (`>= 2.74V` in vacuum vs boost), and `1.25x` Speed Density headroom.
    - **Part-Throttle Knock / Hesitation / Steady-Pedal Power Drop**:
      - Run `experience_query.py investigate --type KNOCK_GENUINE_TIMING` or `investigate --type STEADY_PEDAL_POWER_DROP` and `find-similar --rpm 3200 --map 115 --gear 3 --events-only`.
    - **Decel Lift-Off / Overrun Hang / Pops**:
-     - Run `experience_query.py audit-health` (separating **Active Latest ROM** vs historical ROMs) and `investigate --type OVERRUN_FUEL_LEAKAGE`.
+     - Run `experience_query.py audit-health` (separating **Active Latest ROM** vs historical ROMs) and `investigate --type OVERRUN_FUEL_LEAKAGE` (distinguishes `DECEL_DBW_DASHPOT_HOLD` vs `DECEL_INJECTOR_OR_TABLE_LEAK`).
+   - **Shift Feel / Rev-Hang / Post-Shift Bog or Hesitation / Clutch Slip**:
+     - Run `experience_query.py audit-shifts` and `investigate --type SHIFT_ANOMALY` (tracks `SHIFT_REV_HANG`, `POST_SHIFT_RICH_BOG`, `POST_SHIFT_LEAN_HESITATION`, `POST_SHIFT_OR_TIP_IN_LEAN`, and `CLUTCH_SLIP_OR_WHEELSPIN`).
+   - **Ignition Timing Optimization / Knock Corridor Review**:
+     - Run `experience_query.py audit-timing` to inspect delivered spark vs `High Octane Timing` and the fleet-wide knock corridor rate across `(RPM, MAP)`.
    - **Power / Boost Pull Check**:
      - Filter `diag_usable_for_dyno == 1` or `diag_operating_regime == 'WOT_BOOST'` to inspect `diag_wheel_hp`, `diag_wheel_tq`, `diag_aligned_afr`, `diag_idc_pct`, and `diag_in_vvt_error`.
 
@@ -40,16 +44,21 @@ When invoked with driver notes (e.g. `/evo-calibrate <additional thoughts>`), tr
 > Never generate, modify, or save binary ROM files into `roms/` or anywhere else. Only output formatted **EcuFlash clipboard paste blocks** (and `.tsv` / `.txt` export files in `/tmp/` or artifacts) for manual copy-pasting into EcuFlash.
 
 - **Chronological Association Rule**: A datalog recorded with timestamp $t$ where $\text{mtime}(\text{ROM}_N) \le t < \text{mtime}(\text{ROM}_{N+1})$ belongs strictly to $\text{ROM}_N$.
-- **Unvisited MAF Bin & Non-Cumulative Boost Headroom Rule**:
-  - Never apply cumulative per-flash multipliers to unvisited MAF bins (`N=0`), which creates artificial flat-line shelves.
-  - Pure vacuum bins (`Idx <= 73`, `<= 2.85V`) calibrate strictly from unclamped vacuum frames (`MAP <= 105 kPa`, `MAFV <= 2.74V`). Boost bins (`Idx >= 74`, `>= 2.89V`) anchor non-cumulatively to `1.22x–1.32x` empirical boost `TrueLoad` airflow with smooth `V3.18` slope continuity.
+- **Unvisited Cell/Bin Interpolation + `+5%–10%` Safety Cushion Rule (`MAF Scaling` & `MAP based Load Calc`)**:
+  - Whenever generating new `MAF Scaling Horizontal` (`1 × 130`) and `MAP based Load Calc #1/#2` (`19 × 20`) tables via `multi_rom_secant_balancer.py`, all active cells/bins that have **never been hit** (`vis_maf[i] == False` for `Idx >= 35`, `vis_map[r][m] == False` for `Col >= 1` across CLI logs and `calibration_experience.db`'s `maf_bin_experience` / `map_cell_experience`) are **interpolated** from the visited (data-backed) cells/bins in normalized `V3.18` ratio space partitioned by physical regime, and multiplied by a **distance-graded `+5.0% to +10.0%` safety margin** (`+5.0%` at distance 1, `+7.5%` at distance 2, `+10.0%` at distance $\ge 3$).
+  - Raising unvisited load/airflow values by `+5%–10%` ensures the ECU commands **more fuel and less ignition timing** (via higher calculated load indexing `High Octane Timing`) if the vehicle enters unexplored operating regions for the first time.
+  - **Strict Visited-Cell Isolation & Non-Cumulative Anchor**: Visited cells/bins (`has_data == True`) are **never** modified by the unvisited interpolation or `+5%–10%` safety margin, and unvisited interpolation is anchored strictly to visited cells/bins so repeated runs without new telemetry never ratchet unvisited cells higher.
+  - Pure vacuum MAF bins (`Idx <= 73`, `<= 2.85V`) calibrate strictly from unclamped vacuum frames (`MAP <= 105 kPa`, `MAFV <= 2.74V`) and are capped below Safeguard #1 (`< 1.14x V3.18`). Visited boost bins (`Idx >= 74`, `>= 2.89V`) anchor non-cumulatively to `1.22x–1.32x` empirical boost `TrueLoad` airflow with smooth `V3.18` slope continuity.
 - **Isolated Single-Count Knock Rule**:
   - An isolated knock inception of `1` (`KnockSum == 1`, `severity == 1.0`) occurring infrequently ($< 25\%$ of visits to that timing cell) **MUST be stored in `calibration_experience.db`** for historical tracking, **NOT retarded in the timing tables** (`0°` retard).
   - Apply `-1°` safety retard only when knock is confident/frequent ($\Delta\text{KnockSum} \ge 2$, $\ge 2$ inceptions in that cell, or $\ge 25\%$ cell visit frequency), and **never** retard timing for `BOV_FLUTTER` or `DRIVETRAIN_LASH`.
-- **Mandatory Table Dimensions**:
+- **Mandatory Table Dimensions & Zero `±0.1` Phantom Drift**:
   - `MAF Scaling Horizontal` (`0x5757A`): `1 × 130` cells.
-  - `MAP based Load Calc #1` (`0x608AE`) & `#2` (`0x605AC`): **`19 RPM Rows × 20 MAP Columns`** (`380` cells), identical in both `#1` and `#2`.
+  - `MAP based Load Calc #1` (`0x608AE`) & `#2` (`0x605AC`): **`19 RPM Rows × 20 MAP Columns`** (`380` cells), identical in both `#1` and `#2`. `multi_rom_secant_balancer.py` uses canonical `.1f` `Loadify` display rounding, delta-only vertical smoothing restricted strictly to telemetry-modified cells, and a `±0.1` anti-jitter deadband (`|sm_delta| >= 0.15`) so untouched/unvisited cells NEVER drift by `±0.1` when pasted into EcuFlash.
   - `High Octane` (`0x55957`) & `Low Octane` (`0x55B59`) Timing: **`23 RPM Rows × 22 Load Columns`** (`506` signed `int8` cells, column-major in ROM), always synchronized with `--lower-only` (`0°` accidental advance).
+- **Changed-Tables-Only Output Rule**:
+  - **ONLY output clipboard paste blocks and export files for tables that actually have cell modifications (`changed_cells > 0` relative to `--target-rom`).**
+  - If a table (`High Octane Timing Map`, `Low Octane Timing Map`, `ECT Fuel Compensation #1/#2`, `Fuel Compensation MAT vs MAP`, `MIVEC Intake/Exhaust`, etc.) has `0` changed cells compared to the current active ROM, **DO NOT** output a paste block for it in the calibration report or chat response—simply note that it is unchanged (`0 cells modified — no paste needed`).
 
 Read [references/calibration_safeguards.md](references/calibration_safeguards.md) before modifying any fuel, airflow, thermal, or timing tables.
 
@@ -133,8 +142,17 @@ When proposing calibration changes for the next flash:
      --knock-logs scans/<LATEST_LOG1>.csv scans/<LATEST_LOG2>.csv \
      --filter-flutter-knock \
      --min-knock-frequency 0.25 \
-     --paste-timing --lower-only
+     --paste-timing --lower-only \
+     --export-dir /tmp/next_rom_exports
    ```
-4. **Zero-Transcription-Error Rule & Parity Audit**:
+   *(Note: Both `multi_rom_secant_balancer.py` and `timing_mivec_remapper.py` automatically omit exporting/printing tables that have `0` changed cells vs `--target-rom`.)*
+4. **Zero-Transcription-Error Rule, Changed-Only Output & Parity Audit**:
    - **Never manually emit or retype 2D/3D table values from LLM memory.**
-   - All clipboard paste blocks and report markdown MUST be populated by reading directly from the verified export files on disk (`.txt` / `.tsv`) and verified with `verify_calibration_buffers.py`.
+   - **Only include paste code blocks in the report for tables that actually changed** (present in `--export-dir`).
+   - All clipboard paste blocks and report markdown MUST be populated by reading directly from the verified export files on disk (`.txt` / `.tsv`) and verified with `verify_calibration_buffers.py`:
+   ```bash
+   python3 tuning_tools/tools/verify_calibration_buffers.py \
+     --export-dir /tmp/next_rom_exports \
+     --target-rom "roms/<LATEST_ROM>.srf" \
+     --report-path "<REPORT_PATH>.md"
+   ```
